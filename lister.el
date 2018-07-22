@@ -38,18 +38,18 @@
 	    " ")))
 
 (defun lister-highlight-marker (viewport)
-  (with-current-buffer (lister-viewport-buf viewport)
+  (with-current-buffer (lister-viewport-buffer viewport)
     (seq-doseq (m (lister-viewport-marker-list viewport))
       (overlay-put (make-overlay m (1+ m))
 		   'face
 		   '(:background "yellow")))))
 
 (defun lister-remove-overlays (viewport)
-  (with-current-buffer (lister-viewport-buf viewport)
+  (with-current-buffer (lister-viewport-buffer viewport)
     (remove-overlays)))
 
 (defun lister-blink-overlays (viewport)
-  (switch-to-buffer (lister-viewport-buf viewport))
+  (switch-to-buffer (lister-viewport-buffer viewport))
   (lister-highlight-marker viewport)
   (redisplay)
   (sleep-for 0.5)
@@ -335,7 +335,7 @@ point min."
 Search for the items has to start on the first item, which is
 assumed to be right at the beginning of the buffer."
   (mapcar (lister-curry #'lister-make-marker-at buf)
-	  (lister-item-positions buf start-pos)))
+	  (lister-item-positions buf)))
 
 (defun lister-item-positions (buf)
   "Create list of all item positions in lister mode buffer BUF.
@@ -344,7 +344,7 @@ Search for the items has to start on the first item, which is
 assumed to be right at the beginning of the buffer."
   (with-current-buffer buf
     (save-excursion
-      (goto-char (or start-pos (point-min)))
+      (goto-char (point-min))
       (let* (acc (pos (point)))
 	(while (< pos (point-max))
 	  (push pos acc)
@@ -429,7 +429,7 @@ Do not change header or footer."
 Return the viewport."
   (let* ((inhibit-read-only t)
 	 (viewport (make-lister-viewport
-		    :buf buf
+		    :buffer buf
 		    :mapper mapper-fn)))
     (with-current-buffer buf
       (erase-buffer))
