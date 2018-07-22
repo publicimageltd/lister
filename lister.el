@@ -81,6 +81,7 @@
 
 ;; * Low Level: Insert or remove items 
 
+
 (defun lister-make-marker-at (buf pos)
   "Return a suitable marker for POS in BUF."
   (let ((marker (make-marker)))
@@ -134,7 +135,7 @@ dropped, keeping only the quoted item."
 	      seq
 	      '()))
 
-(defun lister-insert-item (buf lines)
+(defun lister-insert-at-point (buf lines)
   "Insert the list LINES at the current position of BUF.
 Return the marker of the first position.
 
@@ -148,17 +149,15 @@ added.
 Also insert a text property `item' with the value `t' at the
 beginning of the item."
   (with-current-buffer buf
-    (let* ((start-pos         (point))
+    (let* ((beg               (point))
+	   (item-list         (lister-strflat lines))
 	   (inhibit-read-only t))
-      (insert (string-join
-	       (mapcar (lister-rcurry #'concat "\n")
-		       (lister-strflat lines))))
-      ;; don't change: item spans 2 position
-      ;; this influences the calculation of the start-pos in
-      ;; `lister-find-index', `lister-item-positions' and `lister-marker-list'
-      (put-text-property start-pos (1+ start-pos) 'item t)
-      (put-text-property start-pos (1- (point)) 'cursor-intangible t)
-      (lister-make-marker-at buf start-pos))))
+      (insert (string-join item-list "\n") "\n")
+      (let* ((end (point)))
+	(put-text-property beg (1+ beg) 'item t)
+	(put-text-property beg (1- end) 'cursor-intangible t)
+	(put-text-property beg (1+ beg) 'length (length item-list))
+	(lister-make-marker-at buf beg)))))
 
 (defun lister-remove-item (buf marker)
   "Removes the item beginning at MARKER."
@@ -176,7 +175,7 @@ Return the updated marker."
 	(buf (marker-buffer marker)))
     (lister-remove-item buf marker)
     (goto-char pos)
-    (lister-insert-item buf new-lines)
+    (lister-insert-at-point buf new-lines)
     (set-marker marker pos))
   marker)
 
@@ -223,7 +222,7 @@ Updates the marker list.
 Return a marker with the start position."
   (let* ((buf    (lister-viewport-buffer viewport))
 	 (item   (funcall (lister-viewport-mapper viewport) data))
-	 (marker (lister-insert-item buf item)))
+	 (marker (lister-insert-at-point buf item)))
     (lister-set-data viewport marker data)
     ;; update marker list:
     (setf (lister-viewport-marker-list viewport)
@@ -260,7 +259,7 @@ To exchange a data item of a list, use `lister-replace'."
 	;; insert new
 	(goto-char (point-min))
 	(setf (lister-viewport-header-marker viewport)
-	      (lister-insert-item (current-buffer) header)))
+	      (lister-insert-at-point (current-buffer) header)))
       ;; update marker positions -> automatically!
       ;;(lister-recreate-marker-list viewport)
       (lister-set-intangible (current-buffer)
@@ -276,7 +275,7 @@ To exchange a data item of a list, use `lister-replace'."
 	;; insert new
 	(goto-char (point-max))
 	(setf (lister-viewport-footer-marker viewport)
-	      (lister-insert-item (current-buffer) footer)))
+	      (lister-insert-at-point (current-buffer) footer)))
       ;; no need to update marker positions
       (lister-set-intangible (current-buffer)
 			     (lister-viewport-footer-marker viewport)))))
