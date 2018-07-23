@@ -397,6 +397,25 @@ assumed to be right at the beginning of the buffer."
 	      (push (point) result)))
 	  (reverse result))))))
 
+(cl-defgeneric lister-index (viewport position)
+  "Return the index of the item at POSIITION.
+
+POSITION can be either a marker, a valid buffer position, or the
+special key :point.")
+
+(cl-defmethod lister-index (viewport (position marker))
+  (seq-position (lister-viewport-marker-list viewport)
+		position
+		#'equal))
+
+(cl-defmethod lister-index (viewport (position integer))
+  (lister-index viewport (lister-make-marker
+			  (lister-viewport-buffer viewport)
+			  position)))
+
+(cl-defmethod lister-index (viewport (position (eql :point)))
+  (lister-index viewport (point)))
+
 (defun lister-next-free-position (viewport)
   "Return the next position for a new list item in VIEWPORT."
   (let* ((ml     (lister-viewport-marker-list viewport))
