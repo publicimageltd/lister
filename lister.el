@@ -474,7 +474,7 @@ Return the viewport."
       (let* ((beg (nth 0 ml))
 	     (end (or (lister-viewport-footer-marker viewport)
 		      (point-max)))
-	     ((inhibit-read-only t)))
+	     (inhibit-read-only t))
 	(delete-region beg end)))
     (setf (lister-viewport-marker-list viewport)
 	  (mapcar (lister-curry #'lister-add viewport) data)))
