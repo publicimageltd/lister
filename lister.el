@@ -499,7 +499,8 @@ Return the viewport."
     (lister-recreate-marker-list viewport)
     ;; (with-current-buffer buf
     ;;   (lister-set-intangible buf (point-max))
-    (lister-goto viewport 0)
+    (when data
+      (lister-goto viewport 0))
     viewport))
 
 ;; -----------------------------------------------------------
