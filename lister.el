@@ -254,7 +254,8 @@ special key :point.")
   "Replace the item at marker POSITION with a new DATA item."
   (let* ((buffer-pos (marker-position position)))
     (lister-remove-lines (lister-viewport-buffer viewport) buffer-pos)
-    (lister-insert viewport buffer-pos data)))
+    (lister-insert viewport buffer-pos data)
+    (goto-char buffer-pos)))
 
 (cl-defmethod lister-replace (viewport (position integer) data)
   "Replace the item at index POSITION with a new DATA item."
