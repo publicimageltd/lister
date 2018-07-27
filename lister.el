@@ -420,10 +420,12 @@ special key :point.")
   "Return the next position for a new list item in VIEWPORT."
   (let* ((ml     (lister-viewport-marker-list viewport))
 	 (buffer (lister-viewport-buffer viewport))
+	 (header (lister-viewport-header-marker viewport))
 	 (footer (lister-viewport-footer-marker viewport)))
     (cond
      ((last ml)  (lister-end-of-lines buffer (marker-position (car (last ml)))))
      (footer     (lister-end-of-lines buffer (marker-position footer)))
+     (header     (point-max))
      (t          (point-min)))))
 
 (defun lister-end-of-lines (buf pos)
