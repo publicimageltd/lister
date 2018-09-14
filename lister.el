@@ -458,11 +458,22 @@ special key :point.")
       (setq ml (seq-take ml (1- (length ml)))))
     (setf (lister-viewport-marker-list viewport) ml)))
 
+;; * Cursor Sensor Function
+
+(defvar-local lister-enter-item-hook nil
+  "List of functions to call when point enters an existing
+  item.")
+
+(defun lister-sensor-function (win previous-point type)
+  (when (eq type 'entered)
+    (run-hooks 'lister-enter-item-hook)))
+
 ;; * Lister Major Mode
 
 (define-derived-mode lister-mode
   special-mode "Lister"
   "Major mode for selecting list items."
+  (cursor-sensor-mode)
   (cursor-intangible-mode))
 
 ;; * Setup 
