@@ -27,12 +27,29 @@
 
 ;; * Variables
 
+;;   "A set of data and functions for printing a list with header and footer.
+
+;; BUFFER is the buffer to which the list belongs. 
+
+;; MAPPER is a function which converts any given lisp-object into a
+;; printable representation, that is, converts it into a list of
+;; strings which will be inserted.
+
+;; Example:
+
+;;  \(defun my-maper-fn \(data\)
+;;    \"Interprete DATA as a name and convert it to a list item.\"
+;;      \(list \(concat \"Name: \" data\) \)
+
+;; HEADER-MARKER is the position of the header item.
+
+;; FOOTER-MARKER is the position of the footer item.
+
+;; MARKER-LIST is an internal list mapping each list item to a
+;; marker position.
+;; "
 (defstruct lister-viewport
-  buffer
-  mapper 
-  header-marker
-  footer-marker
-  marker-list)
+  buffer mapper header-marker footer-marker marker-list)
 
 ;; * Helper
 
@@ -92,7 +109,8 @@ dropped, keeping only the quoted item."
 Return the marker of the first position. 
 
 LINES is a list. Each item can be either a string, which is
-printed directly, or a function, to print its return value.
+printed directly, or a function, to print its return value. 
+
 Nested lists will be flattened.
 
 Each item in LINES is printed with a final newline character
@@ -117,13 +135,17 @@ beginning of the item."
 ;; * Insert
 
 (cl-defgeneric lister-insert (viewport position data)
-  "Insert DATA at POSITION in VIEWPORT.
+  "Insert a printed representation of DATA at POSITION in VIEWPORT.
 
 POSITION can be either a buffer position (no marker!) or the special key
-:point.")
+:point.
 
-(cl-defmethod lister-insert (viewport (position integer) data)
-  "Insert DATA and its printed representation at buffer position POS in VIEWPORT.
+DATA is made printable with the mapper function of the viewport.
+See `lister-viewport'.
+")
+
+(cl-defmethod lister-insert (viewport (position integer) data) 
+  "Insert a printed representation of DATA at buffer position POS in VIEWPORT.
 
 Updates the marker list.
 Return a marker with the start position."
@@ -140,7 +162,9 @@ Return a marker with the start position."
     marker))
 
 (cl-defmethod lister-insert (viewport (position (eql :point)) data)
-  "Insert DATA at point in VIEWPORT."
+  "Insert LIST ITEMS at point in VIEWPORT.
+
+Return the marker pointing to the beginning of the list item."
   (let* ((pos (with-current-buffer (lister-viewport-buffer viewport) (point))))
     (lister-insert viewport
 		   pos
@@ -149,8 +173,10 @@ Return a marker with the start position."
 ;; * Add
 
 (defun lister-add (viewport data)
-  "Add DATA and its printed representation as new item to the
-list in VIEWPORT."
+  "Add DATA and its printed representation as a new item to the
+end of the list in VIEWPORT.
+
+Return the marker pointing to the beginning of the item."
   (lister-insert viewport (lister-next-free-position viewport) data))
 
 ;; * Set Header / Footer
@@ -269,7 +295,7 @@ special key :point.")
 ;; * Set Data
 
 (cl-defgeneric lister-set-data (viewport position data)
-  "Store DATA at POSITION.
+  "Store DATA in text property 'data at POSITION.
 
 POSITION can be either a marker, a list index position, or the
 special key :point.")
@@ -277,18 +303,21 @@ special key :point.")
 (cl-defmethod lister-set-data (viewport (position marker) data)
   "Store DATA at the position defined by MARKER."
   (with-current-buffer (lister-viewport-buffer viewport)
-      (let ((inhibit-read-only t))
-	(put-text-property position (1+ position)
-			   'data data))))
+    (let ((inhibit-read-only t))
+      (put-text-property position (1+ position)
+			 'cursor-sensor-functions
+			 '(lister-sensor-function))
+      (put-text-property position (1+ position)
+			 'data data))))
 
 (cl-defmethod lister-set-data (viewport (position integer) data)
-  "Store DATA at the INDEX position of the list."
+  "Store DATA in text property 'data at the INDEX position of the list."
   (lister-set-data viewport
 		   (lister-marker-at viewport position)
 		   data))
 
 (cl-defmethod lister-set-data (viewport (position (eql :point)) data)
-  "Store DATA in the item at point."
+  "Store DATA in text property 'data in the item at point."
   (when-let* ((marker (lister-current-marker viewport)))
     (lister-set-data viewport marker data)))
 
@@ -326,7 +355,9 @@ the special keys :last or :first")
 (cl-defmethod lister-goto (viewport (position marker))
   "Move point in VIEWPORT to the marker POSITION."
   (with-current-buffer (lister-viewport-buffer viewport)
-    (goto-char position)))
+    (let ((previous-point (point)))
+      (goto-char position)
+      (lister-sensor-function (selected-window) previous-point 'entered))))
 
 (cl-defmethod lister-goto (viewport (position integer))
   "Move point in VIEWPORT to the index POSITION."
@@ -418,7 +449,7 @@ special key :point.")
   (lister-index viewport (point)))
 
 (defun lister-next-free-position (viewport)
-  "Return the next position for a new list item in VIEWPORT."
+  "Return the next free position for a new list item in VIEWPORT."
   (let* ((ml     (lister-viewport-marker-list viewport))
 	 (buffer (lister-viewport-buffer viewport))
 	 (header (lister-viewport-header-marker viewport))
@@ -430,7 +461,7 @@ special key :point.")
      (t          (point-min)))))
 
 (defun lister-end-of-lines (buf pos)
-  "Return the end position of the line item beginning at POS in BUF."
+  "Return the end position of the item beginning at POS in BUF."
   (with-current-buffer buf
     (save-mark-and-excursion
       (goto-char pos)
@@ -465,7 +496,7 @@ special key :point.")
   item.")
 
 (defun lister-sensor-function (win previous-point type)
-  (when (eq type 'entered)
+  (when (eq type 'entered)       
     (run-hooks 'lister-enter-item-hook)))
 
 ;; * Lister Major Mode
