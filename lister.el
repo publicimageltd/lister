@@ -1,6 +1,6 @@
 ;;; lister.el --- a not very functional list printer            -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018  
+;; Copyright (C) 2018-2020
 
 ;; Author:  <joerg@joergvolbers.de>
 
@@ -22,34 +22,18 @@
 ;;; Code:
 
 
-(require 'cl)
+(require 'cl-lib)
 (require 'seq)
 
 ;; * Variables
 
-;;   "A set of data and functions for printing a list with header and footer.
-
-;; BUFFER is the buffer to which the list belongs. 
-
-;; MAPPER is a function which converts any given lisp-object into a
-;; printable representation, that is, converts it into a list of
-;; strings which will be inserted.
-
-;; Example:
-
-;;  \(defun my-maper-fn \(data\)
-;;    \"Interprete DATA as a name and convert it to a list item.\"
-;;      \(list \(concat \"Name: \" data\) \)
-
-;; HEADER-MARKER is the position of the header item.
-
-;; FOOTER-MARKER is the position of the footer item.
-
-;; MARKER-LIST is an internal list mapping each list item to a
-;; marker position.
-;; "
-(defstruct lister-viewport
-  buffer mapper header-marker footer-marker marker-list)
+(cl-defstruct lister-viewport
+  buffer        ;; associated buffer
+  mapper        ;; converts DATA to a list of strings
+  header-marker ;; position of the header 
+  footer-marker ;; position of the footer
+  marker-list   ;; marker positions for each subsequent item
+  )
 
 ;; * Helper
 
@@ -67,31 +51,31 @@
 	      fn))
 
 
-;; * Building the List with Lines
+;; * Building the list with lines
 
-(defun lister-indent-item (padding lines)
-  "Indent all items (but the first) in LINES by adding PADDING spaces."
-  (declare (indent 1))
-  (let* ((pad (make-string padding ? )))
-    (append
-     (list (car lines))
-     (mapcar
-      (lister-curry #'concat pad)
-      (last lines (1- (length lines)))))))
+;; These are the core primitives. The following functions either
+;; insert, remove or replace lines of text, usually passed to these
+;; functions as a list of strings.
+
+;; For convenience, a function can be used instead of a string. The
+;; function accepts no argument and returns a string, of course.
 
 (defun lister-strflat (seq)
-  "Recursively stringify all items in L, flattening any sublists within l.
+  "Recursively stringify all items in L, flattening any sublists.
 
 To \"stringify\" means:
 
-If the list item is a string, return it unchanged.
-If the list item is a function, insert its result.
+For each item, if the list item is a string, return it unchanged.
+If the list item is a function, return its return value. The
+function has to accept no argument and to return a string value.
 
 Quoting cars such as (quote xy) or (function z) will be silently
-dropped, keeping only the quoted item."
+dropped, keeping only the quoted item.
+
+Empty lists or nil values will be skipped."
   (seq-reduce (lambda (acc e)
 		(cond
-		 ;; kill all nils:
+		 ;; ignore nils:
 		 ((null e)  acc)
 		 ;; don't pass quoting cars to the result:
 		 ((eq e 'function) acc)
@@ -101,25 +85,20 @@ dropped, keeping only the quoted item."
 		 ((and (listp e) (not (functionp e))) (append acc (lister-strflat e)))
 		 ;; actual work:
 		 (t (append acc (list (if (functionp e) (funcall e) e))))))
-	      seq
-	      '()))
+	      seq '()))
 
 (defun lister-insert-lines (buf pos lines)
-  "Insert the list LINES at POS in BUF.
-Return the marker of the first position. 
+  "Insert list LINES at POS in BUF.
 
 LINES is a list. Each item can be either a string, which is
-printed directly, or a function, to print its return value. 
+printed directly, or a function, to print its return value.
+Nested lists will be flattened. Empty lists will be skipped.
 
-Nested lists will be flattened.
-
-Each item in LINES is printed with a final newline character
-added.
-
-Point is on the end of the newly inserted text.
-
-Also insert a text property `item' with the value `t' at the
-beginning of the item."
+Insert each element of LINES with newline added. Mark the
+beginning of the newly inserted text with the text property
+'item. Store the number of inserted lines in the text property
+'nlines. Move point to the end of the newly inserted text. Return
+the marker of the first position."
   (with-current-buffer buf
     (let* ((beg               pos)
 	   (item-list         (lister-strflat lines))
@@ -129,26 +108,154 @@ beginning of the item."
       (let* ((end (point)))
 	(put-text-property beg (1+ beg) 'item t)
 	(put-text-property beg (1- end) 'cursor-intangible t)
-	(put-text-property beg (1+ beg) 'length (length item-list))
+	(put-text-property beg (1+ beg) 'nlines (length item-list))
 	(lister-make-marker buf beg)))))
 
-;; * Insert
+(defun lister-remove-lines (buf pos)
+  "Remove all item lines beginning at POS in BUF.
+
+Use the text property 'nlines to determine the number of lines to
+be deleted."
+  (with-current-buffer buf
+    (let* ((inhibit-read-only t))
+      (delete-region pos (lister-end-of-lines buf pos)))))
+
+(defun lister-replace-lines (buf pos new-lines)
+  "Replace the item lines at POS with NEW-LINES.
+
+Use the text property 'nlines to determine the number of lines to
+be deleted. Adjust the value of the text property according to
+the new item."
+  (with-current-buffer buf
+    (save-excursion
+      (lister-remove-lines buf pos)
+      (lister-insert-lines buf pos new-lines))))
+
+(defun lister-end-of-lines (buf pos)
+  "Return the end position of the item beginning at POS in BUF.
+
+Use the text property 'nlines to determine the number of lines to
+be deleted."
+  (with-current-buffer buf
+    (save-mark-and-excursion
+      (goto-char pos)
+      (forward-line (get-text-property pos 'nlines))
+      (point))))
+
+;; * Set header or footer of the list
+
+;; Headers or footers are just ordinary lists inserted by
+;; `lister-insert-lines'; usually lists of strings. Unlike list items,
+;; they are set to be 'intangible' for the cursor, so that point
+;; cannot move to them. For this to work, `cursor-intangible-mode' has
+;; to be enabled.
+
+;; Since header and footer are inserted with the same functions as
+;; list items, they are also marked with the text property 'item.
+
+(defun lister-set-intangible (buf pos-or-marker)
+  "Mark position POS-OR-MARKER as intangible."
+  (let* ((inhibit-read-only t)
+	 (pos (if (markerp pos-or-marker) (marker-position pos-or-marker) pos-or-marker)))
+    (with-current-buffer buf
+      (let* ((beg (if (eq pos (point-min)) pos (1- pos)))
+	     (end (if (eq pos (point-max)) pos (1+ pos))))
+	(put-text-property beg end 'cursor-intangible t)
+	(put-text-property beg end 'field t)
+	(put-text-property beg end 'rear-sticky t)
+	(put-text-property beg end 'front-sticky t)))))
+
+;; TODO Add option to let HEADER begin at arbitrary position (instead
+;; of (point-min))
+(defun lister-set-header (viewport header)
+  "Set HEADER before the first item of VIEWPORT.
+
+Replace the existing header, if any, or just insert it at the
+top.
+
+HEADER is a list. Each list item can be either a string, which is
+printed directly, or a function, to print its return value.
+Nested lists will be flattened. Empty lists will be skipped."
+  (let ((buffer (lister-viewport-buffer viewport)))
+    (if-let ((header-marker (lister-viewport-header-marker viewport)))
+	;; replace existing header:
+	(setf (lister-viewport-header-marker viewport)
+	      (lister-replace-lines
+	       buffer
+	       (marker-position header-marker)
+	       header))
+      ;; or insert new one at top:
+      (setf (lister-viewport-header-marker viewport)
+	    (lister-insert-lines
+	     buffer
+	     (with-current-buffer buffer (point-min))
+	     header)))
+    ;; header is intangible for the cursor:
+    (lister-set-intangible
+     buffer
+     (lister-viewport-header-marker viewport))))
+
+(defun lister-set-footer (viewport footer)
+  "Set FOOTER after the last item of VIEWPORT.
+
+Replace the existing footer, if any, or just add it at the
+end.
+
+FOOTER is a list. Each list item can be either a string, which is
+printed directly, or a function, to print its return value.
+Nested lists will be flattened. Empty lists will be skipped."
+  (let ((buffer (lister-viewport-buffer viewport)))
+    (if-let ((footer-marker (lister-viewport-footer-marker viewport)))
+	;; replace old footer:
+	(setf (lister-viewport-footer-marker viewport)
+	      (lister-replace-lines
+	       buffer
+	       (marker-position footer-marker)
+	       footer))
+      ;; or add it to the end:
+      (setf (lister-viewport-footer-marker viewport)
+	    (lister-insert-lines
+	     buffer
+	     (with-current-buffer buffer (point-max))
+	     footer)))
+    ;; footer is intangible for the cursor:
+    (lister-set-intangible
+     buffer
+     (lister-viewport-footer-marker viewport))))
+
+;; * Insert items
+
+;; The following sections define functions to insert, add, remove and
+;; replace list items.
+
+;; An item is simply a string representation of DATA. The following
+;; functions all insert an item at a given position. The item is
+;; passed by passing a DATA object. The object will be turned into a
+;; string representation by the mapper function of the viewport.
 
 (cl-defgeneric lister-insert (viewport position data)
-  "Insert a printed representation of DATA at POSITION in VIEWPORT.
+  "Insert a representation of DATA at POSITION in VIEWPORT.
 
-POSITION can be either a buffer position (no marker!) or the special key
-:point.
+POSITION can be either a buffer position (no marker!) or the
+special key :point.
 
-DATA is made printable with the mapper function of the viewport.
-See `lister-viewport'.
-")
+If POSITION is a an integer, insert item at this buffer position.
 
+If POSITION is the symbol :point, insert it at point.
+
+All modifications apply to the buffer associated with VIEWPORT.
+The representation of DATA is created by the mapper function of
+VIEWPORT. The function updates the marker list of VIEWPORT.")
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-insert (viewport (position integer) data) 
-  "Insert a printed representation of DATA at buffer position POS in VIEWPORT.
+  "Insert a representation of DATA at buffer position POS in VIEWPORT.
 
-Updates the marker list.
-Return a marker with the start position."
+POS has to be an integer. Return a marker set to POS.
+
+All modifications apply to the buffer associated with VIEWPORT.
+The representation of DATA is created by the mapper function of
+VIEWPORT. The function updates the marker list of VIEWPORT. "
   (let* ((buf    (lister-viewport-buffer viewport))
 	 (item   (funcall (lister-viewport-mapper viewport) data))
 	 (marker (lister-insert-lines buf position item)))
@@ -162,10 +269,10 @@ Return a marker with the start position."
     marker))
 
 (cl-defmethod lister-insert (viewport (position (eql :point)) data)
-  "Insert LIST ITEMS at point in VIEWPORT.
-
+  "Insert a representation of DATA at point in VIEWPORT.
 Return the marker pointing to the beginning of the list item."
-  (let* ((pos (with-current-buffer (lister-viewport-buffer viewport) (point))))
+  (let* ((pos (with-current-buffer (lister-viewport-buffer viewport)
+		(point))))
     (lister-insert viewport
 		   pos
 		   data)))
@@ -173,85 +280,39 @@ Return the marker pointing to the beginning of the list item."
 ;; * Add
 
 (defun lister-add (viewport data)
-  "Add DATA and its printed representation as a new item to the
-end of the list in VIEWPORT.
+  "Add a list item representing DATA to the end of the list of VIEWPORT.
 
-Return the marker pointing to the beginning of the item."
+Return the marker pointing to the beginning of the item.
+
+All modifications apply to the buffer associated with VIEWPORT.
+The representation of DATA is created by the mapper function of
+VIEWPORT."
   (lister-insert viewport (lister-next-free-position viewport) data))
 
-;; * Set Header / Footer
-
-(defun lister-replace-lines (buf pos new-lines)
-  "Replace the lines at POS with NEW-LINES."
-  (with-current-buffer buf
-    (save-excursion
-      (lister-remove-lines buf pos)
-      (lister-insert-lines buf pos new-lines))))
-
-(defun lister-set-header (viewport header)
-  "Insert HEADER at the beginning of VIEWPORT."
-  (let ((buffer (lister-viewport-buffer viewport)))
-    (if-let ((header-marker (lister-viewport-header-marker viewport)))
-	(setf (lister-viewport-header-marker viewport)
-	      (lister-replace-lines
-	       buffer
-	       (marker-position header-marker)
-	       header))
-      (setf (lister-viewport-header-marker viewport)
-	    (lister-insert-lines
-	     buffer
-	     (with-current-buffer buffer (point-min))
-	     header)))
-    (lister-set-intangible
-     buffer
-     (lister-viewport-header-marker viewport))))
-
-(defun lister-set-footer (viewport footer)
-  "Insert FOOTER at the end of the item list of VIEWPORT"
-  (let ((buffer (lister-viewport-buffer viewport)))
-    (if-let ((footer-marker (lister-viewport-footer-marker viewport)))
-	(setf (lister-viewport-footer-marker viewport)
-	      (lister-replace-lines
-	       buffer
-	       (marker-position footer-marker)
-	       footer))
-      (setf (lister-viewport-footer-marker viewport)
-	    (lister-insert-lines
-	     buffer
-	     (with-current-buffer buffer (point-max))
-	     footer)))
-    (lister-set-intangible
-     buffer
-     (lister-viewport-footer-marker viewport))))
-
-(defun lister-set-intangible (buf pos-or-marker)
-  "Marks position POS-OR-MARKER as intangible."
-  (let* ((inhibit-read-only t)
-	 (pos (if (markerp pos-or-marker) (marker-position pos-or-marker) pos-or-marker)))
-    (with-current-buffer buf
-      (let* ((beg (if (eq pos (point-min)) pos (1- pos)))
-	     (end (if (eq pos (point-max)) pos (1+ pos))))
-	(put-text-property beg end 'cursor-intangible t)
-	(put-text-property beg end 'field t)
-	(put-text-property beg end 'rear-sticky t)
-	(put-text-property beg end 'front-sticky t)))))
 
 ;; * Remove
 
-(defun lister-remove-lines (buf pos)
-  "Removes the item lines at pos in BUF."
-  (with-current-buffer buf
-    (let* ((inhibit-read-only t))
-      (delete-region pos (lister-end-of-lines buf pos)))))
-
 (cl-defgeneric lister-remove (viewport position)
-  "Removes the item on POSITION in VIEWPORT.
+  "Remove the item on POSITION in VIEWPORT.
 
 POSITION can be either a marker, a list index position, or the
-special key :point.")
+symbol :point.
 
+If POSITION is a marker, remove the item at the marker position.
+
+If POSITION is an integer, treat it as an index number, the first
+item counting as 0. Remove the item determined by the index
+position.
+
+If POSITION is the symbol :point, remove the item at point.
+
+All modifications apply to the buffer associated with VIEWPORT.
+The representation of DATA is created by the mapper function of
+VIEWPORT.")
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (viewport (position marker))
-  "Removes the item at marker POSITION."
+  "Remove the item at marker POSITION."
   (lister-remove-lines (lister-viewport-buffer viewport)
 		       position)
   (setf (lister-viewport-marker-list viewport)
@@ -260,22 +321,33 @@ special key :point.")
 		    (lister-viewport-marker-list viewport))))
 
 (cl-defmethod lister-remove (viewport (position integer))
-  "Removes the item at index POSITION."
+  "Remove the item at index POSITION."
   (lister-remove viewport (lister-marker-at viewport position)))
 
 (cl-defmethod lister-remove (viewport (position (eql :point)))
-  "Removes the item at point."
+  "Remove the item at point."
   (when-let* ((marker (lister-current-marker viewport)))
     (lister-remove viewport marker)))
 
 ;; * Replace
 
 (cl-defgeneric lister-replace (viewport position data)
-  "Replace the item at POSITION with a new DATA item.
+  "Replace the item at POSITION with a new item representing DATA.
 
 POSITION can be either a marker, a list index position, or the
-special key :point.")
+special key :point.
 
+If POSITION is a marker, replace the item at the position defined
+by the marker.
+
+If POSITION is an integer, treat it as an index pointing to the
+item where the data is to be stored at. The first item of the
+list has the index position 0. See also `lister-marker-at'.
+
+If POSITION is the symbol :point, store data at the item at
+point.")
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-replace (viewport (position marker) data)
   "Replace the item at marker POSITION with a new DATA item."
   (let* ((buffer-pos (marker-position position)))
@@ -292,16 +364,27 @@ special key :point.")
   (when-let* ((marker (lister-current-marker viewport)))
     (lister-replace viewport marker data)))
 
-;; * Set Data
+;; * Set data
 
 (cl-defgeneric lister-set-data (viewport position data)
   "Store DATA in text property 'data at POSITION.
 
-POSITION can be either a marker, a list index position, or the
-special key :point.")
+POSITION can be either a marker, an index position, or the symbol
+:point.
 
+If POSITION is a marker, store the data at the position defined
+by the marker.
+
+If POSITION is an integer, treat it as an index pointing to the
+item where the data is to be stored at. The first item of the
+list has the index position 0. See also `lister-marker-at'.
+
+If POSITION is the symbol :point, store data at the item at
+point.")
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-set-data (viewport (position marker) data)
-  "Store DATA at the position defined by MARKER."
+  "Store DATA at the buffer position defined by MARKER."
   (with-current-buffer (lister-viewport-buffer viewport)
     (let ((inhibit-read-only t))
       (put-text-property position (1+ position)
@@ -311,24 +394,33 @@ special key :point.")
 			 'data data))))
 
 (cl-defmethod lister-set-data (viewport (position integer) data)
-  "Store DATA in text property 'data at the INDEX position of the list."
+  "Store DATA in the item at index POSITION."
   (lister-set-data viewport
 		   (lister-marker-at viewport position)
 		   data))
 
 (cl-defmethod lister-set-data (viewport (position (eql :point)) data)
-  "Store DATA in text property 'data in the item at point."
+  "Store DATA in the item at point."
   (when-let* ((marker (lister-current-marker viewport)))
     (lister-set-data viewport marker data)))
 
-;; * Get Data
+;; * Get data
 
 (cl-defgeneric lister-get-data (viewport position)
   "Retrieve the data stored at POSITION.
 
-POSITION can be either a marker, a list index, or the special key
-:point.")
+POSITION can be either a marker, a list index, or the symbol
+:point.
 
+If POSITION is a marker, return the data at the marker position.
+
+If POSITION is an integer, treat it as an index number, starting
+from 0. Return the data stored there. 
+
+If POSITION is the symbol :point, return the data of the item at
+point.")
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-get-data (viewport (position marker))
   "Retrieve the data stored at marker POSITION."
   (with-current-buffer (lister-viewport-buffer viewport)
@@ -340,18 +432,34 @@ POSITION can be either a marker, a list index, or the special key
 		   (lister-marker-at viewport position)))
 
 (cl-defmethod lister-get-data (viewport (position (eql :point)))
-  "Retrieve the data at point."
+  "Retrieve the data of the item at point."
   (when-let* ((marker (lister-current-marker viewport)))
     (lister-get-data viewport marker)))
 
 ;; * Goto
 
 (cl-defgeneric lister-goto (viewport position)
-  "Move point in VIEWPORT to POSITION.
+  "In VIEWPORT, move point to POSITION.
 
 POSITION can be either a marker, a list index number, or one of
-the special keys :last or :first")
+the symbols :last or :first.
 
+If POSITION is marker, move point to the marker position.
+
+If POSITION is an integer, treat it as an index number for the
+list items, counting from 0. Move point to the item designated by
+that index position.
+
+If POSITION is the symbol :first, move point to the first list
+item, ignoring the header.
+
+If POSITION is the symbol :last, move point to the last list
+item, ignoring the header.")
+
+;; TODO Add error handling for the cases where desired position is not
+;; available.
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-goto (viewport (position marker))
   "Move point in VIEWPORT to the marker POSITION."
   (with-current-buffer (lister-viewport-buffer viewport)
@@ -377,16 +485,21 @@ the special keys :last or :first")
 ;; * Marker Handling
 
 (defun lister-marker-at (viewport index)
-  "Get marker for item at position INDEX."
+  "Return marker for item at index position INDEX.
+The first item as the index 0, the second item the index 1, etc.
+If the index is out of range, throw an error."
   (let* ((ml (lister-viewport-marker-list viewport)))
     (if (and (>= index 0)
 	     (< index (length ml)))
 	(nth index ml)
-      (error "lister-marker-at: index %s out of range." index))))
+      (error "lister-marker-at: requested index %s out of range." index))))
 
 (defun lister-current-marker (viewport)
-  "Return the marker at point in VIEWPORT, iff on the beginning
-of an item."
+  "Return MARKER of the item at point in VIEWPORT
+
+Only return a marker if point is on the beginning of ITEM.
+
+Return nil if no marker is available."
   (with-current-buffer (lister-viewport-buffer viewport)
     (save-excursion
       (when (get-text-property (point) 'item)
@@ -394,16 +507,8 @@ of an item."
 		    (eq (marker-position m) (point)))
 		  (lister-viewport-marker-list viewport))))))
 
-(defun lister-marker-list (buf)
-  "Return a list of marker pointing to each item in BUF.
-
-Search for the items has to start on the first item, which is
-assumed to be right at the beginning of the buffer."
-  (mapcar (lister-curry #'lister-make-marker buf)
-	  (lister-item-positions buf)))
-
 (defun lister-first-lines (buf)
-  "Return position of first line item in BUF (footer or list item)."
+  "Return position of the first item in BUF."
   (with-current-buffer buf
     (save-excursion
       (goto-char (point-min))
@@ -423,29 +528,48 @@ assumed to be right at the beginning of the buffer."
 	(goto-char pos)
 	(let* ((result   (list pos))
 	       (lines     nil))
-	  (while (setq lines (get-text-property (point) 'length buf))
+	  (while (setq lines (get-text-property (point) 'nlines buf))
 	    (forward-line lines)
 	    (when (get-text-property (point) 'item buf)
 	      (push (point) result)))
 	  (reverse result))))))
 
+(defun lister-marker-list (buf)
+  "Return a list of marker pointing to each item in BUF."
+  (mapcar (lister-curry #'lister-make-marker buf)
+	  (lister-item-positions buf)))
+
+;; * Treat list items as indexed items
+
 (cl-defgeneric lister-index (viewport position)
-  "Return the index of the item at POSIITION.
+  "Return the index number of the item at POSIITION in VIEWPORT.
 
 POSITION can be either a marker, a valid buffer position, or the
-special key :point.")
+special key :point.
 
+If POSITION is a marker or integer, return the index number of
+the item at POSITION.
+
+If POSITION is the symbol :point, return the index number of the
+item at point.
+
+All positions apply to the buffer associated with VIEWPORT.")
+
+;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-index (viewport (position marker))
+    "Return the index number of the item at MARKER position.".
   (seq-position (lister-viewport-marker-list viewport)
 		position
 		#'equal))
 
 (cl-defmethod lister-index (viewport (position integer))
+  "Return the index number of the item at buffer POSITION."
   (lister-index viewport (lister-make-marker
 			  (lister-viewport-buffer viewport)
 			  position)))
 
 (cl-defmethod lister-index (viewport (position (eql :point)))
+  "Return the index number of the item at point."
   (lister-index viewport (point)))
 
 (defun lister-next-free-position (viewport)
@@ -460,14 +584,6 @@ special key :point.")
      (header     (point-max))
      (t          (point-min)))))
 
-(defun lister-end-of-lines (buf pos)
-  "Return the end position of the item beginning at POS in BUF."
-  (with-current-buffer buf
-    (save-mark-and-excursion
-      (goto-char pos)
-      (forward-line (get-text-property pos 'length))
-      (point))))
-
 ;; * Creating Markers
 
 (defun lister-make-marker (buf pos)
@@ -478,15 +594,17 @@ special key :point.")
     marker))
 
 (defun lister-recreate-marker-list (viewport)
-  "Completely recreate the marker list of VIEWPORT."
+  "Create and store a new marker list for VIEWPORT."
   (let* ((ml (lister-marker-list (lister-viewport-buffer viewport))))
+    ;; move header and footer markers to their own viewport slots:
     (when (lister-viewport-header-marker viewport)
       (setf (lister-viewport-header-marker viewport)
 	    (pop ml)))
     (when (lister-viewport-footer-marker viewport)
       (setf (lister-viewport-footer-marker viewport)
 	    (car (last ml)))
-      (setq ml (seq-take ml (1- (length ml)))))
+      (setq ml (butlast ml)))
+    ;; store list in viewport:
     (setf (lister-viewport-marker-list viewport) ml)))
 
 ;; * Cursor Sensor Function
@@ -509,96 +627,63 @@ special key :point.")
 
 ;; * Setup 
 
-(defun lister-set-list (viewport data)
-  "Display a list for DATA in VIEWPORT. Do not change header or
-footer.
+(defun lister-set-list (viewport data-list)
+  "Insert DATA-LIST in VIEWPORT, leaving header and footer untouched.
+Return the viewport.
 
-Return the viewport."
+To set the header or the footer, use `lister-set-header' and
+`lister-set-footer'."
   (with-current-buffer (lister-viewport-buffer viewport)
+    ;; delete old list:
     (when-let* ((ml  (lister-viewport-marker-list viewport)))
-      (let* ((beg (nth 0 ml))
+      (let* ((beg (nth 0 ml)) ;; (nth 0 ml) is always the first item,
+			      ;; because header marker is stored in
+			      ;; its own special slot.
 	     (end (or (lister-viewport-footer-marker viewport)
 		      (point-max)))
 	     (inhibit-read-only t))
 	(delete-region beg end)))
+    ;; insert new list:
     (setf (lister-viewport-marker-list viewport)
-	  (mapcar (lister-curry #'lister-add viewport) data)))
+	  (mapcar (lister-curry #'lister-add viewport) data-list)))
   viewport)
 
-(defun lister-setup (buf mapper-fn &optional data header footer)
-  "Insert DATA (optionally enclosed by HEADER and FOOTER) in emptied BUF.
+(defun lister-setup (buf mapper-fn &optional data-list header footer)
+  "Erase BUF, insert DATA-LIST using MAPPER-FN, and optionally add HEADER and FOOTER.
 
-Return the viewport."
+DATA-LIST is a list of data objects which will be passed to
+MAPPER-FN. MAPPER-FN must accept only one argument, the data
+object, and return a list of strings. See also
+`lister-insert-lines' for the exact format of the return value.
+
+HEADER is a list of strings which will be inserted at the top of
+the list.
+
+FOOTER is a list of strings which will be inserted at the end of
+the list.
+
+Move point to the first list item. Return a newly created
+viewport structure."
   (let* ((viewport (make-lister-viewport
 		    :buffer buf
 		    :mapper mapper-fn)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
 	(erase-buffer)))
+    ;;
     (when header
       (lister-set-header viewport header))
-    (when data
-      (seq-each (lister-curry #'lister-add viewport) data))
+    (when data-list
+      (seq-each (lister-curry #'lister-add viewport) data-list))
     (when footer
       (lister-set-footer viewport footer))
+    ;;
     (lister-recreate-marker-list viewport)
-    ;; (with-current-buffer buf
-    ;;   (lister-set-intangible buf (point-max))
-    (when data
+    ;;
+    (when data-list
       (lister-goto viewport 0))
+    ;;
     viewport))
-
-;; -----------------------------------------------------------
-;; Test
-
-(when nil
-
-  (defun lister--marker-list ()
-    (interactive)
-    (message "Marker list: %s"
-	     (string-join
-	      (mapcar (lambda (m)
-			(format "%d" (marker-position m)))
-		      (lister-viewport-marker-list vp))
-	      " ")))
-
-  (defun lister-highlight-marker (viewport)
-    (with-current-buffer (lister-viewport-buffer viewport)
-      (seq-doseq (m (lister-viewport-marker-list viewport))
-	(overlay-put (make-overlay m (1+ m))
-		     'face
-		     '(:background "yellow")))))
-
-  (defun lister-remove-overlays (viewport)
-    (with-current-buffer (lister-viewport-buffer viewport)
-      (remove-overlays)))
-
-  (defun lister-blink-overlays (viewport)
-    (switch-to-buffer (lister-viewport-buffer viewport))
-    (lister-highlight-marker viewport)
-    (redisplay)
-    (sleep-for 0.5)
-    (lister-remove-overlays viewport))
-
-  (defun lister-test-buffer ()
-    "Return test buffer."
-    (get-buffer-create "*LISTER*"))
-
-  (defun lister-mapper (data)
-    (list
-     "Zeile1"
-     (format "%s" data)
-     "Zeile 2"))
-
-  (defun lister-interactive-test ()
-    (interactive)
-    (let ((viewport (lister-setup (lister-test-buffer)
-				  #'lister-mapper
-				  '("A" "B" "C"))))
-      (setq vp viewport)
-      (switch-to-buffer (lister-viewport-buffer viewport))
-      (lister-mode)
-      (lister-blink-overlays viewport))))
 
 (provide 'lister)
 ;;; lister.el ends here
