@@ -68,11 +68,16 @@
 
 (defun lister-interactive-test ()
   (interactive)
-  (let ((viewport (lister-setup (lister-test-buffer)
+  (let* ((lister-buf (lister-test-buffer))
+	 (viewport (lister-setup lister-buf
 				#'lister-mapper
 				'("A" "B" "C"))))
     (setq vp viewport)
-    (switch-to-buffer (lister-viewport-buffer viewport))
+    (with-current-buffer lister-buf
+      (setq lister-local-mapper '(lambda (d) "TEST")))
+    (lister-set-footer lister-buf "FOOTER")
+    (lister-set-header lister-buf "HEADER")
+    (switch-to-buffer lister-buf)
     (lister-blink-overlays viewport)))
 
 (provide 'lister-examples)
