@@ -105,6 +105,24 @@
 (defvar-local lister-local-marker-list nil
   "Stores a list of marker positions for each lister list item.")
 
+(defvar lister-left-margin 2
+  "Add this left margin when inserting a item.
+Set this to nil if no left margin is wanted.")
+
+(defvar lister-right-margin nil
+  "Add this right margin when inserting a item.
+Set this to nil if no right margin is wanted.")
+
+(defvar lister-top-margin nil
+  "Add this top margin when inserting an item.
+Set this to nil if no top margin is wanted.")
+
+(defvar lister-bottom-margin nil
+  "Add this bottom margin when inserting an item.
+Set this to nil if no bottom margin is wanted.")
+
+;; * Helper functions to work with lister buffers
+
 (defun lister-buffer-p (buf)
   "Return BUF if it is ready to be used for lister lists.
 Throw an informative error if BUF is not in `'lister mode' or if
@@ -165,6 +183,28 @@ Empty lists or nil values will be skipped."
 		 (t (append acc (list (if (functionp e) (funcall e) e))))))
 	      seq '()))
 
+(defun lister-add-side-margins (s)
+  "Add padding left and right to S by adding spaces.
+Margins are taken from the variables `lister-left-margin' and
+`lister-right-margin'."
+  (concat
+   (and lister-left-margin
+	(make-string lister-left-margin ? ))
+   s
+   (and lister-right-margin
+	(make-string lister-right-margin ? ))))
+
+(defun lister-add-vertical-margins (strings)
+  "Add vertical padding to a list of STRINGS by adding empty strings.
+Margins are taken from the variables `lister-top-margin' and
+`lister-bottom-margin'."
+  (append
+   (and lister-top-margin
+	(make-list lister-top-margin ""))
+   strings
+   (and lister-bottom-margin
+	(make-list lister-bottom-margin ""))))
+
 (defun lister-insert-lines (buf pos lines)
   "Insert list LINES at POS in BUF.
 
@@ -181,9 +221,11 @@ text.
 
 Return the marker of the first position."
   (with-current-buffer buf
-    (let* ((beg               pos)
-	   (item-list         (if (stringp lines) (list lines)
-				(lister-strflat lines)))
+    (let* ((beg pos)
+	   (item-list-unpadded   (if (stringp lines) (list lines)
+				   (lister-strflat lines)))
+	   (item-list            (lister-add-vertical-margins
+				  (mapcar #'lister-add-side-margins item-list-unpadded)))
 	   (inhibit-read-only t))
       (goto-char beg)
       (insert (string-join item-list "\n") "\n")
