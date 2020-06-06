@@ -99,6 +99,7 @@
 
 ;; * Variables
 
+;; TODO delete 
 (cl-defstruct lister-viewport
   buffer        ;; associated buffer
   mapper        ;; converts DATA to a list of strings
@@ -106,6 +107,42 @@
   footer-marker ;; position of the footer
   marker-list   ;; marker positions for each subsequent item
   )
+
+(defvar-local lister-local-mapper nil
+  "Function which converts any DATA object to a list of strings.")
+
+(defvar-local lister-local-header-marker nil
+  "Stores the marker for the upper left corner of the header.")
+
+(defvar-local lister-local-footer-marker nil
+  "Stores the marker for the upper left corner of the footer.")
+
+(defvar-local lister-local-marker-list nil
+  "Stores a list of marker positions for each lister list item.")
+
+(defun lister-buffer-p (buf)
+  "Return BUF if it is ready to be used for lister lists.
+Throw an informative error if BUF is not in `'lister mode' or if
+the local mapper function is undefined."
+  (with-current-buffer buf
+    (or
+     (and (eq major-mode 'lister-mode)
+	  (buffer-local-value 'lister-local-mapper (current-buffer))
+	  buf)
+     (error
+      (if (not (eq major-mode 'lister-mode))
+	  "Buffer %s has to be in lister mode; execution aborted." 
+	"Buffer %s has to have a local mapper function; execution aborted.")
+      buf))))
+
+(defalias 'assert-lister-buffer 'lister-buffer-p)
+
+(defmacro with-lister-buffer (buf &rest body)
+  "Execute BODY in BUF.
+Throw an error if BUF is not a lister buffer."
+  (declare (indent 1))
+  `(with-current-buffer (lister-buffer-p ,buf)
+     ,@body))
 
 ;; * Helper
 
@@ -239,8 +276,8 @@ be deleted."
 
 ;; TODO Add option to let HEADER begin at arbitrary position (instead
 ;; of (point-min))
-(defun lister-set-header (viewport header)
-  "Set HEADER before the first item of VIEWPORT.
+(defun lister-set-header (lister-buf header)
+  "Set HEADER before the first item in LISTER-BUF.
 
 Replace the existing header, if any, or just insert it at the
 top.
@@ -248,24 +285,17 @@ top.
 HEADER is a list. Each list item can be either a string, which is
 printed directly, or a function, to print its return value.
 Nested lists will be flattened. Empty lists will be skipped."
-  (let ((buffer (lister-viewport-buffer viewport)))
-    (if-let ((header-marker (lister-viewport-header-marker viewport)))
-	;; replace existing header:
-	(setf (lister-viewport-header-marker viewport)
-	      (lister-replace-lines
-	       buffer
-	       (marker-position header-marker)
-	       header))
-      ;; or insert new one at top:
-      (setf (lister-viewport-header-marker viewport)
-	    (lister-insert-lines
-	     buffer
-	     (with-current-buffer buffer (point-min))
-	     header)))
-    ;; header is intangible for the cursor:
-    (lister-set-intangible
-     buffer
-     (lister-viewport-header-marker viewport))))
+  (assert-lister-buffer lister-buf)
+  (setq lister-local-header-marker
+	(if lister-local-header-marker 
+	    ;; replace existing header:
+	    (lister-replace-lines lister-buf (marker-position lister-local-header-marker) header)
+	  ;; or insert new one at top:
+	  (lister-insert-lines lister-buf (with-current-buffer lister-buf (point-min)) header)))
+  ;; set header to be intangible for the cursor:
+  (lister-set-intangible
+   lister-buf
+   lister-local-header-marker))
 
 (defun lister-set-footer (viewport footer)
   "Set FOOTER after the last item of VIEWPORT.
@@ -743,11 +773,12 @@ viewport structure."
 		    :mapper mapper-fn)))
     ;;
     (with-current-buffer buf
+      (lister-mode)
       (let ((inhibit-read-only t))
 	(erase-buffer)))
     ;;
     (when header
-      (lister-set-header viewport header))
+      (lister-set-header buf  header))
     (when data-list
       (seq-each (lister-curry #'lister-add viewport) data-list))
     (when footer

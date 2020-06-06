@@ -73,7 +73,6 @@
 				'("A" "B" "C"))))
     (setq vp viewport)
     (switch-to-buffer (lister-viewport-buffer viewport))
-    (lister-mode)
     (lister-blink-overlays viewport)))
 
 (provide 'lister-examples)
