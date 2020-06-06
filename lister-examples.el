@@ -29,32 +29,32 @@
 ;; Test
 
 
-(defun lister--marker-list ()
-  (interactive)
-  (message "Marker list: %s"
-	   (string-join
-	    (mapcar (lambda (m)
-		      (format "%d" (marker-position m)))
-		    (lister-viewport-marker-list vp))
-	    " ")))
+;; (defun lister--marker-list ()
+;;   (interactive)
+;;   (message "Marker list: %s"
+;; 	   (string-join
+;; 	    (mapcar (lambda (m)
+;; 		      (format "%d" (marker-position m)))
+;; 		    (lister-viewport-marker-list vp))
+;; 	    " ")))
 
-(defun lister-highlight-marker (viewport)
-  (with-current-buffer (lister-viewport-buffer viewport)
-    (seq-doseq (m (lister-viewport-marker-list viewport))
-      (overlay-put (make-overlay m (1+ m))
-		   'face
-		   '(:background "yellow")))))
+;; (defun lister-highlight-marker (viewport)
+;;   (with-current-buffer (lister-viewport-buffer viewport)
+;;     (seq-doseq (m (lister-viewport-marker-list viewport))
+;;       (overlay-put (make-overlay m (1+ m))
+;; 		   'face
+;; 		   '(:background "yellow")))))
 
-(defun lister-remove-overlays (viewport)
-  (with-current-buffer (lister-viewport-buffer viewport)
-    (remove-overlays)))
+;; (defun lister-remove-overlays (viewport)
+;;   (with-current-buffer (lister-viewport-buffer viewport)
+;;     (remove-overlays)))
 
-(defun lister-blink-overlays (viewport)
-  (switch-to-buffer (lister-viewport-buffer viewport))
-  (lister-highlight-marker viewport)
-  (redisplay)
-  (sleep-for 0.5)
-  (lister-remove-overlays viewport))
+;; (defun lister-blink-overlays (viewport)
+;;   (switch-to-buffer (lister-viewport-buffer viewport))
+;;   (lister-highlight-marker viewport)
+;;   (redisplay)
+;;   (sleep-for 0.5)
+;;   (lister-remove-overlays viewport))
 
 (defun lister-test-buffer ()
   "Return test buffer."
@@ -62,23 +62,21 @@
 
 (defun lister-mapper (data)
   (list
-   "Zeile1"
+   "Erste Zeile"
    (format "%s" data)
-   "Zeile 2"))
+   "Zweite Zeile"))
 
 (defun lister-interactive-test ()
   (interactive)
-  (let* ((lister-buf (lister-test-buffer))
-	 (viewport (lister-setup lister-buf
-				#'lister-mapper
-				'("A" "B" "C"))))
-    (setq vp viewport)
-    (with-current-buffer lister-buf
-      (setq lister-local-mapper '(lambda (d) "TEST")))
-    (lister-set-footer lister-buf "FOOTER")
-    (lister-set-header lister-buf "HEADER")
-    (switch-to-buffer lister-buf)
-    (lister-blink-overlays viewport)))
+  (let* ((lister-buf (lister-setup
+		      (lister-test-buffer)
+		      #'lister-mapper
+		      '("A" "B" "C")
+		      "HEADER"
+		      "FOOTER")))
+    (switch-to-buffer lister-buf)))
+
+;; (lister-blink-overlays viewport)))	
 
 (provide 'lister-examples)
 ;;; lister-examples.el ends here

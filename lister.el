@@ -43,23 +43,18 @@
 ;;
 ;; === How to use:
 ;;
-;; Most functions use an internal viewport structure
-;; (`lister-viewport'). It stores the buffer object of the list as
-;; well as some internal data.
-;;
-;; The list items are created using a mapper function, which has to be
-;; passed once when the list is set up the first time (see
-;; `lister-setup'). The mapper function has to accept the data object
-;; as its argument and returns a list of strings representing the
-;; item.
+;; Most API functions require a `lister buffer` as their first
+;; argument. The buffer has to in `lister-mode' or a mode derived from
+;; it. Minimally, it also stores a function which maps the list data
+;; to a stringifies list item. The lister buffer also holds some other
+;; internal data. The usual way to make sure that the lister buffer is
+;; set up correctly is to use the function `lister-setup'.
 ;;
 ;; The original data which is represented by the item is also stored
 ;; in the buffer, along with the string representation of the item. It
 ;; can be retrieved via `lister-get-data'.
 ;;
 ;; The usual approach is to build a first list using `lister-setup'.
-;; Store the viewport which has been returned. Using the viewport, it
-;; is then possible to insert, add, remove or replace list items.
 ;;
 ;; Most of these functions which deal with list items are generic
 ;; functions. They often accept different arguments, e.g., an explicit
@@ -90,7 +85,6 @@
 ;; - Add optional padding of list items (left and top as
 ;; well as right and bottom)
 
-
 ;;; Code:
 
 
@@ -98,15 +92,6 @@
 (require 'seq)
 
 ;; * Variables
-
-;; TODO delete 
-(cl-defstruct lister-viewport
-  buffer        ;; associated buffer
-  mapper        ;; converts DATA to a list of strings
-  header-marker ;; position of the header 
-  footer-marker ;; position of the footer
-  marker-list   ;; marker positions for each subsequent item
-  )
 
 (defvar-local lister-local-mapper nil
   "Function which converts any DATA object to a list of strings.")
@@ -126,8 +111,8 @@ Throw an informative error if BUF is not in `'lister mode' or if
 the local mapper function is undefined."
   (with-current-buffer buf
     (or
-     (and (eq major-mode 'lister-mode)
-	  (buffer-local-value 'lister-local-mapper (current-buffer))
+     (and (derived-mode-p 'lister-mode)
+	  lister-local-mapper
 	  buf)
      (error
       (if (not (eq major-mode 'lister-mode))
@@ -208,7 +193,9 @@ Nested lists will be flattened. Empty lists will be skipped.
 Mark the beginning of the newly inserted text with the text
 property 'item. Store the number of inserted lines in the text
 property 'nlines. Move point to the end of the newly inserted
-text. Return the marker of the first position."
+text. 
+
+Return the marker of the first position."
   (with-current-buffer buf
     (let* ((beg               pos)
 	   (item-list         (if (stringp lines) (list lines)
@@ -243,10 +230,8 @@ the new item."
       (lister-insert-lines buf pos new-lines))))
 
 (defun lister-end-of-lines (buf pos)
-  "Return the end position of the item beginning at POS in BUF.
-
-Use the text property 'nlines to determine the number of lines to
-be deleted."
+  "Return the end position of the item which starts at POS in BUF.
+Use the text property 'nlines to determine the size of the item."
   (with-current-buffer buf
     (save-mark-and-excursion
       (goto-char pos)
@@ -284,17 +269,21 @@ be deleted."
 Replace the existing header, if any, or just insert it at the
 top.
 
-HEADER is a list. Each list item can be either a string, which is
-printed directly, or a function, to print its return value.
-Nested lists will be flattened. Empty lists will be skipped."
-  (assert-lister-buffer lister-buf)
-  ;; either replace existing header or insert new one at bottom:
-  (setq lister-local-header-marker
-	(if lister-local-header-marker 
-	    (lister-replace-lines lister-buf (marker-position lister-local-header-marker) header)
-	  (lister-insert-lines lister-buf (with-current-buffer lister-buf (point-min)) header)))
-  ;; set header to be intangible for the cursor:
-  (lister-set-intangible lister-buf  lister-local-header-marker))
+HEADER is a string or a list. It it is a string, insert it as
+such. If it is a list, each item can be either a string, which is
+inserted directly, or a function, to insert its return
+value.Nested lists will be flattened. Empty lists will be
+skipped. 
+
+Each inserted string is inserted with an additional newline."
+  (with-lister-buffer lister-buf
+    ;; either replace existing header or insert new one at bottom:
+    (setq lister-local-header-marker
+	  (if lister-local-header-marker 
+	      (lister-replace-lines lister-buf (marker-position lister-local-header-marker) header)
+	    (lister-insert-lines lister-buf (point-min) header)))
+    ;; set header to be intangible for the cursor:
+    (lister-set-intangible lister-buf lister-local-header-marker)))
 
 (defun lister-set-footer (lister-buf footer)
   "Set FOOTER after the last item of LISTER-BUF.
@@ -302,30 +291,41 @@ Nested lists will be flattened. Empty lists will be skipped."
 Replace the existing footer, if any, or just add it at the
 end.
 
-FOOTER is a list. Each list item can be either a string, which is
-printed directly, or a function, to print its return value.
-Nested lists will be flattened. Empty lists will be skipped."
-  (assert-lister-buffer lister-buf)
+FOOTER is a string or a list. It it is a string, insert it as
+such. If it is a list, each item can be either a string, which is
+inserted directly, or a function, to insert its return
+value.Nested lists will be flattened. Empty lists will be
+skipped. 
+
+Each inserted string is inserted with an additional newline."
   ;; either replace existing footer or insert new one at top:
-  (setq lister-local-footer-marker
-	(if lister-local-footer-marker
-	    (lister-replace-lines lister-buf (marker-position lister-local-footer-marker) footer)
-	  (lister-insert-lines lister-buf (with-current-buffer lister-buf (point-max)) footer)))
-  ;; set footer as intangible for the cursor:
-  (lister-set-intangible lister-buf lister-local-footer-marker))
+  (with-lister-buffer lister-buf
+    (setq lister-local-footer-marker
+	  (if lister-local-footer-marker
+	      (lister-replace-lines lister-buf (marker-position lister-local-footer-marker) footer)
+	    (lister-insert-lines lister-buf (point-max) footer)))
+    ;; set footer as intangible for the cursor:
+    (lister-set-intangible lister-buf lister-local-footer-marker)))
 
 ;; * Insert items
 
 ;; The following sections define functions to insert, add, remove and
 ;; replace list items.
 
-;; An item is simply a string representation of DATA. The following
-;; functions all insert an item at a given position. The item is
-;; passed by passing a DATA object. The object will be turned into a
-;; string representation by the mapper function of the viewport.
+;; A list item is simply a string representation of a DATA item. The
+;; following functions all insert a list item at a given position. The
+;; data item itself is passed as a DATA object. The object will be
+;; turned into a string representation by the buffer local mapper
+;; function (`lister-local-mapper').
 
-(cl-defgeneric lister-insert (viewport position data)
-  "Insert a representation of DATA at POSITION in VIEWPORT.
+(cl-defgeneric lister-insert (lister-buf position data)
+  "Insert a representation of DATA at POSITION in LISTER-BUF.
+
+DATA can be any kind of lisp object. A mapper function creates a
+string representation (or a list of strings) for the data object.
+The mapper function accepts only one argument and returns a
+string or a list of strings. The function name has to be stored
+in the buffer local variable `lister-local-mapper'.
 
 POSITION can be either a buffer position (no marker!) or the
 special key :point.
@@ -334,57 +334,81 @@ If POSITION is a an integer, insert item at this buffer position.
 
 If POSITION is the symbol :point, insert it at point.
 
-All modifications apply to the buffer associated with VIEWPORT.
-The representation of DATA is created by the mapper function of
-VIEWPORT. The function updates the marker list of VIEWPORT.")
+All modifications apply to LISTER-BUF. The representation of DATA
+is created by the mapper function stored as a buffer local
+variable (`lister-local-mapper'). This function updates the local
+variable which holds the marker list.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-insert (viewport (position integer) data) 
-  "Insert a representation of DATA at buffer position POS in VIEWPORT.
+(cl-defmethod lister-insert (lister-buf (position integer) data) 
+  "Insert a representation of DATA at buffer position POS in LISTER-BUF.
 
-POS has to be an integer. Return a marker set to POS.
+DATA can be any kind of lisp object. A mapper function creates a
+string representation (or a list of strings) for the data object.
+The mapper function accepts only one argument and returns a
+string or a list of strings. The function name has to be stored
+in the buffer local variable `lister-local-mapper'.
 
-All modifications apply to the buffer associated with VIEWPORT.
-The representation of DATA is created by the mapper function of
-VIEWPORT. The function updates the marker list of VIEWPORT. "
-  (let* ((buf    (lister-viewport-buffer viewport))
-	 (item   (funcall (lister-viewport-mapper viewport) data))
-	 (marker (lister-insert-lines buf position item)))
-    (lister-set-data viewport marker data)
-    ;; update marker list:
-    (setf (lister-viewport-marker-list viewport)
-	  (seq-sort #'<
-		    (append
-		     (lister-viewport-marker-list viewport)
-		     (list marker))))
-    marker))
+POS has to be an integer.
 
-(cl-defmethod lister-insert (viewport (position (eql :point)) data)
-  "Insert a representation of DATA at point in VIEWPORT.
-Return the marker pointing to the beginning of the list item."
-  (let* ((pos (with-current-buffer (lister-viewport-buffer viewport)
+Return a marker set to position POS.
+
+This function updates the local variable which holds the marker
+list (`lister-local-marker-list')."
+  (with-lister-buffer lister-buf
+    (let* ((item   (funcall lister-local-mapper data))
+	   (marker (lister-insert-lines lister-buf position item)))
+      (lister-set-data lister-buf marker data)
+      ;; update marker list:
+      (setq lister-local-marker-list 
+	    (seq-sort #'<
+		      (append
+		       lister-local-marker-list
+		       (list marker))))
+      marker)))
+
+(cl-defmethod lister-insert (lister-buf (position (eql :point)) data)
+  "Insert a representation of DATA at point in LISTER-BUF.
+
+DATA can be any kind of lisp object. A mapper function creates a
+string representation (or a list of strings) for the data object.
+The mapper function accepts only one argument and returns a
+string or a list of strings. The function name has to be stored
+in the buffer local variable `lister-local-mapper'.
+
+Return the marker pointing to the beginning of the newly inserted
+list item.
+
+This function updates the local variable which holds the marker
+list. (`lister-local-marker-list')"
+  (let* ((pos (with-current-buffer lister-buf
 		(point))))
-    (lister-insert viewport
-		   pos
-		   data)))
+    (lister-insert lister-buf pos data)))
 
 ;; * Add
 
-(defun lister-add (viewport data)
-  "Add a list item representing DATA to the end of the list of VIEWPORT.
+(defun lister-add (lister-buf data)
+  "Add a list item representing DATA to the end of the list in LISTER-BUF.
+
+DATA can be any kind of lisp object. A mapper function creates a
+string representation (or a list of strings) for the data object.
+The mapper function accepts only one argument and returns a
+string or a list of strings. The function name has to be stored
+in the buffer local variable `lister-local-mapper'.
 
 Return the marker pointing to the beginning of the item.
 
-All modifications apply to the buffer associated with VIEWPORT.
-The representation of DATA is created by the mapper function of
-VIEWPORT."
-  (lister-insert viewport (lister-next-free-position viewport) data))
+All modifications apply to LISTER-BUF. The representation of DATA
+is created by the mapper function stored as a buffer local
+variable. This function updates the local variable which holds
+the marker list."
+  (lister-insert lister-buf (lister-next-free-position lister-buf) data))
 
 
 ;; * Remove
 
-(cl-defgeneric lister-remove (viewport position)
-  "Remove the item on POSITION in VIEWPORT.
+(cl-defgeneric lister-remove (lister-buf position)
+  "Remove the item on POSITION in LISTER-BUF.
 
 POSITION can be either a marker, a list index position, or the
 symbol :point.
@@ -395,35 +419,37 @@ If POSITION is an integer, treat it as an index number, the first
 item counting as 0. Remove the item determined by the index
 position.
 
-If POSITION is the symbol :point, remove the item at point.
-
-All modifications apply to the buffer associated with VIEWPORT.
-The representation of DATA is created by the mapper function of
-VIEWPORT.")
+If POSITION is the symbol :point, remove the item at point.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-remove (viewport (position marker))
-  "Remove the item at marker POSITION."
-  (lister-remove-lines (lister-viewport-buffer viewport)
-		       position)
-  (setf (lister-viewport-marker-list viewport)
-	(seq-remove (lambda (m)
-		      (eq m position))
-		    (lister-viewport-marker-list viewport))))
+(cl-defmethod lister-remove (lister-buf (position marker))
+  "Remove the item at the POSITION defined by the passed marker."
+  (with-lister-buffer lister-buf
+    (lister-remove-lines lister-buf position)
+    (setq lister-local-marker-list 
+	  (seq-remove (lambda (m)
+			(eq m position))
+		      lister-local-marker-list))))
 
-(cl-defmethod lister-remove (viewport (position integer))
+(cl-defmethod lister-remove (lister-buf (position integer))
   "Remove the item at index POSITION."
-  (lister-remove viewport (lister-marker-at viewport position)))
+  (lister-remove lister-buf (lister-marker-at lister-buf position)))
 
-(cl-defmethod lister-remove (viewport (position (eql :point)))
+(cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
-  (when-let* ((marker (lister-current-marker viewport)))
-    (lister-remove viewport marker)))
+  (when-let* ((marker (lister-current-marker lister-buf)))
+    (lister-remove lister-buf marker)))
 
 ;; * Replace
 
-(cl-defgeneric lister-replace (viewport position data)
+(cl-defgeneric lister-replace (lister-buf position data)
   "Replace the item at POSITION with a new item representing DATA.
+
+DATA can be any kind of lisp object. A mapper function creates a
+string representation (or a list of strings) for the data object.
+The mapper function accepts only one argument and returns a
+string or a list of strings. The function name has to be stored
+in the buffer local variable `lister-local-mapper'.
 
 POSITION can be either a marker, a list index position, or the
 special key :point.
@@ -439,26 +465,27 @@ If POSITION is the symbol :point, store data at the item at
 point.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-replace (viewport (position marker) data)
+(cl-defmethod lister-replace (lister-buf (position marker) data)
   "Replace the item at marker POSITION with a new DATA item."
-  (let* ((buffer-pos (marker-position position)))
-    (lister-remove-lines (lister-viewport-buffer viewport) buffer-pos)
-    (lister-insert viewport buffer-pos data)
-    (goto-char buffer-pos)))
+  (with-lister-buffer lister-buf
+    (let* ((buffer-pos (marker-position position)))
+      (lister-remove-lines lister-buf buffer-pos)
+      (lister-insert lister-buf buffer-pos data)
+      (goto-char buffer-pos))))
 
-(cl-defmethod lister-replace (viewport (position integer) data)
+(cl-defmethod lister-replace (lister-buf (position integer) data)
   "Replace the item at index POSITION with a new DATA item."
-  (lister-replace (viewport (lister-marker-at viewport position))))
+  (lister-replace (lister-buf (lister-marker-at lister-buf position))))
 
-(cl-defmethod lister-replace (viewport (position (eql :point)) data)
+(cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
-  (when-let* ((marker (lister-current-marker viewport)))
-    (lister-replace viewport marker data)))
+  (when-let* ((marker (lister-current-marker lister-buf)))
+    (lister-replace lister-buf marker data)))
 
 ;; * Set data
 
-(cl-defgeneric lister-set-data (viewport position data)
-  "Store DATA in text property 'data at POSITION.
+(cl-defgeneric lister-set-data (lister-buf position data)
+  "Store the lisp object DATA at POSITION in LISTER-BUF.
 
 POSITION can be either a marker, an index position, or the symbol
 :point.
@@ -474,9 +501,9 @@ If POSITION is the symbol :point, store data at the item at
 point.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-set-data (viewport (position marker) data)
-  "Store DATA at the buffer position defined by MARKER."
-  (with-current-buffer (lister-viewport-buffer viewport)
+(cl-defmethod lister-set-data (lister-buf (position marker) data)
+  "Store DATA at the position defined by MARKER in LISTER-BUF."
+  (with-lister-buffer lister-buf
     (let ((inhibit-read-only t))
       (put-text-property position (1+ position)
 			 'cursor-sensor-functions
@@ -484,21 +511,21 @@ point.")
       (put-text-property position (1+ position)
 			 'data data))))
 
-(cl-defmethod lister-set-data (viewport (position integer) data)
-  "Store DATA in the item at index POSITION."
-  (lister-set-data viewport
-		   (lister-marker-at viewport position)
+(cl-defmethod lister-set-data (lister-buf (position integer) data)
+  "In LISTER-BUF, store DATA in the item at index POSITION."
+  (lister-set-data lister-buf 
+		   (lister-marker-at lister-buf position)
 		   data))
 
-(cl-defmethod lister-set-data (viewport (position (eql :point)) data)
-  "Store DATA in the item at point."
-  (when-let* ((marker (lister-current-marker viewport)))
-    (lister-set-data viewport marker data)))
+(cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
+  "In LISTER-BUF, store DATA in the item at point."
+  (when-let* ((marker (lister-current-marker lister-buf)))
+    (lister-set-data lister-buf marker data)))
 
 ;; * Get data
 
-(cl-defgeneric lister-get-data (viewport position)
-  "Retrieve the data stored at POSITION.
+(cl-defgeneric lister-get-data (lister-buf position)
+  "Retrieve the data stored at POSITION in LISTER-BUF.
 
 POSITION can be either a marker, a list index, or the symbol
 :point.
@@ -509,28 +536,30 @@ If POSITION is an integer, treat it as an index number, starting
 from 0. Return the data stored there. 
 
 If POSITION is the symbol :point, return the data of the item at
-point.")
+point.
+
+The object has to be stored by `lister-set-data', which see.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-get-data (viewport (position marker))
-  "Retrieve the data stored at marker POSITION."
-  (with-current-buffer (lister-viewport-buffer viewport)
+(cl-defmethod lister-get-data (lister-buf (position marker))
+  "Retrieve the data stored at marker POSITION in LISTER-BUF."
+  (with-lister-buffer lister-buf
     (get-text-property position 'data)))
 
-(cl-defmethod lister-get-data (viewport (position integer))
+(cl-defmethod lister-get-data (lister-buf (position integer))
   "Retrieve the data stored at INDEX position."
-  (lister-get-data viewport
-		   (lister-marker-at viewport position)))
+  (lister-get-data lister-buf
+		   (lister-marker-at lister-buf position)))
 
-(cl-defmethod lister-get-data (viewport (position (eql :point)))
+(cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
-  (when-let* ((marker (lister-current-marker viewport)))
-    (lister-get-data viewport marker)))
+  (when-let* ((marker (lister-current-marker lister-buf)))
+    (lister-get-data lister-buf marker)))
 
 ;; * Goto
 
-(cl-defgeneric lister-goto (viewport position)
-  "In VIEWPORT, move point to POSITION.
+(cl-defgeneric lister-goto (lister-buf position)
+  "In LISTER-BUF, move point to POSITION.
 
 POSITION can be either a marker, a list index number, or one of
 the symbols :last or :first.
@@ -551,55 +580,55 @@ item, ignoring the header.")
 ;; available.
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-goto (viewport (position marker))
-  "Move point in VIEWPORT to the marker POSITION."
-  (with-current-buffer (lister-viewport-buffer viewport)
+(cl-defmethod lister-goto (lister-buf (position marker))
+  "Move point in LISTER-BUF to the marker POSITION."
+  (with-lister-buffer lister-buf
     (let ((previous-point (point)))
       (goto-char position)
       (lister-sensor-function (selected-window) previous-point 'entered))))
 
-(cl-defmethod lister-goto (viewport (position integer))
-  "Move point in VIEWPORT to the index POSITION."
-  (lister-goto viewport
-	       (lister-marker-at viewport position)))
+(cl-defmethod lister-goto (lister-buf (position integer))
+  "Move point in LISTER-BUF to the index POSITION."
+  (lister-goto lister-buf
+	       (lister-marker-at lister-buf position)))
 
-(cl-defmethod lister-goto (viewport (position (eql :last)))
-  "Move point to the last item in VIEWPORT."
-  (when-let* ((ml (lister-viewport-marker-list viewport)))
-    (lister-goto viewport (car (last ml)))))
+(cl-defmethod lister-goto (lister-buf (position (eql :last)))
+  "Move point to the last item in LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (when-let* ((ml lister-local-marker-list))
+      (lister-goto lister-buf (car (last ml))))))
 
-(cl-defmethod lister-goto (viewport (position (eql :first)))
-  "Move point to the first item in VIEWPORT."
-  (when-let* ((ml (lister-viewport-marker-list viewport)))
-    (lister-goto viewport (car ml))))
+(cl-defmethod lister-goto (lister-buf (position (eql :first)))
+  "Move point to the first item in LISTER-BUF."
+  (lister-goto lister-buf 0))
 
 ;; * Marker Handling
 
-(defun lister-marker-at (viewport index)
-  "Return marker for item at index position INDEX.
+(defun lister-marker-at (lister-buf index)
+  "Return marker for item at index position INDEX in LISTER-BUF.
 The first item as the index 0, the second item the index 1, etc.
 If the index is out of range, throw an error."
-  (let* ((ml (lister-viewport-marker-list viewport)))
-    (if (and (>= index 0)
-	     (< index (length ml)))
-	(nth index ml)
-      (error "lister-marker-at: requested index %s out of range." index))))
+  (with-lister-buffer lister-buf
+    (let* ((ml lister-local-marker-list))
+      (if (and (>= index 0)
+	       (< index (length ml)))
+	  (nth index ml)
+	(error "lister-marker-at: requested index position %s out of range." index)))))
 
-(defun lister-current-marker (viewport)
-  "Return MARKER of the item at point in VIEWPORT
-
+(defun lister-current-marker (lister-buf)
+  "Return MARKER of the item at point in LISTER-BUF.
 Only return a marker if point is on the beginning of ITEM.
-
 Return nil if no marker is available."
-  (with-current-buffer (lister-viewport-buffer viewport)
+  (with-lister-buffer lister-buf 
     (save-excursion
       (when (get-text-property (point) 'item)
 	(seq-find (lambda (m)
 		    (eq (marker-position m) (point)))
-		  (lister-viewport-marker-list viewport))))))
+		  lister-local-marker-list)))))
 
 (defun lister-first-lines (buf)
-  "Return position of the first item in BUF."
+  "Return position of the first item in BUF.
+An 'item' can be the header, a list element or the footer."
   (with-current-buffer buf
     (save-excursion
       (goto-char (point-min))
@@ -612,7 +641,10 @@ Return nil if no marker is available."
 	(point)))))
 
 (defun lister-item-positions (buf)
-  "Create a list of all item positions in BUF."
+  "Create a list of all item positions in BUF.
+An 'item' can be the header, a list element or the footer. The
+footer, if any, is the first element of the list; the header, if
+any, the last one."
   (with-current-buffer buf
     (save-excursion
       (when-let* ((pos (lister-first-lines buf)))
@@ -626,54 +658,60 @@ Return nil if no marker is available."
 	  (reverse result))))))
 
 (defun lister-marker-list (buf)
-  "Return a list of marker pointing to each item in BUF."
+  "Create a list of markers for each list item in BUF.
+The result does not discriminate between header, list item or
+footer. Each element is returned as an 'item'. The footer, if
+any, is the first element of the list; the header, if any, the
+last one."
   (mapcar (lister-curry #'lister-make-marker buf)
 	  (lister-item-positions buf)))
 
 ;; * Treat list items as indexed items
 
-(cl-defgeneric lister-index (viewport position)
-  "Return the index number of the item at POSIITION in VIEWPORT.
+(cl-defgeneric lister-index (lister-buf position)
+  "Return the index number of the item at POSIITION in LISTER-BUF.
 
 POSITION can be either a marker, a valid buffer position, or the
-special key :point.
+special symbol :point.
 
 If POSITION is a marker or integer, return the index number of
 the item at POSITION.
 
 If POSITION is the symbol :point, return the index number of the
-item at point.
-
-All positions apply to the buffer associated with VIEWPORT.")
+item at point.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-index (viewport (position marker))
-    "Return the index number of the item at MARKER position.".
-  (seq-position (lister-viewport-marker-list viewport)
-		position
-		#'equal))
+(cl-defmethod lister-index (lister-buf (position marker))
+  "Return the index number of the item at MARKER position.".
+  (with-lister-buffer lister-buf
+    (seq-position lister-local-marker-list
+		  position
+		  #'equal)))
 
-(cl-defmethod lister-index (viewport (position integer))
+(cl-defmethod lister-index (lister-buf (position integer))
   "Return the index number of the item at buffer POSITION."
-  (lister-index viewport (lister-make-marker
-			  (lister-viewport-buffer viewport)
-			  position)))
+  (lister-index lister-buf
+		;; make a marker on the fly:
+		(lister-make-marker lister-buf position)))
 
-(cl-defmethod lister-index (viewport (position (eql :point)))
+(cl-defmethod lister-index (lister-buf (position (eql :point)))
   "Return the index number of the item at point."
-  (lister-index viewport (point)))
+  (lister-index lister-buf (with-current-buffer lister-buf (point))))
 
-(defun lister-next-free-position (viewport)
-  "Return the next free position for a new list item in VIEWPORT."
-  (let* ((ml     (lister-viewport-marker-list viewport))
-	 (buffer (lister-viewport-buffer viewport))
-	 (header (lister-viewport-header-marker viewport))
-	 (footer (lister-viewport-footer-marker viewport)))
-    (cond
-     ((last ml)  (lister-end-of-lines buffer (marker-position (car (last ml)))))
-     (footer     (lister-end-of-lines buffer (marker-position footer)))
-     (header     (point-max))
-     (t          (point-min)))))
+(defun lister-next-free-position (lister-buf) 
+  "Return the next free position for a new list item in LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (let* ((ml     lister-local-marker-list))
+      (cond
+       ;; if there are any items, return the last item position:
+       ;; (this is independent of an existing footer)
+       ((last ml)               (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
+       ;; now is there a footer? return its position to insert next item there: 
+       (lister-local-footer-marker     (lister-end-of-lines lister-buf (marker-position lister-local-footer-marker)))
+       ;; no footer, so insert after header, which is the end of the buffer:
+       (lister-local-header-marker     (point-max))
+       ;; nothing there, just go to the beginning:
+       (t          (point-min))))))
 
 ;; * Creating Markers
 
@@ -684,19 +722,21 @@ All positions apply to the buffer associated with VIEWPORT.")
     (set-marker-insertion-type marker t)
     marker))
 
-(defun lister-recreate-marker-list (viewport)
-  "Create and store a new marker list for VIEWPORT."
-  (let* ((ml (lister-marker-list (lister-viewport-buffer viewport))))
-    ;; move header and footer markers to their own viewport slots:
-    (when (lister-viewport-header-marker viewport)
-      (setf (lister-viewport-header-marker viewport)
-	    (pop ml)))
-    (when (lister-viewport-footer-marker viewport)
-      (setf (lister-viewport-footer-marker viewport)
-	    (car (last ml)))
-      (setq ml (butlast ml)))
-    ;; store list in viewport:
-    (setf (lister-viewport-marker-list viewport) ml)))
+(defun lister-recreate-marker-list (lister-buf)
+  "Create and store a new marker list for LISTER-BUF.
+Also recreates the markers for the header and the footer of the list."
+  (with-lister-buffer lister-buf
+    ;; get a freshly created list of each 'item',
+    ;; including header and footer:
+    (let* ((ml (lister-marker-list lister-buf)))
+      ;; move header and footer markers to their own variables:
+      (when lister-local-header-marker
+	(setq lister-local-header-marker (pop ml)))
+      (when lister-local-footer-marker
+	(setq lister-local-footer-marker (car (last ml)))
+	(setq ml (butlast ml)))
+      ;; store list:
+      (setq lister-local-marker-list ml))))
 
 ;; * Cursor Sensor Function
 
@@ -704,8 +744,14 @@ All positions apply to the buffer associated with VIEWPORT.")
   "List of functions to call when point enters an existing
   item.")
 
+(defvar-local lister-leave-item-hook nil
+  "List of functions to call when point leves an existing
+  item.")
+
 (defun lister-sensor-function (win previous-point type)
   (when (eq type 'entered)       
+    (run-hooks 'lister-enter-item-hook))
+  (when (eq type 'left)       
     (run-hooks 'lister-enter-item-hook)))
 
 ;; * Imenu
@@ -718,31 +764,31 @@ All positions apply to the buffer associated with VIEWPORT.")
   (cursor-sensor-mode)
   (cursor-intangible-mode))
 
-;; * Setup 
+;; * Set a (new) list 
 
-(defun lister-set-list (viewport data-list)
-  "Insert DATA-LIST in VIEWPORT, leaving header and footer untouched.
-Return the viewport.
-
+(defun lister-set-list (lister-buf data-list)
+  "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
 To set the header or the footer, use `lister-set-header' and
 `lister-set-footer'."
-  (with-current-buffer (lister-viewport-buffer viewport)
+  (with-lister-buffer lister-buf
     ;; delete old list:
-    (when-let* ((ml  (lister-viewport-marker-list viewport)))
-      (let* ((beg (nth 0 ml)) ;; (nth 0 ml) is always the first item,
-			      ;; because header marker is stored in
-			      ;; its own special slot.
-	     (end (or (lister-viewport-footer-marker viewport)
-		      (point-max)))
-	     (inhibit-read-only t))
-	(delete-region beg end)))
+    (when-let* ((ml lister-local-marker-list)
+		;; (nth 0 ml) is always the first item,
+		;; because header marker is stored in
+		;; its own buffer local variable:
+		(beg (nth 0 ml))
+		(end (or lister-local-footer-marker 
+			 (point-max)))
+		(inhibit-read-only t))
+      (delete-region beg end))
     ;; insert new list:
-    (setf (lister-viewport-marker-list viewport)
-	  (mapcar (lister-curry #'lister-add viewport) data-list)))
-  viewport)
+    (setq lister-local-marker-list
+	  (mapcar (lister-curry #'lister-add lister-buf) data-list))))
 
-(defun lister-setup (buf mapper-fn &optional data-list header footer)
-  "Erase BUF, insert DATA-LIST using MAPPER-FN, and optionally add HEADER and FOOTER.
+;; * Set up a lister buffer
+
+(defun lister-setup (buf mapper-fn &optional data-list header footer major-mode-fn)
+  "Set up BUF to display DATA-LIST using MAPPER-FN.
 
 DATA-LIST is a list of data objects which will be passed to
 MAPPER-FN. MAPPER-FN must accept only one argument, the data
@@ -755,31 +801,32 @@ the list.
 FOOTER is a list of strings which will be inserted at the end of
 the list.
 
-Move point to the first list item. Return a newly created
-viewport structure."
-  (let* ((viewport (make-lister-viewport
-		    :buffer buf
-		    :mapper mapper-fn)))
-    ;;
-    (with-current-buffer buf
-      (lister-mode)
-      (let ((inhibit-read-only t))
-	(erase-buffer)))
-    ;;
+Set the major mode to `lister-mode' or call MAJOR-MODE-FN as a
+function to set the major mode. The major mode has to be a mode
+derived from `lister-mode'. Store all passed variables as buffer
+local variables. Move point to the first list item.
+
+Return BUF."
+  (with-current-buffer buf
+    ;; first of all, set the major mode
+    (funcall (or major-mode-fn 'lister-mode))
+    ;; prepare the buffer:
+    (setq lister-local-mapper mapper-fn)
+    (let ((inhibit-read-only t))
+      (erase-buffer))
+    ;; ready to add header, list and footer:
     (when header
       (lister-set-header buf header))
-    ;;
     (when data-list
-      (seq-each (lister-curry #'lister-add viewport) data-list))
+      (seq-each (lister-curry #'lister-add buf) data-list))
     (when footer
       (lister-set-footer buf footer))
-    ;;
-    (lister-recreate-marker-list viewport)
+    ;; TODO Check why this should be necessary
+    (lister-recreate-marker-list buf)
     ;;
     (when data-list
-      (lister-goto viewport 0))
-    ;;
-    viewport))
+      (lister-goto buf :first))
+    buf))
 
 (provide 'lister)
 ;;; lister.el ends here
