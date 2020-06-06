@@ -286,19 +286,16 @@ HEADER is a list. Each list item can be either a string, which is
 printed directly, or a function, to print its return value.
 Nested lists will be flattened. Empty lists will be skipped."
   (assert-lister-buffer lister-buf)
+  ;; either replace existing header or insert new one at bottom:
   (setq lister-local-header-marker
 	(if lister-local-header-marker 
-	    ;; replace existing header:
 	    (lister-replace-lines lister-buf (marker-position lister-local-header-marker) header)
-	  ;; or insert new one at top:
 	  (lister-insert-lines lister-buf (with-current-buffer lister-buf (point-min)) header)))
   ;; set header to be intangible for the cursor:
-  (lister-set-intangible
-   lister-buf
-   lister-local-header-marker))
+  (lister-set-intangible lister-buf  lister-local-header-marker))
 
-(defun lister-set-footer (viewport footer)
-  "Set FOOTER after the last item of VIEWPORT.
+(defun lister-set-footer (lister-buf footer)
+  "Set FOOTER after the last item of LISTER-BUF.
 
 Replace the existing footer, if any, or just add it at the
 end.
@@ -306,24 +303,14 @@ end.
 FOOTER is a list. Each list item can be either a string, which is
 printed directly, or a function, to print its return value.
 Nested lists will be flattened. Empty lists will be skipped."
-  (let ((buffer (lister-viewport-buffer viewport)))
-    (if-let ((footer-marker (lister-viewport-footer-marker viewport)))
-	;; replace old footer:
-	(setf (lister-viewport-footer-marker viewport)
-	      (lister-replace-lines
-	       buffer
-	       (marker-position footer-marker)
-	       footer))
-      ;; or add it to the end:
-      (setf (lister-viewport-footer-marker viewport)
-	    (lister-insert-lines
-	     buffer
-	     (with-current-buffer buffer (point-max))
-	     footer)))
-    ;; footer is intangible for the cursor:
-    (lister-set-intangible
-     buffer
-     (lister-viewport-footer-marker viewport))))
+  (assert-lister-buffer lister-buf)
+  ;; either replace existing footer or insert new one at top:
+  (setq lister-local-footer-marker
+	(if lister-local-footer-marker
+	    (lister-replace-lines lister-buf (marker-position lister-local-footer-marker) footer)
+	  (lister-insert-lines lister-buf (with-current-buffer lister-buf (point-max)) footer)))
+  ;; set footer as intangible for the cursor:
+  (lister-set-intangible lister-buf lister-local-footer-marker))
 
 ;; * Insert items
 
@@ -778,11 +765,12 @@ viewport structure."
 	(erase-buffer)))
     ;;
     (when header
-      (lister-set-header buf  header))
+      (lister-set-header buf header))
+    ;;
     (when data-list
       (seq-each (lister-curry #'lister-add viewport) data-list))
     (when footer
-      (lister-set-footer viewport footer))
+      (lister-set-footer buf footer))
     ;;
     (lister-recreate-marker-list viewport)
     ;;
