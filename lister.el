@@ -153,9 +153,6 @@ Throw an error if BUF is not a lister buffer."
 ;; insert, remove or replace lines of text, usually passed to these
 ;; functions as a list of strings.
 
-;; For convenience, a function can be used instead of a string. The
-;; function accepts no argument and returns a string, of course.
-
 (defun lister-strflat (seq)
   "Recursively stringify all items in L, flattening any sublists.
 
@@ -287,8 +284,6 @@ Use the text property 'nlines to determine the size of the item."
 	(put-text-property beg end 'rear-sticky t)
 	(put-text-property beg end 'front-sticky t)))))
 
-;; TODO Add option to let HEADER begin at arbitrary position (instead
-;; of (point-min))
 (defun lister-set-header (lister-buf header)
   "Set HEADER before the first item in LISTER-BUF.
 
@@ -731,7 +726,7 @@ item at point.")
       (cond
        ;; if there are any items, return the last item position:
        ;; (this is independent of an existing footer)
-       ((last ml)               (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
+       (ml                      (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
        ;; now is there a footer? return its position to insert next item there: 
        (lister-local-footer-marker     (lister-end-of-lines lister-buf (marker-position lister-local-footer-marker)))
        ;; no footer, so insert after header, which is the end of the buffer:
