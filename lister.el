@@ -870,7 +870,9 @@ Return BUF."
     (setq lister-local-mapper mapper-fn)
     (setq lister-enter-item-hook nil
 	  lister-leave-item-hook nil)
-    (let ((inhibit-read-only t))
+    (setq lister--ignore-next-sensor-event nil)
+    (let ((cursor-sensor-inhibit t)
+	  (inhibit-read-only t))
       (erase-buffer))
     ;; ready to add header, list and footer:
     (when header
@@ -885,6 +887,46 @@ Return BUF."
     (when data-list
       (lister-goto buf :first))
     buf))
+
+;; * Highlight minor mode
+
+(defface lister-highlight-face
+  '((t (:inherit org-todo)))
+  "Highlight item with this face.")
+
+(defun lister-highlight-item ()
+  (let* ((pos    (point))
+	 (end    (lister-end-of-lines (current-buffer) pos)))
+    (add-text-properties pos end
+			 '(face list-highlight-face))))
+
+(defun lister-unhighlight-item ()
+  (let* ((pos    (point))
+	 (end    (lister-end-of-lines (current-buffer) pos)))
+    (remove-text-properties pos end
+			 '(face list-highlight-face))))
+
+(define-minor-mode lister-highlight-mode
+  "Toggle highlighting of the selected lister item."
+  :lighter ""
+  :group 'lister
+  (unless (lister-buffer-p (current-buffer))
+    (user-error "This minor mode can only be used in a properly set up lister buffer"))
+  (if lister-highlight-mode
+      ;; enable:
+      (progn
+	(add-hook 'lister-enter-item-hook #'lister-highlight-item nil t)
+	(add-hook 'lister-leave-item-hook #'lister-unhighlight-item nil t)
+	(when lister-local-marker-list
+	  (let* ((previous-point (point)))
+	    (lister-sensor-function (selected-window) previous-point 'entered))))
+    ;; disable:
+    (progn
+      (when lister-local-marker-list
+	(let* ((previous-point (point)))
+	  (lister-sensor-function (selected-window) previous-point 'left)))
+      (remove-hook 'lister-enter-item-hook #'lister-highlight-item t)
+      (remove-hook 'lister-leave-item-hook #'lister-unhighlight-item t))))
 
 (provide 'lister)
 ;;; lister.el ends here
