@@ -129,22 +129,6 @@ Throw an error if BUF is not a lister buffer."
   `(with-current-buffer (lister-buffer-p ,buf)
      ,@body))
 
-;; * Helper
-
-(defsubst lister-curry (fn &rest args)
-  (lambda (&rest more) (apply fn (append args more))))
-
-(defsubst lister-rcurry (fn &rest args)
-  (lambda (&rest more) (apply fn (append more args))))
-
-(defsubst lister-compose (fn &rest more-fn)
-  (seq-reduce (lambda (f g)
-		(lambda (&rest args)
-		  (funcall f (apply g args))))
-	      more-fn
-	      fn))
-
-
 ;; * Building the list with lines
 
 ;; These are the core primitives. The following functions either
@@ -663,7 +647,7 @@ The result does not discriminate between header, list item or
 footer. Each element is returned as an 'item'. The footer, if
 any, is the first element of the list; the header, if any, the
 last one."
-  (mapcar (lister-curry #'lister-make-marker buf)
+  (mapcar (apply-partially #'lister-make-marker buf)
 	  (lister-item-positions buf)))
 
 ;; * Treat list items as indexed items
@@ -839,7 +823,7 @@ To set the header or the footer, use `lister-set-header' and
       (delete-region beg end))
     ;; insert new list:
     (setq lister-local-marker-list
-	  (mapcar (lister-curry #'lister-add lister-buf) data-list))))
+	  (mapcar (apply-partially #'lister-add lister-buf) data-list))))
 
 ;; * Set up a lister buffer
 
@@ -878,7 +862,7 @@ Return BUF."
     (when header
       (lister-set-header buf header))
     (when data-list
-      (seq-each (lister-curry #'lister-add buf) data-list))
+      (seq-each (apply-partially #'lister-add buf) data-list))
     (when footer
       (lister-set-footer buf footer))
     ;; TODO Check why this should be necessary

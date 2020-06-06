@@ -79,7 +79,7 @@
 		      '("A" "B" "C")
 		      "HEADER"
 		      "FOOTER")))
-    ;; (lister-add-enter-callback lister-buf #'lister-item-message)
+    (lister-add-enter-callback lister-buf #'lister-item-message)
     (switch-to-buffer lister-buf)
     (lister-highlight-mode)))
 
