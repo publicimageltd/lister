@@ -79,11 +79,13 @@
 ;;
 
 ;; TODO
-;; - Extend documentation
 ;; - Add functions to "mark" a list item
-;; (dired-like)
-;; - Add optional padding of list items (left and top as
-;; well as right and bottom)
+;; (dired-like) -- 
+;;
+;; - Extend documentation
+;;
+;;
+;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
 
 ;;; Code:
 
