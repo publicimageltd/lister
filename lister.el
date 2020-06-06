@@ -1,4 +1,4 @@
-;;; lister.el --- a not very functional list printer            -*- lexical-binding: t; -*-
+;;; lister.el --- yet another list printer             -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018-2020
 
@@ -18,6 +18,78 @@
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
+
+;; === Overview:
+;;
+;; This library provides functions to support displaying a list in a
+;; buffer. The functions help to insert in the buffer and to modify it
+;; on a per-item basis.
+;;
+;; The buffer displaying the list items will be put in the major mode
+;; `lister'. Most of all, this major mode restricts the movement of
+;; the cursor to the very beginning of each item. Thus the displayed
+;; list items can be accessed separately by the user using regular
+;; cursor functions. There is no special keymap needed. E.g., to move
+;; to the next item, no matter how long it is, just move down with the
+;; cursor key; or to move up one item, just move up with the cursor
+;; keys.
+;;
+;; Each list item in the buffer is associated with the data object it
+;; is representing. Thus, it is easy to define functions which react
+;; to the user pressing a key, e.g. <return>.
+;;
+;; The list can have a static `header' and a `footer'. Footer and
+;; header can be updated without interfering with the list itself.
+;;
+;; === How to use:
+;;
+;; Most functions use an internal viewport structure
+;; (`lister-viewport'). It stores the buffer object of the list as
+;; well as some internal data.
+;;
+;; The list items are created using a mapper function, which has to be
+;; passed once when the list is set up the first time (see
+;; `lister-setup'). The mapper function has to accept the data object
+;; as its argument and returns a list of strings representing the
+;; item.
+;;
+;; The original data which is represented by the item is also stored
+;; in the buffer, along with the string representation of the item. It
+;; can be retrieved via `lister-get-data'.
+;;
+;; The usual approach is to build a first list using `lister-setup'.
+;; Store the viewport which has been returned. Using the viewport, it
+;; is then possible to insert, add, remove or replace list items.
+;;
+;; Most of these functions which deal with list items are generic
+;; functions. They often accept different arguments, e.g., an explicit
+;; buffer position, a marker, or a meaningful symbol such as :point,
+;; :last or :first. See the documentation of the functions for further
+;; informations.
+;;
+;; To insert a list item:
+;; - `lister-insert'
+;;
+;; To add a list items at the end of the list:
+;; - `lister-add'
+;;
+;; To remove a list item:
+;; - `lister-remove'
+;;
+;; To replace an existing item with a new one:
+;; - `lister-replace'
+;;
+;; To move to an item:
+;; - `lister-goto'
+;;
+
+;; TODO
+;; - Extend documentation
+;; - Add functions to "mark" a list item
+;; (dired-like)
+;; - Add optional padding of list items (left and top as
+;; well as right and bottom)
+
 
 ;;; Code:
 
@@ -617,6 +689,8 @@ All positions apply to the buffer associated with VIEWPORT.")
   (when (eq type 'entered)       
     (run-hooks 'lister-enter-item-hook)))
 
+;; * Imenu
+
 ;; * Lister Major Mode
 
 (define-derived-mode lister-mode
@@ -667,6 +741,7 @@ viewport structure."
   (let* ((viewport (make-lister-viewport
 		    :buffer buf
 		    :mapper mapper-fn)))
+    ;;
     (with-current-buffer buf
       (let ((inhibit-read-only t))
 	(erase-buffer)))
