@@ -79,8 +79,8 @@
 ;;
 
 ;; TODO
-;; - Add functions to "mark" a list item
-;; (dired-like) -- 
+;; - Add keyboard functions to "mark" a list item
+;; (dired-like) -- (`lister-mark-item')
 ;;
 ;; - Extend documentation
 ;;
@@ -504,6 +504,43 @@ point.")
   "Replace the item at point with a new DATA item."
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-replace lister-buf marker data)))
+
+;; * Mark an item
+
+(cl-defgeneric lister-mark-item (lister-buf position &optional unmark)
+  "In LISTER-BUF, mark (or UNMARK) the item at POSITION.")
+
+;; This is the real function, all other variants are just wrappers:
+(cl-defmethod lister-mark-item (lister-buf (position marker) &optional unmark)
+  "In LISTER-BUF, mark (or UNMARK) the item at POSITION."
+  (with-current-buffer lister-buf
+    (let ((inhibit-read-only t))
+      (put-text-property position (1+ position)
+			 'mark (not unmark))
+      (lister-display-mark-state lister-buf position))))
+
+(cl-defmethod lister-mark-item (lister-buf (position (eql :point)) &optional unmark)
+  "In LISTER-BUF, mark (or UNMARK) the item at POSITION."
+  (when-let* ((m (lister-current-marker lister-buf)))
+    (lister-mark-item lister-buf m unmark)))
+
+(cl-defmethod lister-mark-item (lister-buf (position integer) &optional unmark)
+  "In LISTER-BUF, mark (or UNMARK) the item at index POSITION."
+  (lister-mark-item lister-buf
+		    (lister-marker-at lister-buf position)))
+
+(defface lister-mark-face
+  '((t (:bold t)))
+  "Mark items with this face.")
+
+(defun lister-display-mark-state (lister-buf position)
+  "In LISTER-BUF, display the 'mark' state of the item at POSITION."
+  (with-lister-buffer lister-buf
+    (let* ((state    (get-text-property position 'mark))
+	   (face-fun (if state 'add-text-properties 'remove-text-properties))
+	   (beg      position)
+	   (end      (lister-end-of-lines lister-buf beg)))
+      (funcall face-fun beg end '(face lister-mark-face)))))
 
 ;; * Set data
 
