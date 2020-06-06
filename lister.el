@@ -199,18 +199,20 @@ Empty lists or nil values will be skipped."
 (defun lister-insert-lines (buf pos lines)
   "Insert list LINES at POS in BUF.
 
-LINES is a list. Each item can be either a string, which is
-printed directly, or a function, to print its return value.
+LINES is a list or string. If LINES is a string, insert it with
+newline added. If LINES is list, insert each element of LINES
+with newline added. Each item can be either a string, which is
+inserted directly, or a function, to insert its return value.
 Nested lists will be flattened. Empty lists will be skipped.
 
-Insert each element of LINES with newline added. Mark the
-beginning of the newly inserted text with the text property
-'item. Store the number of inserted lines in the text property
-'nlines. Move point to the end of the newly inserted text. Return
-the marker of the first position."
+Mark the beginning of the newly inserted text with the text
+property 'item. Store the number of inserted lines in the text
+property 'nlines. Move point to the end of the newly inserted
+text. Return the marker of the first position."
   (with-current-buffer buf
     (let* ((beg               pos)
-	   (item-list         (lister-strflat lines))
+	   (item-list         (if (stringp lines) (list lines)
+				(lister-strflat lines)))
 	   (inhibit-read-only t))
       (goto-char beg)
       (insert (string-join item-list "\n") "\n")
