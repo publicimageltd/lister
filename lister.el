@@ -740,21 +740,77 @@ Also recreates the markers for the header and the footer of the list."
 
 ;; * Cursor Sensor Function
 
-(defvar-local lister-enter-item-hook nil
-  "List of functions to call when point enters an existing
-  item.")
+(defvar lister-enter-item-hook nil
+  "List of functions to call when point enters an existing item.
+If the function is called, the lister buffer is set current, and
+point is on the current item. 
 
-(defvar-local lister-leave-item-hook nil
-  "List of functions to call when point leves an existing
-  item.")
+To avoid recursion, `cursor-sensor-inhibit' is set to `t' when
+calling the functions.
 
-(defun lister-sensor-function (win previous-point type)
-  (when (eq type 'entered)       
-    (run-hooks 'lister-enter-item-hook))
-  (when (eq type 'left)       
-    (run-hooks 'lister-enter-item-hook)))
+Use `lister-add-enter-callback' to add a function to this hook.")
 
-;; * Imenu
+(defvar lister-leave-item-hook nil
+  "List of functions to call when point leaves an existing item.
+If the function is called, the lister buffer is set current, and
+point is on the item which is left. 
+
+To avoid recursion, `cursor-sensor-inhibit' is set to `t' when
+calling the functions.
+
+Use `lister-add-leave-callback' to add a function to this hook.")
+
+(defvar lister----counter 0)
+
+(defvar-local lister--ignore-next-sensor-event nil
+  "Ignore the next cursor sensor event.")
+
+(defun lister-sensor-function (win previous-point direction)
+  "Use WIN, PREVIOUS-POINT and DIRECTION to call callback functions.
+
+This is a dispatcher function which is be used by the
+`cursor-sensor-function' property. To use the cursor sensor
+function for list items, add callbacks to
+`lister-add-enter-callback' and `lister-add-leave-callback',
+respectively."
+  (with-current-buffer (window-buffer win)
+    (when (derived-mode-p 'lister-mode)
+      (let ((cursor-sensor-inhibit t)
+	    (inhibit-read-only t))
+	;; FOR DEBUGGING:
+	;; (message "(%3d) Direction: %s; previous-point: %d; point: %d %s"
+	;; 	 (incf lister----counter)
+	;; 	 direction
+	;; 	 previous-point
+	;; 	 (point)
+	;; 	 (if lister--ignore-next-sensor-event "(WILL BE IGNORED"
+	;; 	   (if (eobp) "(BOUNCE BACK)" " ")))
+	(if lister--ignore-next-sensor-event
+	    (setq lister--ignore-next-sensor-event nil)
+	  (if (eobp)
+	      ;; never leave the last list item:
+	      (progn 
+		(goto-char previous-point)
+		;; goto-char will cause a new `enter'-event, 
+		;; let us ignore it:
+		(setq lister--ignore-next-sensor-event t))
+	    (when (eq direction 'left)
+	      (save-excursion
+		(goto-char previous-point)
+		(run-hooks 'lister-leave-item-hook)))
+	    (when (eq direction 'entered)
+	      (run-hooks 'lister-enter-item-hook))))))))
+
+(defun lister-add-enter-callback (lister-buf fn-name)
+  "Let FN-NAME be called when entering a list item."
+  (with-current-buffer lister-buf
+    (add-hook 'lister-enter-item-hook fn-name nil t)))
+
+(defun lister-add-leave-callback (lister-buf fn-name)
+  "Let FN-NAME be called when entering a list item."
+  (with-current-buffer lister-buf
+    (add-hook 'lister-leave-item-hook fn-name nil t)))
+
 
 ;; * Lister Major Mode
 
@@ -812,6 +868,8 @@ Return BUF."
     (funcall (or major-mode-fn 'lister-mode))
     ;; prepare the buffer:
     (setq lister-local-mapper mapper-fn)
+    (setq lister-enter-item-hook nil
+	  lister-leave-item-hook nil)
     (let ((inhibit-read-only t))
       (erase-buffer))
     ;; ready to add header, list and footer:

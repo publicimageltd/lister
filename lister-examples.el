@@ -66,14 +66,38 @@
    (format "%s" data)
    "Zweite Zeile"))
 
+(defun lister-item-message ()
+  (message "Datenobjekt ist %s."
+	   (lister-get-data (current-buffer) :point)))
+
+(defface list-highlight-face
+  '((t (:inherit org-todo)))
+  "Highlight item with this face.")
+
+(defun lister-highlight-item ()
+  (message "Highlighting %s" (lister-get-data (current-buffer) :point))
+  (let* ((pos    (point))
+	 (end    (lister-end-of-lines (current-buffer) pos)))
+    (add-text-properties pos end
+			 '(face list-highlight-face))))
+
+(defun lister-unhighlight-item ()
+  (let* ((pos    (point))
+	 (end    (lister-end-of-lines (current-buffer) pos)))
+    (remove-text-properties pos end
+			 '(face list-highlight-face))))
+
 (defun lister-interactive-test ()
   (interactive)
+  (message "Neuer Start von `lister-interactive-test'")
   (let* ((lister-buf (lister-setup
 		      (lister-test-buffer)
 		      #'lister-mapper
 		      '("A" "B" "C")
 		      "HEADER"
 		      "FOOTER")))
+    (lister-add-enter-callback lister-buf #'lister-highlight-item)
+    (lister-add-leave-callback lister-buf #'lister-unhighlight-item)
     (switch-to-buffer lister-buf)))
 
 ;; (lister-blink-overlays viewport)))	
