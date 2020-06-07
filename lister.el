@@ -84,9 +84,11 @@
 ;;
 ;; - Extend documentation
 ;;
-;;
 ;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
-
+;;
+;; - Add function to reconstruct data from list (so that you can delete stuff in the buffer)
+;;
+;; - Add debugging info for the macro `with-lister-buffer'
 ;;; Code:
 
 
@@ -123,6 +125,46 @@ Set this to nil if no top margin is wanted.")
   "Add this bottom margin when inserting an item.
 Set this to nil if no bottom margin is wanted.")
 
+(defvar lister-mark-face-or-property
+  '(:weight bold :underline t)
+  "Additional text property highlighting marked items.
+Alternatively, the value can be the name of a face.")
+
+;; * Adding and removing faces or face properties
+
+(defun lister-add-face-property (beg end face-or-plist)
+  "A wrapper around `add-face-text-property'.
+Use this in conjunction with `lister-remove-face-property'. Do
+not change the text property of the face directly, unless you
+know what you do."
+  (let* ((current-props (get-text-property beg 'face))
+	 (new-props     (if current-props
+			    face-or-plist
+			  ;; We always want a list of either plists or
+			  ;; face names (i.e. '((:underline t))). So
+			  ;; if this is the first face plist or face
+			  ;; name to add, wrap it in a list.
+			  (list face-or-plist))))
+    (add-face-text-property beg end new-props)))
+
+(defun lister-remove-face-property (beg end face-or-plist)
+  "Remove FACE-OR-PLIST from the face property from BEG to END.
+Use this in conjunction with `lister-add-face-property'. Do not
+change the text property of the face directly, unless you know
+what you do."
+  (let* ((face-prop-value   (get-text-property beg 'face))
+	 (current-props     (if (listp face-prop-value) face-prop-value (list face-prop-value)))
+	 ;; this works because our wrapper around
+	 ;; add-face-text-propery makes sure the value of the face
+	 ;; property is always a list, even if we've added just a
+	 ;; single item, such as a face name:
+	 (new-props         (seq-remove
+			     (apply-partially #'equal face-or-plist)
+			     current-props)))
+    (if new-props 
+	(add-text-properties beg end (list 'face new-props))
+      (remove-text-properties beg end '(face)))))
+
 ;; * Helper functions to work with lister buffers
 
 (defun lister-buffer-p (buf)
@@ -145,7 +187,7 @@ the local mapper function is undefined."
 (defmacro with-lister-buffer (buf &rest body)
   "Execute BODY in BUF.
 Throw an error if BUF is not a lister buffer."
-  (declare (indent 1))
+  (declare (indent 1) (debug t))
   `(with-current-buffer (lister-buffer-p ,buf)
      ,@body))
 
@@ -505,42 +547,83 @@ point.")
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-replace lister-buf marker data)))
 
-;; * Mark an item
+;; * Return mark state of an item
 
-(cl-defgeneric lister-mark-item (lister-buf position &optional unmark)
-  "In LISTER-BUF, mark (or UNMARK) the item at POSITION.")
+(cl-defgeneric lister-get-mark-state (lister-buf position)
+  "For the list in LISTER-BUF, find out if the item at POSITION is marked.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-mark-item (lister-buf (position marker) &optional unmark)
-  "In LISTER-BUF, mark (or UNMARK) the item at POSITION."
+(cl-defmethod lister-get-mark-state (lister-buf (position marker))
+  "In LISTER-BUF, find out if the item at POSITION is marked."
   (with-current-buffer lister-buf
-    (let ((inhibit-read-only t))
-      (put-text-property position (1+ position)
-			 'mark (not unmark))
+    (get-text-property position 'mark)))
+
+(cl-defmethod lister-get-mark-state (lister-buf (position integer))
+  "In LISTER-BUF, check if the item at index POSITION is marked."
+  (lister-get-mark-state lister-buf (lister-marker-at position)))
+
+(cl-defmethod lister-get-mark-state (lister-buf (position (eql :point)))
+  "In LISTER-BUF, check if the item at point is marked."
+  (lister-get-mark-state lister-buf (lister-current-marker lister-buf)))
+
+
+;; * Mark an item
+
+(cl-defgeneric lister-mark-item (lister-buf position value)
+  "In LISTER-BUF, set the item's mark at POSITION to VALUE.")
+
+;; This is the real function, all other variants are just wrappers:
+(cl-defmethod lister-mark-item (lister-buf (position marker) value)
+    "In LISTER-BUF, set the item's mark at POSITION to VALUE."
+  (with-current-buffer lister-buf
+    (let* ((inhibit-read-only t))
+      (put-text-property position (1+ position)  ;; works with markers AND integers 
+			 'mark value)
       (lister-display-mark-state lister-buf position))))
 
-(cl-defmethod lister-mark-item (lister-buf (position (eql :point)) &optional unmark)
-  "In LISTER-BUF, mark (or UNMARK) the item at POSITION."
+(cl-defmethod lister-mark-item (lister-buf (position (eql :point)) value)
+    "In LISTER-BUF, set the item's mark at POSITION to VALUE."
   (when-let* ((m (lister-current-marker lister-buf)))
-    (lister-mark-item lister-buf m unmark)))
+    (lister-mark-item lister-buf m value)))
 
-(cl-defmethod lister-mark-item (lister-buf (position integer) &optional unmark)
-  "In LISTER-BUF, mark (or UNMARK) the item at index POSITION."
+(cl-defmethod lister-mark-item (lister-buf (position integer) value)
+    "In LISTER-BUF, set the item's mark at POSITION to VALUE."
   (lister-mark-item lister-buf
-		    (lister-marker-at lister-buf position)))
+		    (lister-marker-at lister-buf position)
+		    value))
 
-(defface lister-mark-face
-  '((t (:bold t)))
-  "Mark items with this face.")
-
-(defun lister-display-mark-state (lister-buf position)
-  "In LISTER-BUF, display the 'mark' state of the item at POSITION."
+(defun lister-mark-all-items (lister-buf value)
+  "Set all items to the marking state VALUE in LISTER-BUF."
   (with-lister-buffer lister-buf
-    (let* ((state    (get-text-property position 'mark))
-	   (face-fun (if state 'add-text-properties 'remove-text-properties))
-	   (beg      position)
+    (seq-do (lambda (m) (lister-mark-item lister-buf m value)) lister-local-marker-list)))
+
+(defun lister-display-mark-state (lister-buf marker)
+  "In LISTER-BUF, display the 'mark' state of the item at MARKER."
+  ;;  (with-lister-buffer lister-buf
+  (with-current-buffer lister-buf 
+    (let* ((state    (lister-get-mark-state lister-buf marker))
+	   (face-fun (if state 'lister-add-face-property 'lister-remove-face-property))
+	   (beg      marker)
 	   (end      (lister-end-of-lines lister-buf beg)))
-      (funcall face-fun beg end '(face lister-mark-face)))))
+      (funcall face-fun beg end lister-mark-face-or-property))))
+
+;; * Collecting marked items
+
+(defun lister-marked-items (lister-buf)
+  "Get all markers pointing to marked items in LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
+		lister-local-marker-list)))
+
+(defun lister-map-marked-items (lister-buf fn)
+  "Collect the results of calling FN on each marked item.
+FN has to accept a marker object as its sole argument."
+  (seq-map fn (lister-marked-items lister-buf)))
+
+(defun lister-get-marked-data (lister-buf)
+  "Collect all data from the marked items in LISTER-BUF."
+  (lister-map-marked-items lister-buf
+			   (apply-partially #'lister-get-data lister-buf)))
 
 ;; * Set data
 
@@ -874,9 +957,39 @@ respectively."
 
 ;; * Lister Major Mode
 
+(defun lister-key-test ()
+  (interactive)
+  (message "Hi there, this is a test! Did you read me?"))
+
+(defun lister-key-toggle-mark ()
+  "Toggle mark of item at point."
+  (interactive)
+  (let* ((current-state (lister-get-mark-state (current-buffer) :point)))
+    (lister-mark-item (current-buffer) :point (not current-state))))
+
+(defun lister-key-mark-all-items ()
+  "Mark all items of the current list."
+  (interactive)
+  (lister-mark-all-items (current-buffer) t))
+
+(defun lister-key-unmark-all-items ()
+  "Umark all items of the current list."
+  (interactive)
+  (lister-mark-all-items (current-buffer) nil))
+
+(defvar lister-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map special-mode-map)
+    (define-key map "m" 'lister-key-toggle-mark)
+    (define-key map "*" 'lister-key-mark-all-items)
+    (define-key map "u" 'lister-key-unmark-all-items)
+    map)
+  "Key map for `lister-mode'.")
+
 (define-derived-mode lister-mode
   special-mode "Lister"
   "Major mode for selecting list items."
+  :group 'lister
   (cursor-sensor-mode)
   (cursor-intangible-mode))
 
@@ -950,21 +1063,22 @@ Return BUF."
 
 ;; * Highlight minor mode
 
-(defface lister-highlight
-  '((t (:inherit org-todo)))
-  "Highlight item with this face.")
+(defvar lister-highlight-face-or-property
+  'org-todo
+  "Text property or name of face to add when highlighting an
+  item.")
 
 (defun lister-highlight-item ()
   (let* ((pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos)))
-    (add-text-properties pos end
-			 '(face lister-highlight))))
+    (lister-add-face-property pos end
+			      lister-highlight-face-or-property)))
 
 (defun lister-unhighlight-item ()
   (let* ((pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos)))
-    (remove-text-properties pos end
-			 '(face lister-highlight))))
+    (lister-remove-face-property pos end
+				 lister-highlight-face-or-property)))
 
 (define-minor-mode lister-highlight-mode
   "Toggle highlighting of the selected lister item."
