@@ -81,8 +81,7 @@
 		      "FOOTER")))
     (lister-add-enter-callback lister-buf #'lister-item-message)
     (switch-to-buffer lister-buf)
-  ;;  (lister-highlight-mode))
-  ))
+    (lister-highlight-mode)))
 
 ;; (lister-blink-overlays viewport)))	
 

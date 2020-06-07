@@ -126,8 +126,18 @@ Set this to nil if no top margin is wanted.")
 Set this to nil if no bottom margin is wanted.")
 
 (defvar lister-mark-face-or-property
-  '(:weight bold :underline t)
+  '(:background "darkorange3"
+    :foreground "white")
   "Additional text property highlighting marked items.
+Any marked item will be highlighted by adding these properties.
+Useful values are, for example, 
+
+ (:background \"dark orange\") ;; sets a dark orange background
+
+or 
+
+  (:weight bold)
+
 Alternatively, the value can be the name of a face.")
 
 ;; * Adding and removing faces or face properties
@@ -599,13 +609,15 @@ point.")
 
 (defun lister-display-mark-state (lister-buf marker)
   "In LISTER-BUF, display the 'mark' state of the item at MARKER."
-  ;;  (with-lister-buffer lister-buf
-  (with-current-buffer lister-buf 
+  (with-lister-buffer lister-buf
     (let* ((state    (lister-get-mark-state lister-buf marker))
 	   (face-fun (if state 'lister-add-face-property 'lister-remove-face-property))
 	   (beg      marker)
 	   (end      (lister-end-of-lines lister-buf beg)))
       (funcall face-fun beg end lister-mark-face-or-property))))
+      ;; (if state
+      ;; 	  (add-text-properties beg end '(line-prefix "|"))
+      ;; 	(remove-text-properties beg end '(line-prefix "|"))))))
 
 ;; * Collecting marked items
 
@@ -1064,7 +1076,7 @@ Return BUF."
 ;; * Highlight minor mode
 
 (defvar lister-highlight-face-or-property
-  'org-todo
+  '(:foreground "yellow")
   "Text property or name of face to add when highlighting an
   item.")
 
