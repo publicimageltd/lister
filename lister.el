@@ -950,7 +950,7 @@ Return BUF."
 
 ;; * Highlight minor mode
 
-(defface lister-highlight-face
+(defface lister-highlight
   '((t (:inherit org-todo)))
   "Highlight item with this face.")
 
@@ -958,13 +958,13 @@ Return BUF."
   (let* ((pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos)))
     (add-text-properties pos end
-			 '(face list-highlight-face))))
+			 '(face lister-highlight))))
 
 (defun lister-unhighlight-item ()
   (let* ((pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos)))
     (remove-text-properties pos end
-			 '(face list-highlight-face))))
+			 '(face lister-highlight))))
 
 (define-minor-mode lister-highlight-mode
   "Toggle highlighting of the selected lister item."
