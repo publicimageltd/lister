@@ -79,16 +79,9 @@
 ;;
 
 ;; TODO
-;; - Add keyboard functions to "mark" a list item
-;; (dired-like) -- (`lister-mark-item')
-;;
 ;; - Extend documentation
+;;;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
 ;;
-;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
-;;
-;; - Add function to reconstruct data from list (so that you can delete stuff in the buffer)
-;;
-;; - Add debugging info for the macro `with-lister-buffer'
 ;;; Code:
 
 
