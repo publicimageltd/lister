@@ -26,35 +26,6 @@
 (require 'lister)
 
 ;; -----------------------------------------------------------
-;; Test
-
-
-;; (defun lister--marker-list ()
-;;   (interactive)
-;;   (message "Marker list: %s"
-;; 	   (string-join
-;; 	    (mapcar (lambda (m)
-;; 		      (format "%d" (marker-position m)))
-;; 		    (lister-viewport-marker-list vp))
-;; 	    " ")))
-
-;; (defun lister-highlight-marker (viewport)
-;;   (with-current-buffer (lister-viewport-buffer viewport)
-;;     (seq-doseq (m (lister-viewport-marker-list viewport))
-;;       (overlay-put (make-overlay m (1+ m))
-;; 		   'face
-;; 		   '(:background "yellow")))))
-
-;; (defun lister-remove-overlays (viewport)
-;;   (with-current-buffer (lister-viewport-buffer viewport)
-;;     (remove-overlays)))
-
-;; (defun lister-blink-overlays (viewport)
-;;   (switch-to-buffer (lister-viewport-buffer viewport))
-;;   (lister-highlight-marker viewport)
-;;   (redisplay)
-;;   (sleep-for 0.5)
-;;   (lister-remove-overlays viewport))
 
 (defun lister-test-buffer ()
   "Return test buffer."
@@ -62,12 +33,12 @@
 
 (defun lister-mapper (data)
   (list
-   "Erste Zeile"
-   (format "%s" data)
-   "Zweite Zeile"))
+   "First Row"
+   (format "Data: '%s'" data)
+   "Third Row"))
 
 (defun lister-item-message ()
-  (message "Datenobjekt ist %s."
+  (message "Stored data: %s."
 	   (lister-get-data (current-buffer) :point)))
 
 (defun lister-interactive-test ()
@@ -82,8 +53,6 @@
     (lister-add-enter-callback lister-buf #'lister-item-message)
     (switch-to-buffer lister-buf)
     (lister-highlight-mode)))
-
-;; (lister-blink-overlays viewport)))	
 
 (provide 'lister-examples)
 ;;; lister-examples.el ends here
