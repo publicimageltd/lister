@@ -266,7 +266,8 @@ text.
 Return the marker of the first position."
   (with-current-buffer buf
     (let* ((beg pos)
-	   (item-list-unpadded   (if (stringp lines) (list lines)
+	   (item-list-unpadded   (if (stringp lines)
+				     (list lines)
 				   (lister-strflat lines)))
 	   (item-list            (lister-add-vertical-margins
 				  (mapcar #'lister-add-side-margins item-list-unpadded)))

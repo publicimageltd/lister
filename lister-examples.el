@@ -23,7 +23,7 @@
 ;; 
 
 ;;; Code:
-(require 'lister)
+(load-file "../lister/lister.el")
 
 ;; -----------------------------------------------------------
 
@@ -51,6 +51,22 @@
 		      "HEADER"
 		      "FOOTER")))
     (lister-add-enter-callback lister-buf #'lister-item-message)
+    (switch-to-buffer lister-buf)
+    (lister-highlight-mode)))
+
+;; -----------------------------------------------------------
+;; Narrowing
+
+(defun lister-narrow-test ()
+  (interactive)
+  (let* ((files     (seq-filter
+		     (apply-partially #'string-match "\\`[^.#%]")
+		     (directory-files user-emacs-directory)))
+	 (lister-buf (lister-setup
+		      (lister-test-buffer)
+		      #'list 
+		      files
+		      (format "%s:" user-emacs-directory))))
     (switch-to-buffer lister-buf)
     (lister-highlight-mode)))
 
