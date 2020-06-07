@@ -995,6 +995,8 @@ respectively."
     (define-key map "m" 'lister-key-toggle-mark)
     (define-key map "*" 'lister-key-mark-all-items)
     (define-key map "u" 'lister-key-unmark-all-items)
+    (define-key map "n" 'next-line)
+    (define-key map "p" 'previous-line)
     map)
   "Key map for `lister-mode'.")
 
