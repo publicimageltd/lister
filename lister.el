@@ -249,14 +249,297 @@ Margins are taken from the variables `lister-top-margin' and
    (and lister-bottom-margin
 	(make-list lister-bottom-margin ""))))
 
-(defun lister-insert-lines (buf pos lines)
+;;; lister.el --- yet another list printer             -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2018-2020
+
+;; Author:  <joerg@joergvolbers.de>
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; === Overview:
+;;
+;; This library provides functions to support displaying a list in a
+;; buffer. The functions help to insert in the buffer and to modify it
+;; on a per-item basis.
+;;
+;; The buffer displaying the list items will be put in the major mode
+;; `lister'. Most of all, this major mode restricts the movement of
+;; the cursor to the very beginning of each item. Thus the displayed
+;; list items can be accessed separately by the user using regular
+;; cursor functions. There is no special keymap needed. E.g., to move
+;; to the next item, no matter how long it is, just move down with the
+;; cursor key; or to move up one item, just move up with the cursor
+;; keys.
+;;
+;; Each list item in the buffer is associated with the data object it
+;; is representing. Thus, it is easy to define functions which react
+;; to the user pressing a key, e.g. <return>.
+;;
+;; The list can have a static `header' and a `footer'. Footer and
+;; header can be updated without interfering with the list itself.
+;;
+;; === How to use:
+;;
+;; Most API functions require a `lister buffer` as their first
+;; argument. The buffer has to in `lister-mode' or a mode derived from
+;; it. Minimally, it also stores a function which maps the list data
+;; to a stringifies list item. The lister buffer also holds some other
+;; internal data. The usual way to make sure that the lister buffer is
+;; set up correctly is to use the function `lister-setup'.
+;;
+;; The original data which is represented by the item is also stored
+;; in the buffer, along with the string representation of the item. It
+;; can be retrieved via `lister-get-data'.
+;;
+;; The usual approach is to build a first list using `lister-setup'.
+;;
+;; Most of these functions which deal with list items are generic
+;; functions. They often accept different arguments, e.g., an explicit
+;; buffer position, a marker, or a meaningful symbol such as :point,
+;; :last or :first. See the documentation of the functions for further
+;; informations.
+;;
+;; To insert a list item:
+;; - `lister-insert'
+;;
+;; To add a list items at the end of the list:
+;; - `lister-add'
+;;
+;; To remove a list item:
+;; - `lister-remove'
+;;
+;; To replace an existing item with a new one:
+;; - `lister-replace'
+;;
+;; To move to an item:
+;; - `lister-goto'
+;;
+
+;; TODO
+;; - set up / set list -> klappt noch nicht mit "intangible" .... ??? !!!
+;;
+;; - Extend documentation
+;;;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
+;;
+;;; Code:
+
+
+(require 'cl-lib)
+(require 'seq)
+
+;; * Variables
+
+(defvar-local lister-local-mapper nil
+  "Function which converts any DATA object to a list of strings.")
+
+
+(defvar-local lister-filter-predicates nil
+  "List of functions which possibly filter out the data to be printed.
+All functions must accept only one argument, the data to be
+looked at. The return value will be interpreted as a boolean
+value. If it is not nil, the data will be printed .")
+
+(defvar-local lister-local-header-marker nil
+  "Stores the marker for the upper left corner of the header.")
+
+(defvar-local lister-local-footer-marker nil
+  "Stores the marker for the upper left corner of the footer.")
+
+(defvar-local lister-local-marker-list nil
+  "Stores a list of marker positions for each lister list item.")
+
+(defvar-local lister-local-data-list nil
+  "Local copy of data list. Useful if interactive functions want
+  to refresh the filter.")
+
+(defvar lister-left-margin 2
+  "Add this left margin when inserting a item.
+Set this to nil if no left margin is wanted.")
+
+(defvar lister-right-margin nil
+  "Add this right margin when inserting a item.
+Set this to nil if no right margin is wanted.")
+
+(defvar lister-top-margin nil
+  "Add this top margin when inserting an item.
+Set this to nil if no top margin is wanted.")
+
+(defvar lister-bottom-margin nil
+  "Add this bottom margin when inserting an item.
+Set this to nil if no bottom margin is wanted.")
+
+(defvar lister-mark-face-or-property
+  '(:background "darkorange3"
+    :foreground "white")
+  "Additional text property highlighting marked items.
+Any marked item will be highlighted by adding these properties.
+Useful values are, for example, 
+
+ (:background \"dark orange\") ;; sets a dark orange background
+
+or 
+
+  (:weight bold)
+
+Alternatively, the value can be the name of a face.")
+
+;; * Adding and removing faces or face properties
+
+(defun lister-add-face-property (beg end face-or-plist)
+  "A wrapper around `add-face-text-property'.
+Use this in conjunction with `lister-remove-face-property'. Do
+not change the text property of the face directly, unless you
+know what you do."
+  (let* ((current-props (get-text-property beg 'face))
+	 (new-props     (if current-props
+			    face-or-plist
+			  ;; We always want a list of either plists or
+			  ;; face names (i.e. '((:underline t))). So
+			  ;; if this is the first face plist or face
+			  ;; name to add, wrap it in a list.
+			  (list face-or-plist))))
+    (add-face-text-property beg end new-props)))
+
+(defun lister-remove-face-property (beg end face-or-plist)
+  "Remove FACE-OR-PLIST from the face property from BEG to END.
+Use this in conjunction with `lister-add-face-property'. Do not
+change the text property of the face directly, unless you know
+what you do."
+  (let* ((face-prop-value   (get-text-property beg 'face))
+	 (current-props     (if (listp face-prop-value) face-prop-value (list face-prop-value)))
+	 ;; this works because our wrapper around
+	 ;; add-face-text-propery makes sure the value of the face
+	 ;; property is always a list, even if we've added just a
+	 ;; single item, such as a face name:
+	 (new-props         (seq-remove
+			     (apply-partially #'equal face-or-plist)
+			     current-props)))
+    (if new-props 
+	(add-text-properties beg end (list 'face new-props))
+      (remove-text-properties beg end '(face)))))
+
+;; * Helper functions to work with lister buffers
+
+(defun lister-buffer-p (buf)
+  "Return BUF if it is ready to be used for lister lists.
+Throw an informative error if BUF is not in `'lister mode' or if
+the local mapper function is undefined."
+  (with-current-buffer buf
+    (or
+     (and (derived-mode-p 'lister-mode)
+	  lister-local-mapper
+	  buf)
+     (error
+      (if (not (eq major-mode 'lister-mode))
+	  "Buffer %s has to be in lister mode; execution aborted." 
+	"Buffer %s has to have a local mapper function; execution aborted.")
+      buf))))
+
+(defalias 'assert-lister-buffer 'lister-buffer-p)
+
+(defmacro with-lister-buffer (buf &rest body)
+  "Execute BODY in BUF.
+Throw an error if BUF is not a lister buffer."
+  (declare (indent 1) (debug t))
+  `(with-current-buffer (lister-buffer-p ,buf)
+     ,@body))
+
+(defun lister-store-data-list (lister-buf data-list)
+  "Store DATA-LIST as buffer local value in LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (setq-local lister-local-data-list data-list)))
+
+(defun lister-get-data-list (&optional lister-buf)
+  "Retrieve DATA-LIST as stored locally in LISTER-BUF.
+If LISTER-BUF is nil, use current buffer."
+  (with-lister-buffer (or lister-buf (current-buffer))
+    lister-local-data-list))
+
+;; * Building the list with lines
+
+;; These are the core primitives. The following functions either
+;; insert, remove or replace lines of text, usually passed to these
+;; functions as a list of strings.
+
+(defun lister-strflat (seq)
+  "Recursively stringify all items in L, flattening any sublists.
+
+To \"stringify\" means:
+
+For each item, if the list item is a string, return it unchanged.
+If the list item is a function, return its return value. The
+function has to accept no argument and to return a string value.
+
+Quoting cars such as (quote xy) or (function z) will be silently
+dropped, keeping only the quoted item.
+
+Empty lists or nil values will be skipped."
+  (seq-reduce (lambda (acc e)
+		(cond
+		 ;; ignore nils:
+		 ((null e)  acc)
+		 ;; don't pass quoting cars to the result:
+		 ((eq e 'function) acc)
+		 ((eq e 'quote)    acc)
+		 ((eq e 'closure)  acc)
+		 ;; flatten lists
+		 ((and (listp e) (not (functionp e))) (append acc (lister-strflat e)))
+		 ;; actual work:
+		 (t (append acc (list (if (functionp e) (funcall e) e))))))
+	      seq '()))
+
+(defun lister-add-side-margins (s)
+  "Add padding left and right to S by adding spaces.
+Margins are taken from the variables `lister-left-margin' and
+`lister-right-margin'."
+  (concat
+   (and lister-left-margin
+	(make-string lister-left-margin ? ))
+   s
+   (and lister-right-margin
+	(make-string lister-right-margin ? ))))
+
+(defun lister-add-vertical-margins (strings)
+  "Add vertical padding to a list of STRINGS by adding empty strings.
+Margins are taken from the variables `lister-top-margin' and
+`lister-bottom-margin'."
+  (append
+   (and lister-top-margin
+	(make-list lister-top-margin ""))
+   strings
+   (and lister-bottom-margin
+	(make-list lister-bottom-margin ""))))
+
+(defun lister-insert-lines (buf marker-or-pos lines)
   "Insert list LINES at POS in BUF.
 
-LINES is a list or string. If LINES is a string, insert it with
-newline added. If LINES is list, insert each element of LINES
-with newline added. Each item can be either a string, which is
-inserted directly, or a function, to insert its return value.
-Nested lists will be flattened. Empty lists will be skipped.
+MARKER-OR-POS can be either a marker object or a buffer position.
+
+LINES is must be either nil, a list or string. 
+
+If LINES is nil, do nothing and return nil. All modifications to
+the buffer will be only done when lines has a non-nil value.
+
+If LINES is a string, insert it with newline added. 
+
+If LINES is list, insert each element of LINES with newline
+added. Each item can be either a string, which is inserted
+directly, or a function, to insert its return value. Nested lists
+will be flattened. Empty lists will be skipped.
 
 Mark the beginning of the newly inserted text with the text
 property 'item. Store the number of inserted lines in the text
@@ -264,49 +547,74 @@ property 'nlines. Move point to the end of the newly inserted
 text. 
 
 Return the marker of the first position."
-  (with-current-buffer buf
-    (let* ((beg pos)
-	   (item-list-unpadded   (if (stringp lines)
-				     (list lines)
-				   (lister-strflat lines)))
-	   (item-list            (lister-add-vertical-margins
-				  (mapcar #'lister-add-side-margins item-list-unpadded)))
-	   (inhibit-read-only t))
-      (goto-char beg)
-      (insert (string-join item-list "\n") "\n")
-      (let* ((end (point)))
+  (when lines
+    (with-current-buffer buf
+      (let* ((item-list-unpadded   (if (stringp lines)
+				       (list lines)
+				     (lister-strflat lines)))
+	     (item-list            (lister-add-vertical-margins
+				    (mapcar #'lister-add-side-margins item-list-unpadded)))
+	     (beg                 (if (markerp marker-or-pos)
+				      (marker-position marker-or-pos)
+				    marker-or-pos))
+	     (inhibit-read-only t))
+	(goto-char beg)
+	;; Mark the whole item except the newline character as being
+	;;'intangible'. Assumes rear-stickiness.
+	;; Leaving newline out allows cursor movement:
+	(insert (propertize (string-join item-list "\n")
+			    'cursor-intangible t
+			    'field t)
+		"\n") ;; <- this leaves the "tangible" gap for the next item!
+	;; Store some useful information at the beginning of the item,
+	;; which is also its "marker position" used to reference the
+	;; item:
 	(put-text-property beg (1+ beg) 'item t)
-	(put-text-property beg (1- end) 'cursor-intangible t)
 	(put-text-property beg (1+ beg) 'nlines (length item-list))
 	(lister-make-marker buf beg)))))
 
-(defun lister-remove-lines (buf pos)
+(defun lister-remove-lines (buf marker-or-pos)	
   "Remove all item lines beginning at POS in BUF.
+
+MARKER-OR-POS can be either a marker object or a buffer position.
 
 Use the text property 'nlines to determine the number of lines to
 be deleted."
   (with-current-buffer buf
-    (let* ((inhibit-read-only t))
-      (delete-region pos (lister-end-of-lines buf pos)))))
+    (let* ((inhibit-read-only t)
+	   (cursor-sensor-inhibit t))
+      (delete-region marker-or-pos (lister-end-of-lines buf marker-or-pos)))))
 
-(defun lister-replace-lines (buf pos new-lines)
+(defun lister-replace-lines (buf marker-or-pos new-lines)
   "Replace the item lines at POS with NEW-LINES.
+
+MARKER-OR-POS can be either a marker object or a buffer position.
+
+If NEW-LINES is nil, simply delete the entry at POS.
 
 Use the text property 'nlines to determine the number of lines to
 be deleted. Adjust the value of the text property according to
 the new item."
   (with-current-buffer buf
     (save-excursion
-      (lister-remove-lines buf pos)
-      (lister-insert-lines buf pos new-lines))))
+      (lister-remove-lines buf marker-or-pos)
+      (lister-insert-lines buf marker-or-pos new-lines))))
 
-(defun lister-end-of-lines (buf pos)
+(defun lister-end-of-lines (buf marker-or-pos)
   "Return the end position of the item which starts at POS in BUF.
+MARKER-OR-POS can be either a marker object or a buffer position.
+
 Use the text property 'nlines to determine the size of the item."
   (with-current-buffer buf
     (save-mark-and-excursion
-      (goto-char pos)
-      (forward-line (get-text-property pos 'nlines))
+      (goto-char marker-or-pos)
+      ;; NOTE: get-text-property accepts markers as POS, but this is
+      ;; undocumented:
+      (let* ((nlines (get-text-property marker-or-pos 'nlines)))
+	(if (and nlines (integerp nlines))
+	    (forward-line nlines)
+	  (error "Expected text property 'nlines at buffer position %s"
+		 (if (markerp marker-or-pos) (marker-position marker-or-pos) marker-or-pos))))
       (point))))
 
 ;; * Set header or footer of the list
@@ -320,17 +628,30 @@ Use the text property 'nlines to determine the size of the item."
 ;; Since header and footer are inserted with the same functions as
 ;; list items, they are also marked with the text property 'item.
 
-(defun lister-set-intangible (buf pos-or-marker)
-  "Mark position POS-OR-MARKER as intangible."
-  (let* ((inhibit-read-only t)
-	 (pos (if (markerp pos-or-marker) (marker-position pos-or-marker) pos-or-marker)))
-    (with-current-buffer buf
-      (let* ((beg (if (eq pos (point-min)) pos (1- pos)))
-	     (end (if (eq pos (point-max)) pos (1+ pos))))
-	(put-text-property beg end 'cursor-intangible t)
-	(put-text-property beg end 'field t)
-	(put-text-property beg end 'rear-sticky t)
-	(put-text-property beg end 'front-sticky t)))))
+(defun lister-set-header-or-footer (lister-buf lines type)
+  "Insert LINES as a header or footer in LISTER-BUF, depending on TYPE.
+TYPE must be either the symbol 'header or 'footer.
+Setting LINES to `nil' effectively deletes the item."
+  (with-current-buffer lister-buf
+    ;; this is way too much macro stuff, but it's fun:
+    (pcase-let* ((`(,marker-var ,default-pos)
+		  (pcase type
+		    ('header '(lister-local-header-marker point-min))
+		    ('footer '(lister-local-footer-marker point-max))
+		    (_       (error "unknown type %s, expected 'header or 'footer." type)))))
+      (set marker-var
+	   (if (eval marker-var)
+	       (lister-replace-lines lister-buf
+				     (eval marker-var) ;;(marker-position (eval marker-var))
+				     lines)
+	     (lister-insert-lines lister-buf
+				  (funcall default-pos)
+				  lines)))
+      (when-let* ((m (eval marker-var))
+		  (inhibit-read-only t))
+	  (put-text-property m (1+ m)  'cursor-intangible t)
+	  (put-text-property m (1+ m)  'front-sticky t)))))
+
 
 (defun lister-set-header (lister-buf header)
   "Set HEADER before the first item in LISTER-BUF.
@@ -341,18 +662,11 @@ top.
 HEADER is a string or a list. It it is a string, insert it as
 such. If it is a list, each item can be either a string, which is
 inserted directly, or a function, to insert its return
-value.Nested lists will be flattened. Empty lists will be
+value. Nested lists will be flattened. Empty lists will be
 skipped. 
 
 Each inserted string is inserted with an additional newline."
-  (with-lister-buffer lister-buf
-    ;; either replace existing header or insert new one at bottom:
-    (setq lister-local-header-marker
-	  (if lister-local-header-marker 
-	      (lister-replace-lines lister-buf (marker-position lister-local-header-marker) header)
-	    (lister-insert-lines lister-buf (point-min) header)))
-    ;; set header to be intangible for the cursor:
-    (lister-set-intangible lister-buf lister-local-header-marker)))
+  (lister-set-header-or-footer lister-buf header 'header))
 
 (defun lister-set-footer (lister-buf footer)
   "Set FOOTER after the last item of LISTER-BUF.
@@ -367,14 +681,70 @@ value.Nested lists will be flattened. Empty lists will be
 skipped. 
 
 Each inserted string is inserted with an additional newline."
-  ;; either replace existing footer or insert new one at top:
+  (lister-set-header-or-footer lister-buf footer 'footer))
+
+;; * Filtering
+
+;; Items will be filtered by checking it against all predicates
+;; defined in `lister-filter-predicates'
+
+(defun lister-filter-data (data fn-list)
+  "Return t iff DATA passes all test functions in FN-LIST.
+Also return t if FN-LIST is empty."
+  (let ((res t))
+    (cl-loop
+     for fn in fn-list
+     while (setq res (funcall fn data))
+     finally return res)))
+
+(defun lister-add-filter (lister-buf fn &optional data-list no-update)
+  "Add FN as a filter predicate and redisplay DATA-LIST in LISTER-BUF.
+
+If no DATA-LIST is given, use the local copy instead.
+
+If NO-UPDATE is non-nil, only add the filter, do not update the
+display.
+
+The filter will be added to the end of the predicate list. To set
+a filter and delete all other possibly implemented filters, use
+`lister-set-filter'. To clear all filters, use
+`lister-clear-filter'."
   (with-lister-buffer lister-buf
-    (setq lister-local-footer-marker
-	  (if lister-local-footer-marker
-	      (lister-replace-lines lister-buf (marker-position lister-local-footer-marker) footer)
-	    (lister-insert-lines lister-buf (point-max) footer)))
-    ;; set footer as intangible for the cursor:
-    (lister-set-intangible lister-buf lister-local-footer-marker)))
+    (add-to-list 'lister-filter-predicates fn t)
+    (unless no-update
+      (lister-set-list lister-buf data-list))))
+
+(defun lister-set-filter (lister-buf fn &optional data-list no-update)
+  "Set FN as a filter predicate and redisplay DATA-LIST in LISTER-BUF.
+
+If no DATA-LIST is given, use the local copy instead.
+
+If NO-UPDATE is non-nil, only set the filter, do not update the
+display.
+
+Setting the pseudo-predicate `nil' effectively removes all
+predicates.
+
+To add a filter without possibly deleting existing ones, use
+`lister-add-filter'. To clear all filters, use
+`lister-clear-filter'."
+  (with-lister-buffer lister-buf
+    (setq lister-filter-predicates (when fn (list fn))))
+  (unless no-update
+    (lister-set-list lister-buf data-list)))
+
+(defun lister-clear-filter (lister-buf &optional data-list  no-update)
+  "Remove all filter from LISTER-BUF and display DATA-LIST.
+
+If no DATA-LIST is given, use the local copy instead.
+
+If NO-UPDATE is non-nil, only remove the filter, do not update the
+display.
+
+To set one single filter, removing already installed ones, use
+`lister-set-filter'. To add a filter without possibly deleting
+existing ones, use `lister-add-filter'. "
+  (lister-set-filter lister-buf nil data-list no-update))
 
 ;; * Insert items
 
@@ -386,6 +756,7 @@ Each inserted string is inserted with an additional newline."
 ;; data item itself is passed as a DATA object. The object will be
 ;; turned into a string representation by the buffer local mapper
 ;; function (`lister-local-mapper').
+
 
 (cl-defgeneric lister-insert (lister-buf position data)
   "Insert a representation of DATA at POSITION in LISTER-BUF.
@@ -412,29 +783,38 @@ variable which holds the marker list.")
 (cl-defmethod lister-insert (lister-buf (position integer) data) 
   "Insert a representation of DATA at buffer position POS in LISTER-BUF.
 
-DATA can be any kind of lisp object. A mapper function creates a
-string representation (or a list of strings) for the data object.
+DATA can be any kind of lisp object. If DATA is nil, do nothing.
+
+DATA is eventually inserted by a mapper function. This function
+creates a string representation (or a list of strings) for DATA.
 The mapper function accepts only one argument and returns a
 string or a list of strings. The function name has to be stored
-in the buffer local variable `lister-local-mapper'.
+in the variable `lister-local-mapper' locally stored in
+LISTER-BUF.
 
 POS has to be an integer.
+
+DATA will be only printed if it passes all tests from the list
+`lister-filter-predicates' (see there).
 
 Return a marker set to position POS.
 
 This function updates the local variable which holds the marker
 list (`lister-local-marker-list')."
-  (with-lister-buffer lister-buf
-    (let* ((item   (funcall lister-local-mapper data))
-	   (marker (lister-insert-lines lister-buf position item)))
-      (lister-set-data lister-buf marker data)
-      ;; update marker list:
-      (setq lister-local-marker-list 
-	    (seq-sort #'<
-		      (append
-		       lister-local-marker-list
-		       (list marker))))
-      marker)))
+  (when data
+    (with-lister-buffer lister-buf
+      ;; TODO BUG: Bei leerer liste wird NIL zurück gegeben!
+      (when-let* ((valid-data-p   (lister-filter-data data lister-filter-predicates))
+		  (item           (funcall lister-local-mapper data))
+		  (marker         (lister-insert-lines lister-buf position item)))
+	(lister-set-data lister-buf marker data)
+	;; update marker list:
+	(setq lister-local-marker-list 
+	      (seq-sort #'<
+			(append
+			 lister-local-marker-list
+			 (list marker))))
+	marker))))
 
 (cl-defmethod lister-insert (lister-buf (position (eql :point)) data)
   "Insert a representation of DATA at point in LISTER-BUF.
@@ -459,19 +839,19 @@ list. (`lister-local-marker-list')"
 (defun lister-add (lister-buf data)
   "Add a list item representing DATA to the end of the list in LISTER-BUF.
 
-DATA can be any kind of lisp object. A mapper function creates a
-string representation (or a list of strings) for the data object.
-The mapper function accepts only one argument and returns a
-string or a list of strings. The function name has to be stored
-in the buffer local variable `lister-local-mapper'.
+DATA will be inserted by `lister-insert'. See there for possible
+values of DATA and how filtering applies.
 
-Return the marker pointing to the beginning of the item.
+Return the marker pointing to the beginning of the newly added
+item, or nil.
 
 All modifications apply to LISTER-BUF. The representation of DATA
 is created by the mapper function stored as a buffer local
 variable. This function updates the local variable which holds
 the marker list."
-  (lister-insert lister-buf (lister-next-free-position lister-buf) data))
+  (lister-insert lister-buf
+		 (lister-next-free-position lister-buf)
+		 data))
 
 
 ;; * Remove
@@ -506,8 +886,9 @@ If POSITION is the symbol :point, remove the item at point.")
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
-  (when-let* ((marker (lister-current-marker lister-buf)))
-    (lister-remove lister-buf marker)))
+  (if-let* ((marker (lister-current-marker lister-buf)))
+      (lister-remove lister-buf marker)
+    (error "lister-remove: no item found at point")))
 
 ;; * Replace
 
@@ -716,7 +1097,7 @@ The object has to be stored by `lister-set-data', which see.")
   "In LISTER-BUF, move point to POSITION.
 
 POSITION can be either a marker, a list index number, or one of
-the symbols :last or :first.
+the symbols :last or :first. 
 
 If POSITION is marker, move point to the marker position.
 
@@ -730,16 +1111,17 @@ item, ignoring the header.
 If POSITION is the symbol :last, move point to the last list
 item, ignoring the header.")
 
-;; TODO Add error handling for the cases where desired position is not
-;; available.
-
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-goto (lister-buf (position marker))
   "Move point in LISTER-BUF to the marker POSITION."
+  (unless position
+    (error "lister-goto: expected marker, called with `nil'"))
   (with-lister-buffer lister-buf
     (let ((previous-point (point)))
       (goto-char position)
-      (lister-sensor-function (selected-window) previous-point 'entered))))
+      (lister-sensor-function (selected-window)
+			      previous-point
+			      'entered))))
 
 (cl-defmethod lister-goto (lister-buf (position integer))
   "Move point in LISTER-BUF to the index POSITION."
@@ -749,12 +1131,16 @@ item, ignoring the header.")
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
   "Move point to the last item in LISTER-BUF."
   (with-lister-buffer lister-buf
-    (when-let* ((ml lister-local-marker-list))
-      (lister-goto lister-buf (car (last ml))))))
+    (if-let* ((last-marker (car (last lister-local-marker-list))))
+	(lister-goto lister-buf last-marker)
+      (error "lister-goto: item list empty, cannot go to last item"))))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :first)))
   "Move point to the first item in LISTER-BUF."
-  (lister-goto lister-buf 0))
+  (with-lister-buffer lister-buf
+    (if-let* ((first-marker (first lister-local-marker-list)))
+	(lister-goto lister-buf first-marker)
+      (error "lister-goto: item list empty, cannot go to first item"))))
 
 ;; * Marker Handling
 
@@ -836,7 +1222,7 @@ item at point.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-index (lister-buf (position marker))
-  "Return the index number of the item at MARKER position.".
+  "Return the index number of the item at MARKER position."
   (with-lister-buffer lister-buf
     (seq-position lister-local-marker-list
 		  position
@@ -861,7 +1247,7 @@ item at point.")
        ;; (this is independent of an existing footer)
        (ml                      (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
        ;; now is there a footer? return its position to insert next item there: 
-       (lister-local-footer-marker     (lister-end-of-lines lister-buf (marker-position lister-local-footer-marker)))
+       (lister-local-footer-marker     (marker-position lister-local-footer-marker))
        ;; no footer, so insert after header, which is the end of the buffer:
        (lister-local-header-marker     (point-max))
        ;; nothing there, just go to the beginning:
@@ -948,7 +1334,8 @@ respectively."
 		;; goto-char will cause a new `enter'-event, 
 		;; let us ignore it:
 		(setq lister--ignore-next-sensor-event t))
-	    (when (eq direction 'left)
+	    (when (and (eq direction 'left)
+		       (not (eq previous-point (point-max))))
 	      (save-excursion
 		(goto-char previous-point)
 		(run-hooks 'lister-leave-item-hook)))
@@ -1008,28 +1395,57 @@ respectively."
 
 ;; * Set a (new) list 
 
-(defun lister-set-list (lister-buf data-list)
+(defun lister-set-list (lister-buf &optional data-list ignore-point)
   "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
+
+If DATA-LIST is nil, use the local copy instead. This usually
+means that you must have initialized the buffer with
+`lister-setup'.
+
+Move point to the item with the same index where point was before
+the redisplay. If IGNORE-POINT is non-nil, do not set point
+explicitly.
+
 To set the header or the footer, use `lister-set-header' and
 `lister-set-footer'."
   (with-lister-buffer lister-buf
-    ;; delete old list:
-    (when-let* ((ml lister-local-marker-list)
-		;; (nth 0 ml) is always the first item,
-		;; because header marker is stored in
-		;; its own buffer local variable:
-		(beg (nth 0 ml))
-		(end (or lister-local-footer-marker 
-			 (point-max)))
-		(inhibit-read-only t))
-      (delete-region beg end))
-    ;; insert new list:
-    (setq lister-local-marker-list
-	  (mapcar (apply-partially #'lister-add lister-buf) data-list))))
-
+    (let (old-index
+	  (cursor-sensor-inhibit t))
+      ;; delete old list:
+      (when-let* ((ml lister-local-marker-list)
+		  ;; (nth 0 ml) is always the first item,
+		  ;; because header marker is stored in
+		  ;; its own buffer local variable:
+		  (beg (nth 0 ml))
+		  (end (or lister-local-footer-marker 
+			   (point-max)))
+		  (inhibit-read-only t))
+	(setq old-index (lister-index lister-buf :point))
+	(delete-region beg end)
+	(setq lister-local-marker-list nil))
+      ;; insert new list:
+      (setq lister-local-data-list
+	    (or data-list lister-local-data-list))
+      (setq lister-local-marker-list
+	    ;; filtering might cause add to return nil,
+	    ;; so weed it out:
+	    (seq-filter #'identity 
+			(mapcar
+			 (apply-partially #'lister-add lister-buf)
+			 lister-local-data-list)))
+      ;; if possible, move to same position as before
+      (unless ignore-point
+	(if (and lister-local-marker-list
+		 old-index)
+	    (lister-goto lister-buf old-index)
+	  (goto-char (point-min)))))))
+	 
 ;; * Set up a lister buffer
 
-(defun lister-setup (buf mapper-fn &optional data-list header footer major-mode-fn)
+(defun lister-setup (buf mapper-fn &optional data-list
+			 header footer
+			 filter-functions
+			 major-mode-fn)
   "Set up BUF to display DATA-LIST using MAPPER-FN.
 
 DATA-LIST is a list of data objects which will be passed to
@@ -1037,18 +1453,22 @@ MAPPER-FN. MAPPER-FN must accept only one argument, the data
 object, and return a list of strings. See also
 `lister-insert-lines' for the exact format of the return value.
 
-HEADER is a list of strings which will be inserted at the top of
-the list.
+Optional argument HEADER is a list of strings which will be
+inserted at the top of the list.
 
-FOOTER is a list of strings which will be inserted at the end of
-the list.
+Optional argument FOOTER is a list of strings which will be
+inserted at the end of the list.
 
-Set the major mode to `lister-mode' or call MAJOR-MODE-FN as a
-function to set the major mode. The major mode has to be a mode
-derived from `lister-mode'. Store all passed variables as buffer
-local variables. Move point to the first list item.
+Optional argument FILTER-FUNCTIONS defines a function or a list
+of functions which will be used to filter the list before
+printing. See `lister-filter-predicates'.
 
-Return BUF."
+Set the major mode to `lister-mode' or call optional argument
+MAJOR-MODE-FN as a function to set the major mode. The major mode
+has to be a mode derived from `lister-mode'. 
+
+Store all passed variables as buffer local variables. Move point
+to the first list item. Return BUF."
   (with-current-buffer buf
     ;; first of all, set the major mode
     (funcall (or major-mode-fn 'lister-mode))
@@ -1060,17 +1480,24 @@ Return BUF."
     (let ((cursor-sensor-inhibit t)
 	  (inhibit-read-only t))
       (erase-buffer))
+    (setq lister-filter-predicates              
+	  (when filter-functions
+	    (if (listp filter-functions)
+		filter-functions
+	      (list filter-functions))))
     ;; ready to add header, list and footer:
     (when header
       (lister-set-header buf header))
-    (when data-list
-      (seq-each (apply-partially #'lister-add buf) data-list))
+    ;; (when (setq lister-local-data-list data-list)
+    ;;   (seq-filter #'identity
+    ;; 		  (seq-each
+    ;; 		   (apply-partially #'lister-add buf)
+    ;; 		   data-list)))
     (when footer
       (lister-set-footer buf footer))
-    ;; TODO Check why this should be necessary
-    (lister-recreate-marker-list buf)
-    ;;
-    (when data-list
+    (lister-recreate-marker-list buf)    
+    (lister-set-list buf data-list t)
+    (when lister-local-marker-list
       (lister-goto buf :first))
     buf))
 
