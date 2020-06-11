@@ -1230,18 +1230,14 @@ to the first list item. Return BUF."
 	    (if (listp filter-functions)
 		filter-functions
 	      (list filter-functions))))
+    (setq lister-local-data-list nil)
     ;; ready to add header, list and footer:
     (when header
       (lister-set-header buf header))
-    ;; (when (setq lister-local-data-list data-list)
-    ;;   (seq-filter #'identity
-    ;; 		  (seq-each
-    ;; 		   (apply-partially #'lister-add buf)
-    ;; 		   data-list)))
     (when footer
       (lister-set-footer buf footer))
-    (lister-recreate-marker-list buf)    
-    (lister-set-list buf data-list t)
+    (when data-list
+      (lister-set-list buf data-list t))
     (when lister-local-marker-list
       (lister-goto buf :first))
     buf))
