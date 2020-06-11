@@ -925,7 +925,7 @@ point.")
 
 (cl-defmethod lister-replace (lister-buf (position integer) data)
   "Replace the item at index POSITION with a new DATA item."
-  (lister-replace (lister-buf (lister-marker-at lister-buf position))))
+  (lister-replace lister-buf (lister-marker-at lister-buf position) data))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
