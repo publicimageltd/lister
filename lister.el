@@ -435,10 +435,19 @@ Also return t if FN-LIST is empty."
 (defun lister-add-filter (lister-buf fn &optional data-list no-update)
   "Add FN as a filter predicate and redisplay DATA-LIST in LISTER-BUF.
 
-If no DATA-LIST is given, use the local copy instead.
+If no DATA-LIST is given, use the local copy instead. 
+
+If DATA-LIST is non-nil, set it as the root data list and store a
+local copy. This means effectively that the filtered list is the
+new data list. There are no means to restore the old data list.
+If you want just to use filters to narrow the display, do not
+pass a non-nil argument for DATA-LIST.
 
 If NO-UPDATE is non-nil, only add the filter, do not update the
-display.
+display and ignore the argument DATA-LIST completely.
+
+FN is the filter function. It must accept one argument and return
+t if the item should be displayed.
 
 The filter will be added to the end of the predicate list. To set
 a filter and delete all other possibly implemented filters, use
@@ -454,11 +463,18 @@ a filter and delete all other possibly implemented filters, use
 
 If no DATA-LIST is given, use the local copy instead.
 
-If NO-UPDATE is non-nil, only set the filter, do not update the
-display.
+If DATA-LIST is non-nil, set it as the root data list and store a
+local copy. This means effectively that the filtered list is the
+new data list. There are no means to restore the old data list.
+If you want just to use filters to narrow the display, do not
+pass a non-nil argument for DATA-LIST.
 
-Setting the pseudo-predicate `nil' effectively removes all
-predicates.
+FN is the filter function. It must accept one argument and return
+t if the item should be displayed. Passing the pseudo-predicate
+`nil' effectively removes all predicates.
+
+If NO-UPDATE is non-nil, only add the filter, do not update the
+display and ignore the argument DATA-LIST completely.
 
 To add a filter without possibly deleting existing ones, use
 `lister-add-filter'. To clear all filters, use
@@ -468,13 +484,19 @@ To add a filter without possibly deleting existing ones, use
   (unless no-update
     (lister-set-list lister-buf data-list)))
 
-(defun lister-clear-filter (lister-buf &optional data-list  no-update)
+(defun lister-clear-filter (lister-buf &optional data-list no-update)
   "Remove all filter from LISTER-BUF and display DATA-LIST.
 
 If no DATA-LIST is given, use the local copy instead.
 
+If DATA-LIST is non-nil, set it as the root data list and store a
+local copy. This means effectively that the filtered list is the
+new data list. There are no means to restore the old data list.
+If you want just to use filters to narrow the display, do not
+pass a non-nil argument for DATA-LIST.
+
 If NO-UPDATE is non-nil, only remove the filter, do not update the
-display.
+display and ignore the argument DATA-LIST completely.
 
 To set one single filter, removing already installed ones, use
 `lister-set-filter'. To add a filter without possibly deleting
@@ -728,9 +750,6 @@ point.")
 	   (beg      marker)
 	   (end      (lister-end-of-lines lister-buf beg)))
       (funcall face-fun beg end lister-mark-face-or-property))))
-      ;; (if state
-      ;; 	  (add-text-properties beg end '(line-prefix "|"))
-      ;; 	(remove-text-properties beg end '(line-prefix "|"))))))
 
 ;; * Collecting marked items
 
@@ -1149,6 +1168,9 @@ respectively."
 If DATA-LIST is nil, use the local copy instead. This usually
 means that you must have initialized the buffer with
 `lister-setup'.
+
+If DATA-LIST is non-nil, use this value and overwrite the local
+copy. 
 
 Move point to the item with the same index where point was before
 the redisplay. If IGNORE-POINT is non-nil, do not set point
