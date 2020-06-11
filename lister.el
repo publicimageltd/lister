@@ -428,27 +428,26 @@ Each inserted string is inserted with an additional newline."
 
 ;; * Show / hide items
 
-(defun lister-set-item-visibility (lister-buf marker-or-pos value)
-  "Set the visibility of the item at MARKER-OR-POS to VALUE.
+(defun lister-set-item-invisibility (lister-buf marker-or-pos value)
+  "Set the property 'invisible of the item at MARKER-OR-POS to VALUE.
 Assumes a properly set up LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((inhibit-read-only t)
+	   (cursor-sensor-inhibit t)
 	   (beg (lister-marker-pos marker-or-pos))
 	   (end (lister-end-of-lines lister-buf marker-or-pos)))
-      (if value
-	  (lister-remove-marker lister-buf marker-or-pos)
-	(lister-add-marker lister-buf marker-or-pos))
-      (put-text-property beg end 'invisible value))))
+      (put-text-property beg end 'invisible value)
+      (put-text-property beg end 'front-sticky value))))
 
 (defun lister-show-item (lister-buf marker-or-pos)
   "Make sure the item at MARKER-OR-POS is visible."
-  (lister-set-item-visibility lister-buf marker-or-pos nil))
+  (lister-set-item-invisibility lister-buf marker-or-pos nil))
 
 (defun lister-hide-item (lister-buf marker-or-pos)
   "Make sure the item at MARKER-OR-POS is invisible."
-  (lister-set-item-visibility lister-buf marker-or-pos t))
+  (lister-set-item-invisibility lister-buf marker-or-pos t))
 
-(defun listerinvisible-items (lister-buf)
+(defun lister-invisible-items (lister-buf) 
   "Return a list of markers pointing only to hidden items."
   (with-lister-buffer lister-buf
     (seq-filter (lambda (m)
@@ -971,6 +970,7 @@ item, ignoring the header.")
 
 ;; * Marker Handling
 
+;; FIXME possibly only used once
 (defun lister-add-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local markerlist of LISTER-BUF."
   (with-lister-buffer lister-buf
@@ -979,13 +979,14 @@ item, ignoring the header.")
 	    (thread-last (append lister-local-marker-list (list the-marker))
 	      (seq-sort #'<))))))
 
+;; FIXME will be probably unused
 (defun lister-remove-marker (lister-buf marker-or-pos)
   "Remove MARKER-OR-POS from the local marker list of LISTER-BUF."
-  (with-lister-buffer lister-buf
+  (with-lister-buffer lister-buf  
     (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
       (setq lister-local-marker-list
-	    (thread-last (seq-remove (apply-partially #'equal the-marker) lister-local-marker-list)
-	      (seq-sort #'<))))))
+    	    (thread-last (seq-remove (apply-partially #'equal the-marker) lister-local-marker-list)
+    	      (seq-sort #'<))))))
 
 (defun lister-marker-at (lister-buf index)
   "Return marker for item at index position INDEX in LISTER-BUF.
