@@ -538,7 +538,6 @@ This function updates the local variable which holds the marker
 list (`lister-local-marker-list')."
   (when data
     (with-lister-buffer lister-buf
-      ;; TODO BUG: Bei leerer liste wird NIL zurück gegeben!
       (when-let* ((valid-data-p   (lister-filter-data data lister-filter-predicates))
 		  (item           (funcall lister-local-mapper data))
 		  (marker         (lister-insert-lines lister-buf position item)))
@@ -1092,7 +1091,7 @@ respectively."
     (add-hook 'lister-enter-item-hook fn-name nil t)))
 
 (defun lister-add-leave-callback (lister-buf fn-name)
-  "Let FN-NAME be called when entering a list item."
+  "Let FN-NAME be called when leaving a list item."
   (with-current-buffer lister-buf
     (add-hook 'lister-leave-item-hook fn-name nil t)))
 
@@ -1238,6 +1237,7 @@ to the first list item. Return BUF."
       (lister-set-footer buf footer))
     (when data-list
       (lister-set-list buf data-list t))
+    ;; move to first item:
     (when lister-local-marker-list
       (lister-goto buf :first))
     buf))
