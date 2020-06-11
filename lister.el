@@ -1026,25 +1026,31 @@ Also recreates the markers for the header and the footer of the list."
 
 ;; * Cursor Sensor Function
 
-(defvar lister-enter-item-hook nil
+(defvar-local lister-enter-item-hook nil
   "List of functions to call when point enters an existing item.
-If the function is called, the lister buffer is set current, and
-point is on the current item. 
 
-To avoid recursion, `cursor-sensor-inhibit' is set to `t' when
-calling the functions.
+When the callback function is called, the lister buffer is set
+current and point is on the current item. Use `lister-get-data'
+to access the data.
 
-Use `lister-add-enter-callback' to add a function to this hook.")
+To avoid recursion, `cursor-sensor-inhibit' is set to `t' during
+the execution of the callback functions.
 
-(defvar lister-leave-item-hook nil
+Use `lister-add-enter-callback' to add a function to this buffer
+local hook.")
+
+(defvar-local lister-leave-item-hook nil
   "List of functions to call when point leaves an existing item.
-If the function is called, the lister buffer is set current, and
-point is on the item which is left. 
 
-To avoid recursion, `cursor-sensor-inhibit' is set to `t' when
-calling the functions.
+When the callback function is called, the lister buffer is set
+current and point is on the current item. Use `lister-get-data'
+to access the data.
 
-Use `lister-add-leave-callback' to add a function to this hook.")
+To avoid recursion, `cursor-sensor-inhibit' is set to `t' during
+the execution of the callback functions.
+
+Use `lister-add-leave-callback' to add a function to this buffer
+local hook.")
 
 (defvar lister----counter 0)
 
