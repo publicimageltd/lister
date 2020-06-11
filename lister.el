@@ -447,7 +447,7 @@ Assumes a properly set up LISTER-BUF."
   "Make sure the item at MARKER-OR-POS is invisible."
   (lister-set-item-invisibility lister-buf marker-or-pos t))
 
-(defun lister-invisible-items (lister-buf) 
+(defun lister-invisible-markers (lister-buf) 
   "Return a list of markers pointing only to hidden items."
   (with-lister-buffer lister-buf
     (seq-filter (lambda (m)
@@ -456,6 +456,17 @@ Assumes a properly set up LISTER-BUF."
 		  ;; assume that if the marker position is invisible,
 		  ;; the whole item is invisible:
 		  (text-property-any m (1+ m) 'invisible t))
+		lister-local-marker-list)))
+
+(defun lister-visible-markers (lister-buf) 
+  "Return a list of markers pointing only to visible items."
+  (with-lister-buffer lister-buf
+    (seq-filter (lambda (m)
+		  ;; Since the marker position is the place for
+		  ;; accessing the item with the cursor, we can safely
+		  ;; assume that if the marker position is invisible,
+		  ;; the whole item is invisible:
+		  (text-property-any m (1+ m) 'invisible nil))
 		lister-local-marker-list)))
 
 (defun lister-show-all-items (lister-buf)
@@ -1295,6 +1306,7 @@ To set the header or the footer, use `lister-set-header' and
       (when old-marked-items
 	(lister-mark-some-items lister-buf old-marked-items t))
       ;; if possible, move to same position as before
+      ;; FIXME Adapt this for visibility
       (unless ignore-point
 	(if (and lister-local-marker-list
 		 old-index)
