@@ -632,22 +632,23 @@ Use the text property 'nlines to determine the size of the item."
   "Insert LINES as a header or footer in LISTER-BUF, depending on TYPE.
 TYPE must be either the symbol 'header or 'footer.
 Setting LINES to `nil' effectively deletes the item."
-  (with-current-buffer lister-buf
-    ;; this is way too much macro stuff, but it's fun:
-    (pcase-let* ((`(,marker-var ,default-pos)
-		  (pcase type
-		    ('header '(lister-local-header-marker point-min))
-		    ('footer '(lister-local-footer-marker point-max))
-		    (_       (error "unknown type %s, expected 'header or 'footer." type)))))
+  (with-lister-buffer lister-buf
+    (let (marker-var default-pos)
+      (pcase type
+	('header (setq marker-var   'lister-local-header-marker
+		       default-pos  'point-min))
+	('footer (setq marker-var   'lister-local-footer-marker
+		       default-pos  'point-max))
+	(_       (error "unknown type %s, expected 'header or 'footer." type)))
       (set marker-var
-	   (if (eval marker-var)
+	   (if (symbol-value marker-var)
 	       (lister-replace-lines lister-buf
-				     (eval marker-var) ;;(marker-position (eval marker-var))
+				     (symbol-value  marker-var)
 				     lines)
 	     (lister-insert-lines lister-buf
 				  (funcall default-pos)
 				  lines)))
-      (when-let* ((m (eval marker-var))
+      (when-let* ((m (symbol-value  marker-var))
 		  (inhibit-read-only t))
 	  (put-text-property m (1+ m)  'cursor-intangible t)
 	  (put-text-property m (1+ m)  'front-sticky t)))))
