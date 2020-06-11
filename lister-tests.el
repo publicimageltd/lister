@@ -267,6 +267,12 @@
    (expect (test-buffer-content buf)
 	   :to-match
 	   ""))
+ (it "Filter everything, then remove the filter."
+   (lister-add-filter buf (lambda (data) nil))
+   (lister-clear-filter buf)
+   (expect (lister-get-all-data buf)
+	   :to-equal
+	   datalist))
  (it "Apply filter which matches only some data."
    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
    (expect (lister-get-all-data buf)

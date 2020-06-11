@@ -742,6 +742,16 @@ point.")
   (with-lister-buffer lister-buf
     (seq-do (lambda (m) (lister-mark-item lister-buf m value)) lister-local-marker-list)))
 
+(defun lister-mark-some-items (lister-buf marked-data value)
+  "In LISTER-BUF, mark items which are members of MARKED-DATA.
+Comparison is done with `equal'. VALUE should be either t to set
+the mark or nil to remove it."
+  (let* ((ml (with-current-buffer lister-buf lister-local-marker-list)))
+    (cl-loop for m in ml
+	     do
+	     (when (member (lister-get-data lister-buf m) marked-data)
+	       (lister-mark-item lister-buf m value)))))
+
 (defun lister-display-mark-state (lister-buf marker)
   "In LISTER-BUF, display the 'mark' state of the item at MARKER."
   (with-lister-buffer lister-buf
@@ -1179,7 +1189,7 @@ explicitly.
 To set the header or the footer, use `lister-set-header' and
 `lister-set-footer'."
   (with-lister-buffer lister-buf
-    (let (old-index
+    (let (old-index old-marked-items
 	  (cursor-sensor-inhibit t))
       ;; delete old list:
       (when-let* ((ml lister-local-marker-list)
@@ -1191,6 +1201,7 @@ To set the header or the footer, use `lister-set-header' and
 			   (point-max)))
 		  (inhibit-read-only t))
 	(setq old-index (lister-index lister-buf :point))
+	(setq old-marked-items (lister-get-marked-data lister-buf))
 	(delete-region beg end)
 	(setq lister-local-marker-list nil))
       ;; insert new list:
@@ -1203,6 +1214,16 @@ To set the header or the footer, use `lister-set-header' and
 			(mapcar
 			 (apply-partially #'lister-add lister-buf)
 			 lister-local-data-list)))
+      ;; restore marked items:
+      ;;
+      ;;    FIXME This is conceptually weird. The idea is to preserve
+      ;;          the marks when applying a filter. Yet when removing
+      ;;          the filter, the "hidden" marks will not pop up again,
+      ;;          since we apply the "old marked items" from the
+      ;;          filtered list.
+      ;;          So the current solution is not good.
+      (when old-marked-items
+	(lister-mark-some-items lister-buf old-marked-items t))
       ;; if possible, move to same position as before
       (unless ignore-point
 	(if (and lister-local-marker-list
