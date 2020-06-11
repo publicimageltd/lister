@@ -93,6 +93,11 @@
 (defvar-local lister-local-mapper nil
   "Function which converts any DATA object to a list of strings.")
 
+(defvar-local lister-filter-predicates nil
+  "List of functions to test if a list item should be printed.
+The functions are called successively until the last one is
+reached or one of the functions fails.")
+
 (defvar-local lister-local-header-marker nil
   "Stores the marker for the upper left corner of the header.")
 
@@ -373,7 +378,7 @@ Setting LINES to `nil' effectively deletes the item."
 	     (lister-insert-lines lister-buf
 				  (funcall default-pos)
 				  lines)))
-      (when-let* ((m (symbol-value  marker-var))
+      (when-let* ((m (symbol-value marker-var))
 		  (inhibit-read-only t))
 	  (put-text-property m (1+ m)  'cursor-intangible t)
 	  (put-text-property m (1+ m)  'front-sticky t)))))
