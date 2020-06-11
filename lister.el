@@ -1107,10 +1107,6 @@ respectively."
 
 ;; * Lister Major Mode
 
-(defun lister-key-test ()
-  (interactive)
-  (message "Hi there, this is a test! Did you read me?"))
-
 (defun lister-key-toggle-mark ()
   "Toggle mark of item at point."
   (interactive)
