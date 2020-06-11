@@ -46,7 +46,7 @@
 ;; Most API functions require a `lister buffer` as their first
 ;; argument. The buffer has to in `lister-mode' or a mode derived from
 ;; it. Minimally, it also stores a function which maps the list data
-;; to a stringifies list item. The lister buffer also holds some other
+;; to a stringified list item. The lister buffer also holds some other
 ;; internal data. The usual way to make sure that the lister buffer is
 ;; set up correctly is to use the function `lister-setup'.
 ;;
@@ -855,8 +855,8 @@ The object has to be stored by `lister-set-data', which see.")
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-get-data lister-buf marker)))
 
-(defun lister-get-all-data (lister-buf)
-  "Collect all data values in LISTER-BUF."
+(defun lister-get-visible-data (lister-buf)
+  "Collect all visible data values in LISTER-BUF."
   (with-lister-buffer lister-buf
     (seq-map (apply-partially #'lister-get-data lister-buf)
 	     lister-local-marker-list)))

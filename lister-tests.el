@@ -259,7 +259,7 @@
 	     :to-equal
 	     datalist)))
  (it "Generated copy of data is correct."
-   (expect (lister-get-all-data buf)
+   (expect (lister-get-visible-data buf)
 	   :to-equal
 	   datalist))
  (it "Filter all data so that nothing is displayed."
@@ -270,18 +270,18 @@
  (it "Filter everything, then remove the filter."
    (lister-add-filter buf (lambda (data) nil))
    (lister-clear-filter buf)
-   (expect (lister-get-all-data buf)
+   (expect (lister-get-visible-data buf)
 	   :to-equal
 	   datalist))
  (it "Apply filter which matches only some data."
    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-   (expect (lister-get-all-data buf)
+   (expect (lister-get-visible-data buf)
 	   :to-equal
 	   '("AA" "AB")))
  (it "Apply filter chain."
    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
    (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
-   (expect (lister-get-all-data buf)
+   (expect (lister-get-visible-data buf)
 	   :to-equal
 	   '("AB"))))
 
@@ -295,7 +295,7 @@
 				(when data 
 				  (format "%d" data)))
 			      datalist)))
-      (expect (lister-get-all-data buf)
+      (expect (lister-get-visible-data buf)
 	      :to-equal
 	      '(1 2 3 4 5)))))
 
