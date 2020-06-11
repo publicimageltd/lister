@@ -87,6 +87,7 @@
 
 (require 'cl-lib)
 (require 'seq)
+(require 'subr-x)
 
 ;; * Variables
 
@@ -106,6 +107,9 @@ reached or one of the functions fails.")
 
 (defvar-local lister-local-marker-list nil
   "Stores a list of marker positions for each lister list item.")
+
+(defvar-local lister-local-data-list nil
+  "Copy of the complete list which is displayed.")
 
 (defvar lister-left-margin 2
   "Add this left margin when inserting a item.
@@ -561,8 +565,8 @@ list item.
 
 This function updates the local variable which holds the marker
 list. (`lister-local-marker-list')"
-  (let* ((pos (with-current-buffer lister-buf
-		(point))))
+  (ignore position) ;; silence byte compiler warning
+  (let* ((pos (with-current-buffer lister-buf (point))))
     (lister-insert lister-buf pos data)))
 
 ;; * Add
@@ -617,6 +621,7 @@ If POSITION is the symbol :point, remove the item at point.")
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
+  (ignore position) ;; silence byte compiler
   (if-let* ((marker (lister-current-marker lister-buf)))
       (lister-remove lister-buf marker)
     (error "lister-remove: no item found at point")))
@@ -660,6 +665,7 @@ point.")
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
+  (ignore position) ;; silence byte compiler
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-replace lister-buf marker data)))
 
@@ -676,10 +682,11 @@ point.")
 
 (cl-defmethod lister-get-mark-state (lister-buf (position integer))
   "In LISTER-BUF, check if the item at index POSITION is marked."
-  (lister-get-mark-state lister-buf (lister-marker-at position)))
+  (lister-get-mark-state lister-buf (lister-marker-at lister-buf position)))
 
 (cl-defmethod lister-get-mark-state (lister-buf (position (eql :point)))
   "In LISTER-BUF, check if the item at point is marked."
+  (ignore position) ;; silence byte compiler
   (lister-get-mark-state lister-buf (lister-current-marker lister-buf)))
 
 
@@ -699,6 +706,7 @@ point.")
 
 (cl-defmethod lister-mark-item (lister-buf (position (eql :point)) value)
     "In LISTER-BUF, set the item's mark at POSITION to VALUE."
+  (ignore position) ;; silence byte compiler
   (when-let* ((m (lister-current-marker lister-buf)))
     (lister-mark-item lister-buf m value)))
 
@@ -780,6 +788,7 @@ point.")
 
 (cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
   "In LISTER-BUF, store DATA in the item at point."
+  (ignore position) ;; silence byte compiler
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-set-data lister-buf marker data)))
 
@@ -814,6 +823,7 @@ The object has to be stored by `lister-set-data', which see.")
 
 (cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
+  (ignore position) ;; silence byte compiler
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-get-data lister-buf marker)))
 
@@ -861,6 +871,7 @@ item, ignoring the header.")
 
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
   "Move point to the last item in LISTER-BUF."
+  (ignore position) ;; silence byte compiler
   (with-lister-buffer lister-buf
     (if-let* ((last-marker (car (last lister-local-marker-list))))
 	(lister-goto lister-buf last-marker)
@@ -868,6 +879,7 @@ item, ignoring the header.")
 
 (cl-defmethod lister-goto (lister-buf (position (eql :first)))
   "Move point to the first item in LISTER-BUF."
+  (ignore position) ;; silence byte compiler
   (with-lister-buffer lister-buf
     (if-let* ((first-marker (first lister-local-marker-list)))
 	(lister-goto lister-buf first-marker)
@@ -967,6 +979,7 @@ item at point.")
 
 (cl-defmethod lister-index (lister-buf (position (eql :point)))
   "Return the index number of the item at point."
+  (ignore position) ;; silence byte compiler
   (lister-index lister-buf (with-current-buffer lister-buf (point))))
 
 (defun lister-next-free-position (lister-buf) 
