@@ -606,11 +606,7 @@ list (`lister-local-marker-list')."
 		  (marker         (lister-insert-lines lister-buf position item)))
 	(lister-set-data lister-buf marker data)
 	;; update marker list:
-	(setq lister-local-marker-list 
-	      (seq-sort #'<
-			(append
-			 lister-local-marker-list
-			 (list marker))))
+	(lister-add-marker lister-buf marker)
 	marker))))
 
 (cl-defmethod lister-insert (lister-buf (position (eql :point)) data)
@@ -965,6 +961,20 @@ item, ignoring the header.")
       (error "lister-goto: item list empty, cannot go to first item"))))
 
 ;; * Marker Handling
+
+(defun lister-add-marker (lister-buf marker)
+  "Add MARKER to the local marker list of LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (setq lister-local-marker-list
+	  (thread-last (append lister-local-marker-list (list marker))
+	    (seq-sort #'<)))))
+
+(defun lister-remove-marker (lister-buf marker)
+  "Remove MARKER from the local marker list of LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (setq lister-local-marker-list
+	  (thread-last (seq-remove (apply-partially #'equal marker) lister-local-marker-list)
+	    (seq-sort #'<)))))
 
 (defun lister-marker-at (lister-buf index)
   "Return marker for item at index position INDEX in LISTER-BUF.
