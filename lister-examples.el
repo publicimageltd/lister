@@ -23,7 +23,12 @@
 ;; 
 
 ;;; Code:
-(load-file "lister.el")
+;;(load-file "lister.el")
+
+;; (let* ((load-path '("./")))
+;;   (require 'lister))
+
+(require 'lister "lister.el")
 
 ;; -----------------------------------------------------------
 
@@ -42,9 +47,11 @@
 	   (lister-get-data (current-buffer) :point)))
 
 (defun lister-filter-by-a (data)
+  (ignore data) ;; silence byte compiler
   (apply-partially #'string-match "\\`A"))
 
 (defun lister-filter-by-b (data)
+  (ignore data) ;; silence byte compiler
   (apply-partially #'string-match "\\`B"))
 
 (defun lister-key-filter-by-a ()
@@ -94,6 +101,13 @@
 
 ;; -----------------------------------------------------------
 ;; Narrowing
+;;
+;; This is just a unfinished playground.
+;;
+
+(defvar lister-narrow-input nil)
+(defvar lister-narrow-list nil)
+(defvar lister-narrow-buffer nil)
 
 (defun lister-narrow-test ()
   (interactive)
@@ -157,6 +171,7 @@
 	   (lister-narrow-propertize-minibuffer-prompt 'org-todo t)
 	   t)
     (error
+     (ignore err) ;; silence byte compiler
      (lister-narrow-propertize-minibuffer-prompt 'org-todo)
      data)))
 
