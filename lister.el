@@ -1186,6 +1186,7 @@ To set the header or the footer, use `lister-set-header' and
 	 
 ;; * Set up a lister buffer
 
+;;;###autoload
 (defun lister-setup (buf mapper-fn &optional data-list
 			 header footer
 			 filter-functions
