@@ -418,6 +418,45 @@ skipped.
 Each inserted string is inserted with an additional newline."
   (lister-set-header-or-footer lister-buf footer 'footer))
 
+;; * Show / hide items
+
+(defun lister-set-item-visibility (lister-buf marker-or-pos value)
+  "Set the visibility of the item at MARKER-OR-POS to VALUE.
+Assumes a properly set up LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (let* ((inhibit-read-only t)
+	   (beg (lister-marker-pos marker-or-pos))
+	   (end (lister-end-of-lines lister-buf marker-or-pos)))
+      (put-text-property beg end 'invisible value))))
+
+(defun lister-show-item (lister-buf marker-or-pos)
+  "Make sure the item at MARKER-OR-POS is visible."
+  (lister-set-item-visibility lister-buf marker-or-pos nil))
+
+(defun lister-hide-item (lister-buf marker-or-pos)
+  "Make sure the item at MARKER-OR-POS is invisible."
+  (lister-set-item-visibility lister-buf marker-or-pos t))
+
+(defun listerinvisible-items (lister-buf)
+  "Return a list of markers pointing only to hidden items."
+  (with-lister-buffer lister-buf
+    (seq-filter (lambda (m)
+		  ;; Since the marker position is the place for
+		  ;; accessing the item with the cursor, we can safely
+		  ;; assume that if the marker position is invisible,
+		  ;; the whole item is invisible:
+		  (text-property-any m (1+ m) 'invisible t))
+		lister-local-marker-list)))
+
+(defun lister-show-all-items (lister-buf)
+  "Make all items visible again."
+  (with-lister-buffer lister-buf
+    (when lister-local-marker-list
+      (let* ((inhibit-read-only t)
+	     (beg (lister-marker-pos (car lister-local-marker-list)))
+	     (end (lister-end-of-lines (car (last lister-local-marker-list)))))
+	(remove-text-properties beg end '(invisible nil))))))
+
 ;; * Filtering
 
 ;; Items will be filtered by checking it against all predicates
