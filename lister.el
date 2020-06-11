@@ -855,6 +855,13 @@ The object has to be stored by `lister-set-data', which see.")
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-get-data lister-buf marker)))
 
+(defun lister-get-all-data (lister-buf)
+  "Collect all data values in LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (seq-map (apply-partially #'lister-get-data lister-buf)
+	     lister-local-marker-list)))
+
+;; TODO Add test for visbibility
 (defun lister-get-visible-data (lister-buf)
   "Collect all visible data values in LISTER-BUF."
   (with-lister-buffer lister-buf
