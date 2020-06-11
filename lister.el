@@ -456,7 +456,7 @@ Assumes a properly set up LISTER-BUF."
     (when lister-local-marker-list
       (let* ((inhibit-read-only t)
 	     (beg (lister-marker-pos (car lister-local-marker-list)))
-	     (end (lister-end-of-lines (car (last lister-local-marker-list)))))
+	     (end (lister-end-of-lines lister-buf (car (last lister-local-marker-list)))))
 	(remove-text-properties beg end '(invisible nil))))))
 
 ;; * Filtering
