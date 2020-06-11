@@ -203,6 +203,12 @@ Throw an error if BUF is not a lister buffer."
   `(with-current-buffer (lister-buffer-p ,buf)
      ,@body))
 
+(defun lister-marker-pos (marker-or-pos)
+  "Return the position of MARKER-OR-POS."
+  (if (markerp marker-or-pos)
+      (marker-position marker-or-pos)
+    marker-or-pos))
+
 ;; * Building the list with lines
 
 ;; These are the core primitives. The following functions either
@@ -288,9 +294,7 @@ Return the marker of the first position."
 				     (lister-strflat lines)))
 	     (item-list            (lister-add-vertical-margins
 				    (mapcar #'lister-add-side-margins item-list-unpadded)))
-	     (beg                 (if (markerp marker-or-pos)
-				      (marker-position marker-or-pos)
-				    marker-or-pos))
+	     (beg                 (lister-marker-pos marker-or-pos))
 	     (inhibit-read-only t))
 	(goto-char beg)
 	;; Mark the whole item except the newline character as being
@@ -347,8 +351,7 @@ Use the text property 'nlines to determine the size of the item."
       (let* ((nlines (get-text-property marker-or-pos 'nlines)))
 	(if (and nlines (integerp nlines))
 	    (forward-line nlines)
-	  (error "Did not find text property 'nlines at buffer position %s"
-		 (if (markerp marker-or-pos) (marker-position marker-or-pos) marker-or-pos))))
+	  (error "Did not find text property 'nlines at buffer position %s" (lister-marker-pos marker-or-pos))))
       (point))))
 
 ;; * Set header or footer of the list
@@ -386,7 +389,6 @@ Setting LINES to `nil' effectively deletes the item."
 		  (inhibit-read-only t))
 	  (put-text-property m (1+ m)  'cursor-intangible t)
 	  (put-text-property m (1+ m)  'front-sticky t)))))
-
 
 (defun lister-set-header (lister-buf header)
   "Set HEADER before the first item in LISTER-BUF.
