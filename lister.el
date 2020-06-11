@@ -209,6 +209,12 @@ Throw an error if BUF is not a lister buffer."
       (marker-position marker-or-pos)
     marker-or-pos))
 
+(defun lister-pos-as-marker (lister-buf marker-or-pos)
+  "Return a marker pointing to MARKER-OR-POS."
+  (if (markerp marker-or-pos)
+      marker-or-pos
+    (lister-make-marker lister-buf marker-or-pos)))
+
 ;; * Building the list with lines
 
 ;; These are the core primitives. The following functions either
@@ -429,6 +435,9 @@ Assumes a properly set up LISTER-BUF."
     (let* ((inhibit-read-only t)
 	   (beg (lister-marker-pos marker-or-pos))
 	   (end (lister-end-of-lines lister-buf marker-or-pos)))
+      (if value
+	  (lister-remove-marker lister-buf marker-or-pos)
+	(lister-add-marker lister-buf marker-or-pos))
       (put-text-property beg end 'invisible value))))
 
 (defun lister-show-item (lister-buf marker-or-pos)
@@ -962,19 +971,21 @@ item, ignoring the header.")
 
 ;; * Marker Handling
 
-(defun lister-add-marker (lister-buf marker)
-  "Add MARKER to the local marker list of LISTER-BUF."
+(defun lister-add-marker (lister-buf marker-or-pos)
+  "Add MARKER-OR-POS to the local markerlist of LISTER-BUF."
   (with-lister-buffer lister-buf
-    (setq lister-local-marker-list
-	  (thread-last (append lister-local-marker-list (list marker))
-	    (seq-sort #'<)))))
+    (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
+      (setq lister-local-marker-list
+	    (thread-last (append lister-local-marker-list (list the-marker))
+	      (seq-sort #'<))))))
 
-(defun lister-remove-marker (lister-buf marker)
-  "Remove MARKER from the local marker list of LISTER-BUF."
+(defun lister-remove-marker (lister-buf marker-or-pos)
+  "Remove MARKER-OR-POS from the local marker list of LISTER-BUF."
   (with-lister-buffer lister-buf
-    (setq lister-local-marker-list
-	  (thread-last (seq-remove (apply-partially #'equal marker) lister-local-marker-list)
-	    (seq-sort #'<)))))
+    (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
+      (setq lister-local-marker-list
+	    (thread-last (seq-remove (apply-partially #'equal the-marker) lister-local-marker-list)
+	      (seq-sort #'<))))))
 
 (defun lister-marker-at (lister-buf index)
   "Return marker for item at index position INDEX in LISTER-BUF.
