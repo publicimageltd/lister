@@ -613,7 +613,7 @@ Use the text property 'nlines to determine the size of the item."
       (let* ((nlines (get-text-property marker-or-pos 'nlines)))
 	(if (and nlines (integerp nlines))
 	    (forward-line nlines)
-	  (error "Expected text property 'nlines at buffer position %s"
+	  (error "Did not find text property 'nlines at buffer position %s"
 		 (if (markerp marker-or-pos) (marker-position marker-or-pos) marker-or-pos))))
       (point))))
 
