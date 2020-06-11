@@ -1189,7 +1189,11 @@ To set the header or the footer, use `lister-set-header' and
       (unless ignore-point
 	(if (and lister-local-marker-list
 		 old-index)
-	    (lister-goto lister-buf old-index)
+	    (lister-goto lister-buf
+			 ;; if old pos is out of bounds, go to
+			 ;; last item:
+			 (min old-index
+			      (1- (length lister-local-marker-list))))
 	  (goto-char (point-min)))))))
 	 
 ;; * Set up a lister buffer
