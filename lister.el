@@ -881,7 +881,7 @@ item, ignoring the header.")
   "Move point to the first item in LISTER-BUF."
   (ignore position) ;; silence byte compiler
   (with-lister-buffer lister-buf
-    (if-let* ((first-marker (first lister-local-marker-list)))
+    (if-let* ((first-marker (car lister-local-marker-list)))
 	(lister-goto lister-buf first-marker)
       (error "lister-goto: item list empty, cannot go to first item"))))
 
