@@ -861,6 +861,9 @@ item, ignoring the header.")
       (goto-char position)
       (lister-sensor-function (selected-window)
 			      previous-point
+			      'left)
+      (lister-sensor-function (selected-window)
+			      previous-point
 			      'entered))))
 
 (cl-defmethod lister-goto (lister-buf (position integer))
