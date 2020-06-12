@@ -233,6 +233,12 @@ Throw an error if BUF is not a lister buffer."
 ;; insert, remove or replace lines of text, usually passed to these
 ;; functions as a list of strings.
 
+(defun lister-validate-item (lines &optional warning)
+  "Return LINES if it is a valid item, else a warning string."
+  (if (or (stringp lines) (listp lines))
+      lines
+    (or warning "DATA ITEM UNDEFINED.")))
+
 (defun lister-strflat (seq)
   "Recursively stringify all items in L, flattening any sublists.
 
@@ -637,15 +643,13 @@ Return a marker set to position POS.
 
 This function updates the local variable which holds the marker
 list (`lister-local-marker-list')."
-  (when data
-    (with-lister-buffer lister-buf
-      (when-let* ((valid-data-p   (lister-filter-data data lister-filter-predicates))
-		  (item           (funcall lister-local-mapper data))
-		  (marker         (lister-insert-lines lister-buf position item)))
-	(lister-set-data lister-buf marker data)
-	;; update marker list:
-	(lister-add-marker lister-buf marker)
-	marker))))
+  (with-lister-buffer lister-buf
+    (let* ((item           (lister-validate-item (funcall lister-local-mapper data)))
+	   (marker         (lister-insert-lines lister-buf position item)))
+      (lister-set-data lister-buf marker data)
+      ;; update marker list:
+      (lister-add-marker lister-buf marker)
+      marker)))
 
 (cl-defmethod lister-insert (lister-buf (position marker) data)
     "Insert a representation of DATA at MARKER in LISTER-BUF.
