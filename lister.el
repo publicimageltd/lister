@@ -493,12 +493,9 @@ Assumes a properly set up LISTER-BUF."
 (defun lister-possibly-hide-item (lister-buf marker-or-pos data)
   "Hide item at MARKER-OR-POS depending on DATA.
 Pass DATA through `lister-filter-predicates'. If it passes, do
-nothing. Else hide the item. 
-
-If DATA is nil, ignore the tests and hide the item anyways."
-  (when data 
+nothing. Else hide the item."
     (unless (lister-filter-data data lister-filter-predicates)
-      (lister-hide-item lister-buf marker-or-pos))))
+      (lister-hide-item lister-buf marker-or-pos)))
 
 ;; * Filtering
 
@@ -622,7 +619,7 @@ variable which holds the marker list.")
 (cl-defmethod lister-insert (lister-buf (position integer) data) 
   "Insert a representation of DATA at buffer position POS in LISTER-BUF.
 
-DATA can be any kind of lisp object. If DATA is nil, do nothing.
+DATA can be any kind of lisp object.
 
 DATA is eventually inserted by a mapper function. This function
 creates a string representation (or a list of strings) for DATA.
