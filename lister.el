@@ -79,6 +79,20 @@
 ;;
 
 ;; TODO
+;;
+;; - Tests durchlaufen; ggf. anpassen
+;;
+;; - Kopple den Filter mit der "visibility":
+;;   - Insert fügt IMMER ein
+;;   - Testet aber jeweils auch sofort auf visibility
+;;     - Diese Funktion muss ausgelagert werden, da sie von der Filterfunktion gebraucht wird.
+;;     - Unsichtbare Items werden ganz normal weiterbehandelt, ändert sich nichts.
+;;
+;;   - Add-filter ruft filterfunktion auf:
+;;   - Filterfunktion löscht alle invisibility, geht alle items durch und ruft ggf. "hide" auf
+;;
+;; - Ersetze "marker on the fly" durch (lister-pos-as-marker ....)
+;;
 ;; - Extend documentation
 ;;;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
 ;;
@@ -609,7 +623,7 @@ string or a list of strings. The function name has to be stored
 in the variable `lister-local-mapper' locally stored in
 LISTER-BUF.
 
-POS has to be an integer.
+POS has to be an integer representing a buffer position.
 
 DATA will be only printed if it passes all tests from the list
 `lister-filter-predicates' (see there).
@@ -627,6 +641,30 @@ list (`lister-local-marker-list')."
 	;; update marker list:
 	(lister-add-marker lister-buf marker)
 	marker))))
+
+(cl-defmethod lister-insert (lister-buf (position marker) data)
+    "Insert a representation of DATA at MARKER in LISTER-BUF.
+
+DATA can be any kind of lisp object. If DATA is nil, do nothing.
+
+DATA is eventually inserted by a mapper function. This function
+creates a string representation (or a list of strings) for DATA.
+The mapper function accepts only one argument and returns a
+string or a list of strings. The function name has to be stored
+in the variable `lister-local-mapper' locally stored in
+LISTER-BUF.
+
+MARKER has to be marker.
+
+DATA will be only printed if it passes all tests from the list
+`lister-filter-predicates' (see there).
+
+Return the marker pointing to the beginning of the newly inserted
+item.
+
+This function updates the local variable which holds the marker
+list (`lister-local-marker-list')."
+    (lister-insert lister-buf (marker-position position) data))
 
 (cl-defmethod lister-insert (lister-buf (position (eql :point)) data)
   "Insert a representation of DATA at point in LISTER-BUF.
@@ -671,14 +709,9 @@ the marker list."
 (cl-defgeneric lister-remove (lister-buf position)
   "Remove the item on POSITION in LISTER-BUF.
 
-POSITION can be either a marker, a list index position, or the
-symbol :point.
+POSITION can be either a marker or the symbol :point.
 
 If POSITION is a marker, remove the item at the marker position.
-
-If POSITION is an integer, treat it as an index number, the first
-item counting as 0. Remove the item determined by the index
-position.
 
 If POSITION is the symbol :point, remove the item at point.")
 
@@ -691,10 +724,6 @@ If POSITION is the symbol :point, remove the item at point.")
 	  (seq-remove (lambda (m)
 			(eq m position))
 		      lister-local-marker-list))))
-
-(cl-defmethod lister-remove (lister-buf (position integer))
-  "Remove the item at index POSITION."
-  (lister-remove lister-buf (lister-marker-at lister-buf position)))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
@@ -714,15 +743,10 @@ The mapper function accepts only one argument and returns a
 string or a list of strings. The function name has to be stored
 in the buffer local variable `lister-local-mapper'.
 
-POSITION can be either a marker, a list index position, or the
-special key :point.
+POSITION can be either a marker or the special key :point.
 
 If POSITION is a marker, replace the item at the position defined
 by the marker.
-
-If POSITION is an integer, treat it as an index pointing to the
-item where the data is to be stored at. The first item of the
-list has the index position 0. See also `lister-marker-at'.
 
 If POSITION is the symbol :point, store data at the item at
 point.")
@@ -735,10 +759,6 @@ point.")
       (lister-remove-lines lister-buf buffer-pos)
       (lister-insert lister-buf buffer-pos data)
       (goto-char buffer-pos))))
-
-(cl-defmethod lister-replace (lister-buf (position integer) data)
-  "Replace the item at index POSITION with a new DATA item."
-  (lister-replace lister-buf (lister-marker-at lister-buf position) data))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
@@ -756,10 +776,6 @@ point.")
   "In LISTER-BUF, find out if the item at POSITION is marked."
   (with-current-buffer lister-buf
     (get-text-property position 'mark)))
-
-(cl-defmethod lister-get-mark-state (lister-buf (position integer))
-  "In LISTER-BUF, check if the item at index POSITION is marked."
-  (lister-get-mark-state lister-buf (lister-marker-at lister-buf position)))
 
 (cl-defmethod lister-get-mark-state (lister-buf (position (eql :point)))
   "In LISTER-BUF, check if the item at point is marked."
@@ -786,12 +802,6 @@ point.")
   (ignore position) ;; silence byte compiler
   (when-let* ((m (lister-current-marker lister-buf)))
     (lister-mark-item lister-buf m value)))
-
-(cl-defmethod lister-mark-item (lister-buf (position integer) value)
-    "In LISTER-BUF, set the item's mark at POSITION to VALUE."
-  (lister-mark-item lister-buf
-		    (lister-marker-at lister-buf position)
-		    value))
 
 (defun lister-mark-all-items (lister-buf value)
   "Set all items to the marking state VALUE in LISTER-BUF."
@@ -840,15 +850,10 @@ FN has to accept a marker object as its sole argument."
 (cl-defgeneric lister-set-data (lister-buf position data)
   "Store the lisp object DATA at POSITION in LISTER-BUF.
 
-POSITION can be either a marker, an index position, or the symbol
-:point.
+POSITION can be either a marker or the symbol :point.
 
 If POSITION is a marker, store the data at the position defined
 by the marker.
-
-If POSITION is an integer, treat it as an index pointing to the
-item where the data is to be stored at. The first item of the
-list has the index position 0. See also `lister-marker-at'.
 
 If POSITION is the symbol :point, store data at the item at
 point.")
@@ -864,12 +869,6 @@ point.")
       (put-text-property position (1+ position)
 			 'data data))))
 
-(cl-defmethod lister-set-data (lister-buf (position integer) data)
-  "In LISTER-BUF, store DATA in the item at index POSITION."
-  (lister-set-data lister-buf 
-		   (lister-marker-at lister-buf position)
-		   data))
-
 (cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
   "In LISTER-BUF, store DATA in the item at point."
   (ignore position) ;; silence byte compiler
@@ -881,13 +880,9 @@ point.")
 (cl-defgeneric lister-get-data (lister-buf position)
   "Retrieve the data stored at POSITION in LISTER-BUF.
 
-POSITION can be either a marker, a list index, or the symbol
-:point.
+POSITION can be either a marker or the symbol :point.
 
 If POSITION is a marker, return the data at the marker position.
-
-If POSITION is an integer, treat it as an index number, starting
-from 0. Return the data stored there. 
 
 If POSITION is the symbol :point, return the data of the item at
 point.
@@ -899,11 +894,6 @@ The object has to be stored by `lister-set-data', which see.")
   "Retrieve the data stored at marker POSITION in LISTER-BUF."
   (with-lister-buffer lister-buf
     (get-text-property position 'data)))
-
-(cl-defmethod lister-get-data (lister-buf (position integer))
-  "Retrieve the data stored at INDEX position."
-  (lister-get-data lister-buf
-		   (lister-marker-at lister-buf position)))
 
 (cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
@@ -928,14 +918,10 @@ The object has to be stored by `lister-set-data', which see.")
 (cl-defgeneric lister-goto (lister-buf position)
   "In LISTER-BUF, move point to POSITION.
 
-POSITION can be either a marker, a list index number, or one of
-the symbols :last or :first. 
+POSITION can be either a marker or one of the symbols :last or
+:first.
 
 If POSITION is marker, move point to the marker position.
-
-If POSITION is an integer, treat it as an index number for the
-list items, counting from 0. Move point to the item designated by
-that index position.
 
 If POSITION is the symbol :first, move point to the first list
 item, ignoring the header.
@@ -957,11 +943,6 @@ item, ignoring the header.")
       (lister-sensor-function (selected-window)
 			      previous-point
 			      'entered))))
-
-(cl-defmethod lister-goto (lister-buf (position integer))
-  "Move point in LISTER-BUF to the index POSITION."
-  (lister-goto lister-buf
-	       (lister-marker-at lister-buf position)))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
   "Move point to the last item in LISTER-BUF."
@@ -998,17 +979,6 @@ item, ignoring the header.")
       (setq lister-local-marker-list
     	    (thread-last (seq-remove (apply-partially #'equal the-marker) lister-local-marker-list)
     	      (seq-sort #'<))))))
-
-(defun lister-marker-at (lister-buf index)
-  "Return marker for item at index position INDEX in LISTER-BUF.
-The first item as the index 0, the second item the index 1, etc.
-If the index is out of range, throw an error."
-  (with-lister-buffer lister-buf
-    (let* ((ml lister-local-marker-list))
-      (if (and (>= index 0)
-	       (< index (length ml)))
-	  (nth index ml)
-	(error "lister-marker-at: requested index position %s out of range." index)))))
 
 (defun lister-current-marker (lister-buf)
   "Return MARKER of the item at point in LISTER-BUF.
@@ -1061,39 +1031,6 @@ last one."
   (mapcar (apply-partially #'lister-make-marker buf)
 	  (lister-item-positions buf)))
 
-;; * Treat list items as indexed items
-
-(cl-defgeneric lister-index (lister-buf position)
-  "Return the index number of the item at POSIITION in LISTER-BUF.
-
-POSITION can be either a marker, a valid buffer position, or the
-special symbol :point.
-
-If POSITION is a marker or integer, return the index number of
-the item at POSITION.
-
-If POSITION is the symbol :point, return the index number of the
-item at point.")
-
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-index (lister-buf (position marker))
-  "Return the index number of the item at MARKER position."
-  (with-lister-buffer lister-buf
-    (seq-position lister-local-marker-list
-		  position
-		  #'equal)))
-
-(cl-defmethod lister-index (lister-buf (position integer))
-  "Return the index number of the item at buffer POSITION."
-  (lister-index lister-buf
-		;; make a marker on the fly:
-		(lister-make-marker lister-buf position)))
-
-(cl-defmethod lister-index (lister-buf (position (eql :point)))
-  "Return the index number of the item at point."
-  (ignore position) ;; silence byte compiler
-  (lister-index lister-buf (with-current-buffer lister-buf (point))))
-
 (defun lister-next-free-position (lister-buf) 
   "Return the next free position for a new list item in LISTER-BUF."
   (with-lister-buffer lister-buf
@@ -1133,6 +1070,20 @@ Also recreates the markers for the header and the footer of the list."
 	(setq ml (butlast ml)))
       ;; store list:
       (setq lister-local-marker-list ml))))
+
+;; * Treat visible items as an indexed list
+
+(defun lister-index-position (lister-buf marker-or-pos)
+  "Return the index position of MARKER-OR-POS.
+The index only refers to visible items."
+  (with-lister-buffer lister-buf
+    (let* ((m (lister-pos-as-marker lister-buf marker-or-pos)))
+      (seq-position (lister-visible-markers lister-buf) m #'equal))))
+
+(defun lister-index-marker (lister-buf index-position)
+  "Return the marker of INDEX-POSITION, if available."
+  (with-lister-buffer lister-buf
+    (seq-elt (lister-visible-markers lister-buf) index-position)))
 
 ;; * Cursor Sensor Function
 
@@ -1263,14 +1214,13 @@ means that you must have initialized the buffer with
 If DATA-LIST is non-nil, use this value and overwrite the local
 copy. 
 
-Move point to the item with the same index where point was before
-the redisplay. If IGNORE-POINT is non-nil, do not set point
-explicitly.
+Try to keep point at the current position. If IGNORE-POINT is
+non-nil, do not set point explicitly.
 
 To set the header or the footer, use `lister-set-header' and
 `lister-set-footer'."
   (with-lister-buffer lister-buf
-    (let (old-index old-marked-items
+    (let (old-index
 	  (cursor-sensor-inhibit t))
       ;; delete old list:
       (when-let* ((ml lister-local-marker-list)
@@ -1281,8 +1231,9 @@ To set the header or the footer, use `lister-set-header' and
 		  (end (or lister-local-footer-marker 
 			   (point-max)))
 		  (inhibit-read-only t))
-	(setq old-index (lister-index lister-buf :point))
-	(setq old-marked-items (lister-get-marked-data lister-buf))
+	(setq old-index (if (lister-current-marker lister-buf)
+			    (lister-index-position lister-buf (point))
+			  0))			  
 	(delete-region beg end)
 	(setq lister-local-marker-list nil))
       ;; insert new list:
@@ -1295,28 +1246,15 @@ To set the header or the footer, use `lister-set-header' and
 			(mapcar
 			 (apply-partially #'lister-add lister-buf)
 			 lister-local-data-list)))
-      ;; restore marked items:
-      ;;
-      ;;    FIXME This is conceptually weird. The idea is to preserve
-      ;;          the marks when applying a filter. Yet when removing
-      ;;          the filter, the "hidden" marks will not pop up again,
-      ;;          since we apply the "old marked items" from the
-      ;;          filtered list.
-      ;;          So the current solution is not good.
-      (when old-marked-items
-	(lister-mark-some-items lister-buf old-marked-items t))
-      ;; if possible, move to same position as before
-      ;; FIXME Adapt this for visibility
+      ;; keep point at place:
       (unless ignore-point
-	(if (and lister-local-marker-list
-		 old-index)
-	    (lister-goto lister-buf
-			 ;; if old pos is out of bounds, go to
-			 ;; last item:
-			 (min old-index
-			      (1- (length lister-local-marker-list))))
+	(if-let* ((vms      (lister-visible-markers lister-buf))
+		  (maxindex (1- (length vms)))
+		  (pos      (min maxindex old-index))
+		  (m        (lister-index-marker lister-buf pos)))
+	    (lister-goto lister-buf m)
 	  (goto-char (point-min)))))))
-	 
+
 ;; * Set up a lister buffer
 
 ;;;###autoload
@@ -1372,7 +1310,7 @@ to the first list item. Return BUF."
     (when data-list
       (lister-set-list buf data-list t))
     ;; move to first item:
-    (when lister-local-marker-list
+    (when (lister-visible-markers buf)
       (lister-goto buf :first))
     buf))
 

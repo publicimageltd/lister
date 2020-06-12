@@ -160,7 +160,7 @@
     (expect (test-buffer-content buf)
 	    :to-match
 	    (concat header "\n1\n2\n3\n" footer "\n")))
-  (it "Add header, footer, list items, remove all using index 0."
+  (xit "Add header, footer, list items, remove all using index 0."
     (lister-set-header buf header)
     (lister-set-footer buf footer)
     (lister-add buf "1")
@@ -174,7 +174,7 @@
     (expect (test-buffer-content buf)
 	    :to-match
 	    ""))
-  (it "Add list items, remove them all using index 0."
+  (xit "Add list items, remove them all using index 0."
     (lister-add buf "1")
     (lister-add buf "2")
     (lister-add buf "3")
@@ -205,12 +205,12 @@
    (expect (test-point buf)
 	   :to-be
 	   5))
- (it "Move to the middle item, using index 1."
+ (xit "Move to the middle item, using index 1."
    (lister-goto buf 1)
    (expect (test-point buf)
 	   :to-be
 	   3))
- (it "Remove middle item, go to last item using :last."
+ (xit "Remove middle item with index, go to last item using :last."
    (lister-remove buf 1)
    (lister-goto buf :last)
    (expect (test-point buf)
@@ -228,13 +228,13 @@
    (expect (test-point buf)
 	   :to-be
 	   (+ 5 (length header) 1)))
- (it "Add header, move to the middle item, using index 1."
+ (xit "Add header, move to the middle item, using index 1."
    (lister-set-header buf header)
    (lister-goto buf 1)
    (expect (test-point buf)
 	   :to-be
 	   (+ 3 (length header) 1)))
- (it "Add header, remove middle item, go to last item using :last."
+ (xit "Add header, remove middle item w/index, go to last item using :last."
    (lister-set-header buf header)
    (lister-remove buf 1)
    (lister-goto buf :last)
@@ -267,7 +267,7 @@
    (expect (test-buffer-content buf)
 	   :to-match
 	   ""))
- (it "Filter everything, then remove the filter."
+ (xit "Filter everything, then remove the filter."
    (lister-add-filter buf (lambda (data) nil))
    (lister-clear-filter buf)
    (expect (lister-get-visible-data buf)
