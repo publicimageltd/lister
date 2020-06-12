@@ -80,8 +80,6 @@
 
 ;; TODO
 ;;
-;; - Tests durchlaufen; ggf. anpassen
-;;
 ;; - Kopple den Filter mit der "visibility":
 ;;   - Insert fügt IMMER ein
 ;;   - Testet aber jeweils auch sofort auf visibility
@@ -491,6 +489,13 @@ Assumes a properly set up LISTER-BUF."
 	     (beg (lister-marker-pos (car lister-local-marker-list)))
 	     (end (lister-end-of-lines lister-buf (car (last lister-local-marker-list)))))
 	(remove-text-properties beg end '(invisible nil))))))
+
+(defun lister-possibly-hide-item (lister-buf marker-or-pos data)
+  "Hide item at MARKER-OR-POS depending on DATA.
+Pass DATA through `lister-filter-predicates'. If it passes, do
+nothing. Else hide the item."
+  (unless (lister-filter-data data lister-filter-predicates)
+    (lister-hide-item lister-buf marker-or-pos)))
 
 ;; * Filtering
 
