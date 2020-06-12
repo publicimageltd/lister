@@ -493,9 +493,12 @@ Assumes a properly set up LISTER-BUF."
 (defun lister-possibly-hide-item (lister-buf marker-or-pos data)
   "Hide item at MARKER-OR-POS depending on DATA.
 Pass DATA through `lister-filter-predicates'. If it passes, do
-nothing. Else hide the item."
-  (unless (lister-filter-data data lister-filter-predicates)
-    (lister-hide-item lister-buf marker-or-pos)))
+nothing. Else hide the item. 
+
+If DATA is nil, ignore the tests and hide the item anyways."
+  (when data 
+    (unless (lister-filter-data data lister-filter-predicates)
+      (lister-hide-item lister-buf marker-or-pos))))
 
 ;; * Filtering
 
