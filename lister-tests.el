@@ -185,6 +185,41 @@
 	    :to-match
 	    "")))
 
+(describe "Hiding items:"
+  :var (buf first-item second-item
+	    third-item fourth-item)
+  (before-each
+    (setq buf (lister-setup (test-buffer)
+			    (test-mapper)
+			    '("A" "B" "C" "D")))
+    (switch-to-buffer buf)
+    (setq first-item  (nth 0 lister-local-marker-list))
+    (setq second-item (nth 1 lister-local-marker-list))
+    (setq third-item  (nth 2 lister-local-marker-list))
+    (setq fourth-item (nth 3 lister-local-marker-list)))
+  (it "Hide item."
+    (lister-hide-item buf first-item)		      
+    (expect (invisible-p first-item)
+	    :to-be
+	    t)
+    (expect (invisible-p second-item)
+	    :to-be
+	    nil))
+  (it "Hide and show it again."
+    (lister-hide-item buf first-item)
+    (lister-show-item buf first-item)
+    (expect (invisible-p first-item)
+	    :to-be
+	    nil))
+  (it "Hide some items and then show all."
+    (lister-hide-item buf (seq-random-elt lister-local-marker-list))
+    (lister-hide-item buf (seq-random-elt lister-local-marker-list))
+    (lister-show-all-items buf)
+    (expect (invisible-p first-item) :to-be nil)
+    (expect (invisible-p second-item) :to-be nil)
+    (expect (invisible-p third-item) :to-be nil))
+    (expect (invisible-p fourth-item) :to-be nil))
+
 (describe "Cursor motion (lister-goto):"
   :var (buf header footer)
  (before-each
