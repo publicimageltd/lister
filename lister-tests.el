@@ -46,7 +46,17 @@
     (setq marker (make-marker))
     (set-marker marker (point-max) buf)
     (setq test-item '("1" "2")))
-  (it "Insert list of strings at marker position."
+  (it "Calling a lister function with a non-lister buffer"
+    (with-temp-buffer
+      (expect 
+       (lister-insert (current-buffer) (point-min) test-item)
+       :to-throw
+       'error)))
+  (it "Flatten an item list."
+    (expect (lister-strflat "test") :to-equal '("test"))
+    (expect (lister-strflat '("1" nil "3")) :to-equal '("1" "3"))
+    (expect (lister-strflat '(("1") ("2"))) :to-equal '("1" "2")))
+  (it "Insert test item at marker position."
     (lister-insert-lines buf marker test-item)
     (expect (test-buffer-content buf)
 	    :to-match
@@ -155,31 +165,7 @@
     (lister-add buf "3")
     (expect (test-buffer-content buf)
 	    :to-match
-	    (concat header "\n1\n2\n3\n" footer "\n")))
-  (xit "Add header, footer, list items, remove all using index 0."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-add buf "1")
-    (lister-add buf "2")
-    (lister-add buf "3")
-    (lister-remove buf 0)
-    (lister-remove buf 0)
-    (lister-remove buf 0)
-    (lister-set-header buf nil)
-    (lister-set-footer buf nil)
-    (expect (test-buffer-content buf)
-	    :to-match
-	    ""))
-  (xit "Add list items, remove them all using index 0."
-    (lister-add buf "1")
-    (lister-add buf "2")
-    (lister-add buf "3")
-    (lister-remove buf 0)
-    (lister-remove buf 0)
-    (lister-remove buf 0)
-    (expect (test-buffer-content buf)
-	    :to-match
-	    "")))
+	    (concat header "\n1\n2\n3\n" footer "\n"))))
 
 (describe "Hiding items:"
   :var (buf first-item second-item
@@ -236,17 +222,6 @@
    (expect (test-point buf)
 	   :to-be
 	   5))
- (xit "Move to the middle item, using index 1."
-   (lister-goto buf 1)
-   (expect (test-point buf)
-	   :to-be
-	   3))
- (xit "Remove middle item with index, go to last item using :last."
-   (lister-remove buf 1)
-   (lister-goto buf :last)
-   (expect (test-point buf)
-	   :to-be
-	   3))
  (it "Add header, move to the first item with :first."
    (lister-set-header buf header)
    (lister-goto buf :first)
@@ -259,15 +234,10 @@
    (expect (test-point buf)
 	   :to-be
 	   (+ 5 (length header) 1)))
- (xit "Add header, move to the middle item, using index 1."
+ (it "Add header, remove middle item, go to last item using :last."
    (lister-set-header buf header)
-   (lister-goto buf 1)
-   (expect (test-point buf)
-	   :to-be
-	   (+ 3 (length header) 1)))
- (xit "Add header, remove middle item w/index, go to last item using :last."
-   (lister-set-header buf header)
-   (lister-remove buf 1)
+   (lister-remove buf (with-current-buffer buf
+			(nth 1 lister-local-marker-list)))
    (lister-goto buf :last)
    (expect (test-point buf)
 	   :to-be
@@ -310,7 +280,15 @@
    (lister-activate-filter buf)
    (expect (lister-get-visible-data buf)
 	   :to-equal
-	   '("AB"))))
+	   '("AB")))
+ (it "Negate a filter chain."
+   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
+   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
+   (lister-negate-filter buf)
+   (lister-activate-filter buf)
+   (expect (lister-get-visible-data buf)
+	   :to-equal
+	   '("AA" "BA" "BB"))))
 
 (describe "Use a callback function:"
   :var (value buf)

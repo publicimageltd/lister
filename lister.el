@@ -188,7 +188,6 @@ visible list item or to the beginning of the buffer."
   (if (or (null lines) (not (listp lines)))
       (list (or warning "DATA ITEM UNDEFINED."))
     lines))
-	    
 
 (defun lister-strflat (l)
   "Recursively stringify all items in L, flattening any sublists.
@@ -200,7 +199,9 @@ If L is a string, just wrap it in a list and return that list.
 Else, flatten the list L. Remove empty lists or nil values from
 the flattened list. Leave strings as they are. But replace any
 function names with the result of calling these functions (with
-no args). The function should return string values.
+no args). The function should return string values. The function
+has to be defined with defun, since it is recognized via
+`functionp'.
 
 Quoting cars such as (quote xy) or (function z) will be silently
 dropped, keeping only the quoted item.
