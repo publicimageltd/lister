@@ -44,14 +44,10 @@
     (setq lister-top-margin 0)
     (setq lister-bottom-margin 0)
     (setq marker (make-marker))
-    (set-marker marker (point-max) buf))
-  (it "Insert single string at marker position."
-    (lister-insert-lines buf marker "TEST")
-    (expect (test-buffer-content buf)
-	    :to-match
-	    "TEST\n"))
+    (set-marker marker (point-max) buf)
+    (setq test-item '("1" "2")))
   (it "Insert list of strings at marker position."
-    (lister-insert-lines buf marker '("1" "2"))
+    (lister-insert-lines buf marker test-item)
     (expect (test-buffer-content buf)
 	    :to-match
 	    "1\n2\n")
@@ -61,11 +57,11 @@
     (expect (get-text-property marker 'nlines buf)
 	    :to-be
 	    2))
-  (it "Insert string using using an integer value as position."
-    (lister-insert-lines buf (marker-position marker) "TEST")
+  (it "Insert test item using using an integer value as position."
+    (lister-insert-lines buf (marker-position marker) test-item)
     (expect (test-buffer-content buf)
 	    :to-match
-	    "TEST\n")))
+	    "1\n2\n")))
 
 (describe "Inserting header, footer and items:"
   :var (buf header footer)
@@ -283,56 +279,38 @@
     (setq datalist '("AA" "AB" "BA" "BB"))
     (setq buf (lister-setup (test-buffer)
 			    (test-mapper)
-			    datalist))
-    (setq lister-left-margin 0)
-    (setq lister-right-margin 0)
-    (setq lister-top-margin 0)
-    (setq lister-bottom-margin 0))
- (it "Local copy of data is correct."
-   (expect (with-current-buffer buf
-	     lister-local-data-list
-	     :to-equal
-	     datalist)))
+			    datalist)))
  (it "Generated copy of data is correct."
    (expect (lister-get-visible-data buf)
 	   :to-equal
 	   datalist))
  (it "Filter all data so that nothing is displayed."
    (lister-add-filter buf (lambda (data) nil))
-   (expect (test-buffer-content buf)
-	   :to-match
-	   ""))
- (xit "Filter everything, then remove the filter."
+   (lister-activate-filter buf)
+   (expect (lister-visible-markers buf)
+	   :to-be
+	   nil))
+ (it "Filter everything, then remove the filter."
    (lister-add-filter buf (lambda (data) nil))
+   (lister-activate-filter buf)
    (lister-clear-filter buf)
+   (lister-update-filter buf)
    (expect (lister-get-visible-data buf)
 	   :to-equal
 	   datalist))
  (it "Apply filter which matches only some data."
    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
+   (lister-activate-filter buf)
    (expect (lister-get-visible-data buf)
 	   :to-equal
 	   '("AA" "AB")))
  (it "Apply filter chain."
    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
    (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
+   (lister-activate-filter buf)
    (expect (lister-get-visible-data buf)
 	   :to-equal
 	   '("AB"))))
-
-(describe "Using the mapper fn:"
-  :var (datalist)
-  (before-each
-    (setq datalist '(1 2 3 4 nil 5)))
-  (it "Do not display nil items returned by the mapper."
-    (let* ((buf (lister-setup (test-buffer)
-			      (lambda (data)
-				(when data 
-				  (format "%d" data)))
-			      datalist)))
-      (expect (lister-get-visible-data buf)
-	      :to-equal
-	      '(1 2 3 4 5)))))
 
 (describe "Use a callback function:"
   :var (value buf)

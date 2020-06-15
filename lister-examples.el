@@ -42,19 +42,31 @@
 
 (defun lister-filter-by-a (data)
   (ignore data) ;; silence byte compiler
-  (apply-partially #'string-match "\\`A"))
+  (string-match "\\`A" data))
 
 (defun lister-filter-by-b (data)
   (ignore data) ;; silence byte compiler
-  (apply-partially #'string-match "\\`B"))
+  (string-match "\\`B" data))
 
 (defun lister-key-filter-by-a ()
   (interactive)
-  (lister-set-filter (current-buffer) #'lister-filter-by-a))
+  (lister-set-filter (current-buffer) #'lister-filter-by-a)
+  (message "Filter 'A' set."))
 
 (defun lister-key-filter-by-b ()
   (interactive)
-  (lister-set-filter (current-buffer) #'lister-filter-by-b))
+  (lister-set-filter (current-buffer) #'lister-filter-by-b)
+  (message "Filter 'B' set."))
+
+(defun lister-key-toggle-filter ()
+  (interactive)
+  (if lister-local-filter-active
+      (lister-deactivate-filter (current-buffer))  
+    (lister-activate-filter (current-buffer)))
+  (if lister-local-filter-active
+      (message "Filter is active. Filter term is '%s'." lister-local-filter-term)
+  (message "Filter is not active.")))
+
 
 ;; * Use highlighting
 
@@ -70,13 +82,16 @@
   (let* ((buf (lister-setup
 		      (get-buffer-create "*LISTER-TEST*")
 		      #'list
-		      '("AA" "AB" "BA" nil "BC")
+		      '("AA" "AB" "BA"
+			;;nil
+			"BC")
 		      "HEADER"
 		      "FOOTER")))
     (lister-add-enter-callback buf #'lister-item-message)
     (define-key lister-mode-map "a" #'lister-key-filter-by-a)
     (define-key lister-mode-map "b" #'lister-key-filter-by-b)
     (define-key lister-mode-map "h" #'lister-key-toggle-highlight-mode)
+    (define-key lister-mode-map "f" #'lister-key-toggle-filter)
     (switch-to-buffer buf)))
 
 (provide 'lister-examples)
