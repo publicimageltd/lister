@@ -41,7 +41,7 @@
 		     (apply-partially #'string-match "\\`[^.#%]")
 		     (directory-files user-emacs-directory)))
 	 (lister-buf (lister-setup
-		      (lister-test-buffer)
+		      (get-buffer-create "*LISTER NARROW TEST*")
 		      #'lister-narrow-mapper
 		      files
 		      (format "%s:" user-emacs-directory))))

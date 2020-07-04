@@ -35,37 +35,43 @@
 ;; * Use the callback
 
 (defun lister-item-message ()
+  "Display the data of the item in the echo area."
   (message "Stored data: %s."
 	   (lister-get-data (current-buffer) :point)))
 
 ;; * Use the filter
 
 (defun lister-filter-by-a (data)
+  "Filter out all data beginning with 'A"
   (ignore data) ;; silence byte compiler
   (string-match "\\`A" data))
 
 (defun lister-filter-by-b (data)
+  "Filter out all data beginning with 'B"
   (ignore data) ;; silence byte compiler
   (string-match "\\`B" data))
 
 (defun lister-key-filter-by-a ()
+  "Apply A-filter."
   (interactive)
   (lister-set-filter (current-buffer) #'lister-filter-by-a)
   (message "Filter 'A' set."))
 
 (defun lister-key-filter-by-b ()
+  "Apply B-filter."
   (interactive)
   (lister-set-filter (current-buffer) #'lister-filter-by-b)
   (message "Filter 'B' set."))
 
 (defun lister-key-toggle-filter ()
+  "Activate or deactivate the filter."
   (interactive)
   (if lister-local-filter-active
       (lister-deactivate-filter (current-buffer))  
     (lister-activate-filter (current-buffer)))
   (if lister-local-filter-active
       (message "Filter is active. Filter term is '%s'." lister-local-filter-term)
-  (message "Filter is not active.")))
+    (message "Filter is not active.")))
 
 
 ;; * Use highlighting

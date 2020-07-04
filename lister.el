@@ -1,8 +1,12 @@
-;;; lister.el --- yet another list printer             -*- lexical-binding: t; -*-
+;;; lister.el --- Yet another list printer             -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018-2020
 
 ;; Author:  <joerg@joergvolbers.de>
+;; Version: 0.4
+;; Package-Requires: ((seq "2.20") (emacs "26.1"))
+;; Keywords: hypermedia
+;; URL: https://github.com/publicimageltd/lister
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -73,7 +77,7 @@ Set this to nil if no bottom margin is wanted.")
 
 (defvar lister-mark-face-or-property
   '(:background "darkorange3"
-    :foreground "white")
+		:foreground "white")
   "Additional text property highlighting marked items.
 Any marked item will be highlighted by adding these properties.
 Useful values are, for example, 
@@ -138,8 +142,6 @@ defined."
 	  "Buffer %s has to be in lister mode; execution aborted." 
 	"Buffer %s has to have a local mapper function; execution aborted.")
       buf))))
-
-(defalias 'assert-lister-buffer 'lister-buffer-p)
 
 (defmacro with-lister-buffer (buf &rest body)
   "Execute BODY in BUF.
@@ -367,8 +369,8 @@ Setting LINES to `nil' effectively deletes the item."
 				  item)))
       (when-let* ((m (symbol-value marker-var))
 		  (inhibit-read-only t))
-	  (put-text-property m (1+ m)  'cursor-intangible t)
-	  (put-text-property m (1+ m)  'front-sticky t)))))
+	(put-text-property m (1+ m)  'cursor-intangible t)
+	(put-text-property m (1+ m)  'front-sticky t)))))
 
 (defun lister-set-header (lister-buf header)
   "Set HEADER before the first item in LISTER-BUF.
@@ -464,8 +466,8 @@ Assumes a properly set up LISTER-BUF."
   "Hide item at MARKER-OR-POS if applying the filter on DATA returns nil.
 Show item if the result of applying the local filter term returns
 non-nil."
-    (unless (lister-apply-filter data lister-local-filter-term)
-      (lister-hide-item lister-buf marker-or-pos)))
+  (unless (lister-apply-filter data lister-local-filter-term)
+    (lister-hide-item lister-buf marker-or-pos)))
 
 ;; * Filtering
 
