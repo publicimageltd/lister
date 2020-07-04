@@ -236,7 +236,7 @@ Examples:
 ;; `lister-right-margin'."
 
 (defun lister-indent-line (s n &optional offset)
-  "Indent string S by adding N+OFFSET spaces.
+  "Indent S by adding N+OFFSET spaces.
 
 S must be string, N and OFFSET an integer or nil."
   (concat (and n (make-string n ? ))
@@ -263,15 +263,14 @@ LINES must be a list.
 
 LEVEL adds extra padding to the item to mark it as a subitem.
 
-Mark the beginning of the newly inserted text by setting the text
-property symbol `item' to the value t. Store the number of
-inserted lines in the same place using the text property symbol
-`nlines'.
+Insert text with the text property `intangible' set, but leave a
+gap for the cursor to access the item. Store some important
+values at the position of the gap.
 
 Move point to the end of the newly inserted text.
 
 Return the marker of the top left beginning of the inserted
-item."
+item (gap position)."
   (when lines
     (with-current-buffer buf
       (let* ((padded-item-list (mapcar (lambda (s)
