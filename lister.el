@@ -63,10 +63,6 @@ expression with the argument DATA.")
   "Add this left margin when inserting a item.
 Set this to nil if no left margin is wanted.")
 
-(defvar lister-right-margin nil
-  "Add this right margin when inserting a item.
-Set this to nil if no right margin is wanted.")
-
 (defvar lister-top-margin nil
   "Add this top margin when inserting an item.
 Set this to nil if no top margin is wanted.")
@@ -236,16 +232,16 @@ Examples:
 		   (t (append acc (list (if (functionp e) (funcall e) e))))))
 		l '())))
 
-(defun lister-add-side-margins (s)
-  "Pad S to the left and right by adding spaces.
-Margins are taken from the variables `lister-left-margin' and
-`lister-right-margin'."
-  (concat
-   (and lister-left-margin
-	(make-string lister-left-margin ? ))
-   s
-   (and lister-right-margin
-	(make-string lister-right-margin ? ))))
+;; Margins are taken from the variables `lister-left-margin' and
+;; `lister-right-margin'."
+
+(defun lister-indent-line (s n &optional offset)
+  "Indent string S by adding N+OFFSET spaces.
+
+S must be string, N and OFFSET an integer or nil."
+  (concat (and n (make-string n ? ))
+	  (and offset (make-string offset ? ))
+	  s))
 
 (defun lister-add-vertical-margins (strings)
   "Pad a list of STRINGS vertically by adding empty strings.
@@ -258,12 +254,14 @@ Margins are taken from the variables `lister-top-margin' and
    (and lister-bottom-margin
 	(make-list lister-bottom-margin ""))))
 
-(defun lister-insert-lines (buf marker-or-pos lines)
+(defun lister-insert-lines (buf marker-or-pos lines &optional level)
   "Insert list LINES with padding at POS in BUF.
 
 MARKER-OR-POS can be either a marker object or a buffer position.
 
 LINES must be a list.
+
+LEVEL adds extra padding to the item to mark it as a subitem.
 
 Mark the beginning of the newly inserted text by setting the text
 property symbol `item' to the value t. Store the number of
@@ -276,8 +274,10 @@ Return the marker of the top left beginning of the inserted
 item."
   (when lines
     (with-current-buffer buf
-      (let* ((item-list  (lister-add-vertical-margins
-			  (mapcar #'lister-add-side-margins lines)))
+      (let* ((padded-item-list (mapcar (lambda (s)
+					 (lister-indent-line s lister-left-margin level))
+				       lines))
+	     (item-list  (lister-add-vertical-margins padded-item-list))
 	     (beg        (lister-marker-pos marker-or-pos))
 	     (inhibit-read-only t))
 	(goto-char beg)

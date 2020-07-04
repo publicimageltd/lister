@@ -42,12 +42,12 @@
 ;; * Use the filter
 
 (defun lister-filter-by-a (data)
-  "Filter out all data beginning with 'A"
+  "Only allow data beginning with 'A"
   (ignore data) ;; silence byte compiler
   (string-match "\\`A" data))
 
 (defun lister-filter-by-b (data)
-  "Filter out all data beginning with 'B"
+  "Only allow data beginning with 'B"
   (ignore data) ;; silence byte compiler
   (string-match "\\`B" data))
 
@@ -88,8 +88,9 @@
   (let* ((buf (lister-setup
 		      (get-buffer-create "*LISTER-TEST*")
 		      #'list
-		      '("AA" "AB" "BA"
-			;;nil
+		      '("AA"
+			"AB"
+			"BA"
 			"BC")
 		      "HEADER"
 		      "FOOTER")))

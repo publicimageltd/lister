@@ -40,7 +40,6 @@
   (before-each
     (setq buf (test-buffer))
     (setq lister-left-margin 0)
-    (setq lister-right-margin 0)
     (setq lister-top-margin 0)
     (setq lister-bottom-margin 0)
     (setq marker (make-marker))
@@ -82,7 +81,6 @@
     (setq footer "FOOTER")
     (setq data   "DATA")
     (setq lister-left-margin 0)
-    (setq lister-right-margin 0)
     (setq lister-top-margin 0)
     (setq lister-bottom-margin 0))
   (it "Insert a single header."
@@ -127,7 +125,7 @@
     (expect (test-buffer-content buf)
 	    :to-match
 	    (concat header "\n")))
-  (it "Insert header and footer, then removee header."
+  (it "Insert header and footer, then remove header."
     (lister-set-header buf header)
     (lister-set-footer buf footer)
     (lister-set-header buf nil)
