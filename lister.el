@@ -254,7 +254,7 @@ Margins are taken from the variables `lister-top-margin' and
    (and lister-bottom-margin
 	(make-list lister-bottom-margin ""))))
 
-(defun lister-insert-lines (buf marker-or-pos lines &optional level)
+(cl-defun lister-insert-lines (buf marker-or-pos lines &optional (level 0))
   "Insert list LINES with padding at POS in BUF.
 
 MARKER-OR-POS can be either a marker object or a buffer position.
@@ -281,16 +281,18 @@ item (gap position)."
 	     (inhibit-read-only t))
 	(goto-char beg)
 	;; Mark the whole item except the newline character as being
-	;;'intangible'. Assumes rear-stickiness.
+	;; 'intangible'. Assumes rear-stickiness.
 	;; Leaving newline out allows cursor movement:
 	(insert (propertize (string-join item-list "\n")
 			    'cursor-intangible t
 			    'field t)
 		"\n") ;; <- this leaves the "tangible" gap for the next item!
+	;;
 	;; Store some useful information at the beginning of the item,
 	;; which is also its "marker position" used to reference the
 	;; item:
 	(put-text-property beg (1+ beg) 'item t)
+	(put-text-property beg (1+ beg) 'level level)
 	(put-text-property beg (1+ beg) 'nlines (length item-list))
 	(lister-make-marker buf beg)))))
 
@@ -565,6 +567,8 @@ Use the boolean operator `and' or instead use OP, if specified."
   (lister-deactivate-filter lister-buf)
   (lister-activate-filter lister-buf))
 
+;; * Finding out about list items.
+
 ;; * Insert items
 
 ;; The following sections define functions to insert, add, remove and
@@ -576,7 +580,7 @@ Use the boolean operator `and' or instead use OP, if specified."
 ;; turned into a string representation by the buffer local mapper
 ;; function (`lister-local-mapper').
 
-(cl-defgeneric lister-insert (lister-buf position data)
+(cl-defgeneric lister-insert (lister-buf position data &optional level)
   "Insert a representation of DATA at POSITION in LISTER-BUF.
 
 DATA can be any kind of lisp object. A mapper function creates a
@@ -604,12 +608,12 @@ variable (`lister-local-mapper'). This function updates the local
 variable which holds the marker list.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-insert (lister-buf (position integer) data) 
+(cl-defmethod lister-insert (lister-buf (position integer) data &optional (level 0))
   "Insert a representation of DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-item (lister-strflat raw-item)))
-	   (marker         (lister-insert-lines lister-buf position item)))
+	   (marker         (lister-insert-lines lister-buf position item level)))
       (lister-set-data lister-buf marker data)
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
@@ -618,11 +622,11 @@ variable which holds the marker list.")
       (goto-char marker)
       marker)))
 
-(cl-defmethod lister-insert (lister-buf (position marker) data)
+(cl-defmethod lister-insert (lister-buf (position marker) data &optional (level 0))
     "Insert a representation of DATA at MARKER in LISTER-BUF."
     (lister-insert lister-buf (marker-position position) data))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :point)) data)
+(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional (level 0))
   "Insert a representation of DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
@@ -757,7 +761,9 @@ the mark or nil to remove it."
 	       (lister-mark-item lister-buf m value)))))
 
 (defun lister-display-mark-state (lister-buf marker)
-  "In LISTER-BUF, display the 'mark' state of the item at MARKER."
+  "In LISTER-BUF, display the item as marked or not marked.
+The item is referred to via the MARKER pointing to its cursor gap
+position."
   (with-lister-buffer lister-buf
     (let* ((state    (lister-get-mark-state lister-buf marker))
 	   (face-fun (if state 'lister-add-face-property 'lister-remove-face-property))
@@ -849,6 +855,7 @@ The object has to be stored by `lister-set-data', which see.")
   "Collect all visible data values in LISTER-BUF."
   (seq-map (apply-partially #'lister-get-data lister-buf)
 	   (lister-visible-markers lister-buf)))
+
 ;; * Goto
 
 (cl-defgeneric lister-goto (lister-buf position)
