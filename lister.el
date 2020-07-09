@@ -254,7 +254,7 @@ Margins are taken from the variables `lister-top-margin' and
    (and lister-bottom-margin
 	(make-list lister-bottom-margin ""))))
 
-(cl-defun lister-insert-lines (buf marker-or-pos lines &optional (level 0))
+(cl-defun lister-insert-lines (buf marker-or-pos lines level)
   "Insert list LINES with padding at POS in BUF.
 
 MARKER-OR-POS can be either a marker object or a buffer position.
@@ -316,8 +316,9 @@ MARKER-OR-POS can be either a marker object or a buffer position.
 If NEW-LINES is nil, simply delete the entry at POS."
   (with-current-buffer buf
     (save-excursion
-      (lister-remove-lines buf marker-or-pos)
-      (lister-insert-lines buf marker-or-pos new-lines))))
+      (let ((level (get-text-property marker-or-pos 'level)))
+	(lister-remove-lines buf marker-or-pos)
+	(lister-insert-lines buf marker-or-pos new-lines level)))))
 
 (defun lister-end-of-lines (buf marker-or-pos)
   "Return the end position of the item which starts at POS in BUF.
@@ -367,7 +368,8 @@ Setting LINES to `nil' effectively deletes the item."
 				     item)
 	     (lister-insert-lines lister-buf
 				  (funcall default-pos)
-				  item)))
+				  item
+				  0)))
       (when-let* ((m (symbol-value marker-var))
 		  (inhibit-read-only t))
 	(put-text-property m (1+ m)  'cursor-intangible t)
@@ -567,7 +569,19 @@ Use the boolean operator `and' or instead use OP, if specified."
   (lister-deactivate-filter lister-buf)
   (lister-activate-filter lister-buf))
 
-;; * Finding out about list items.
+;; * Finding parent items.
+
+(defun lister-next-level-change (lister-buf pos-or-marker direction level)
+  "Return the position of the next item with different level.
+If DIRECTION is t, search forward, else backward.
+LEVEL is the position with which the items are compared.
+POS-OR-MARKER is the position where to start the search.
+LISTER-BUF is a properly set up lister buffer."
+  (with-lister-buffer lister-buf
+    ;; TODO Lister-Marker-list mit take-while kürzen
+    ;; Dann durchgehen bis level <> level
+    ;; 
+    ()))
 
 ;; * Insert items
 
