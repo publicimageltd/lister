@@ -51,6 +51,12 @@
   (ignore data) ;; silence byte compiler
   (string-match "\\`B" data))
 
+(defun lister-key-negate-filter ()
+  "Negate the present filter."
+  (interactive)
+  (lister-negate-filter (current-buffer))
+  (message "Filter term is '%s'." lister-local-filter-term))
+
 (defun lister-key-filter-by-a ()
   "Apply A-filter."
   (interactive)
@@ -90,13 +96,18 @@
 		      #'list
 		      '("AA"
 			"AB"
+			("EINS-UNTERITEM"
+			 "ZWEI-UNTERITEM")
 			"BA"
-			"BC")
+			"BC"
+			("HUHU_SELTSAM_UNTER1"
+			 "HUHU_SELTSAM_UNTER2"))
 		      "HEADER"
 		      "FOOTER")))
     (lister-add-enter-callback buf #'lister-item-message)
     (define-key lister-mode-map "a" #'lister-key-filter-by-a)
     (define-key lister-mode-map "b" #'lister-key-filter-by-b)
+    (define-key lister-mode-map "n" #'lister-key-negate-filter)
     (define-key lister-mode-map "h" #'lister-key-toggle-highlight-mode)
     (define-key lister-mode-map "f" #'lister-key-toggle-filter)
     (switch-to-buffer buf)))

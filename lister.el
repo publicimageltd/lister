@@ -528,6 +528,7 @@ passed explicitly. See `lister-add-filter-term'."
     (unless lister-local-filter-term
       (error "Filter term expected"))
     (setq lister-local-filter-term
+	  ;; TODO Use pcase to detect and eliminate double negation: (not (not _))
 	  (lister-add-filter-term lister-local-filter-term nil 'not))))
 
 (defun lister-set-filter (lister-buf fn &optional op)
@@ -571,17 +572,45 @@ Use the boolean operator `and' or instead use OP, if specified."
 
 ;; * Finding parent items.
 
-(defun lister-next-level-change (lister-buf pos-or-marker direction level)
-  "Return the position of the next item with different level.
-If DIRECTION is t, search forward, else backward.
-LEVEL is the position with which the items are compared.
-POS-OR-MARKER is the position where to start the search.
-LISTER-BUF is a properly set up lister buffer."
+(defun lister-item-min (lister-buf)
+  "Return the first allowed position for an item"
   (with-lister-buffer lister-buf
-    ;; TODO Lister-Marker-list mit take-while kürzen
-    ;; Dann durchgehen bis level <> level
-    ;; 
-    ()))
+    (if lister-local-header-marker
+	(lister-end-of-lines lister-buf lister-local-header-marker)
+      (point-min))))
+
+(defun lister-item-max (lister-buf)
+  "Return the position of the last char of the last item."
+  (with-lister-buffer lister-buf
+    (if lister-local-footer-marker
+	(1- (marker-position lister-local-footer-marker))
+      (point-max))))
+
+(defun lister-looking-at-prop (lister-buf pos-or-marker prop direction)
+  "Return the value of PROP, looking at either the previous or next item.
+DIRECTION can be the symbol `previous' or the symbol `next'. 
+
+This function assumes that POS-OR-MARKER is pointing to the
+cursor gap of an item."
+  (let (pos)
+    (if (eq direction 'previous)
+	;; looking up:
+	(progn
+	  (setq pos (previous-single-property-change pos-or-marker
+						     prop
+						     lister-buf
+						     (lister-item-min lister-buf)))
+	  (setq pos (and pos (1- pos))))
+      ;; looking down:
+      (setq pos (next-single-property-change pos-or-marker
+					     prop
+					     lister-buf
+					     (lister-item-max lister-buf)))
+      (setq pos (and pos (next-single-property-change pos
+						      prop
+						      lister-buf
+						      (lister-item-max lister-buf)))))
+    (when pos (get-text-property pos prop lister-buf))))  
 
 ;; * Insert items
 
@@ -596,6 +625,9 @@ LISTER-BUF is a properly set up lister buffer."
 
 (cl-defgeneric lister-insert (lister-buf position data &optional level)
   "Insert a representation of DATA at POSITION in LISTER-BUF.
+
+Insert DATA at the indentation level LEVEL. If LEVEL is nil,
+align its indentation with the item currently at POSITION.
 
 DATA can be any kind of lisp object. A mapper function creates a
 string representation (or a list of strings) for the data object.
@@ -627,7 +659,11 @@ variable which holds the marker list.")
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-item (lister-strflat raw-item)))
-	   (marker         (lister-insert-lines lister-buf position item (or level 0))))
+	   (prev-level     (or level (get-text-property position 'level)))
+	   (marker         (lister-insert-lines lister-buf
+						position
+						item
+						prev-level)))
       (lister-set-data lister-buf marker data)
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
@@ -648,19 +684,23 @@ variable which holds the marker list.")
 
 ;; * Add
 
-(defun lister-add (lister-buf data)
+(defun lister-add (lister-buf data &optional level)
   "Add a list item representing DATA to the end of the list in LISTER-BUF.
 
 DATA will be inserted by `lister-insert'. See there for possible
 values of DATA and how filtering applies.
+
+If LEVEL is nil, insert it at the same level as the item to which
+this item is added.
+
+If LEVEL is an integer, insert it at that specific level.
 
 Return the marker pointing to the beginning of the newly added
 item, or nil."
   (lister-insert lister-buf
 		 (lister-next-free-position lister-buf)
 		 data
-		 nil ;; let insert determine the level
-		 ))
+		 level))
 
 
 ;; * Remove
@@ -1035,14 +1075,18 @@ Also recreates the markers for the header and the footer of the list."
 
 ;; * Treat visible items as an indexed list
 
-(defun lister-index-position (lister-buf marker-or-pos)
+(defun lister-index-position (lister-buf marker-or-pos
+					 &optional include-invisible)
   "Return the index position of MARKER-OR-POS.
-The index only refers to visible items. Returns nil if no items
-are visible, or if MARKER-OR-POS is not on an item."
+The index only refers to visible items, unless INCLUDE-INVISIBLE
+is t. Returns nil if no items are visible, or if MARKER-OR-POS is
+not on an item."
   (with-lister-buffer lister-buf
-    (when-let* ((mlist (lister-visible-markers lister-buf))
-		(m (lister-pos-as-marker lister-buf marker-or-pos)))
-      (seq-position mlist m #'equal))))
+    (when-let* ((mlist (if include-invisible lister-local-marker-list
+			 (lister-visible-markers lister-buf))))
+      (seq-position mlist
+		    (lister-pos-as-marker lister-buf marker-or-pos)
+		    #'equal))))
 
 (defun lister-index-marker (lister-buf index-position)
   "Return the marker of INDEX-POSITION, if available."
@@ -1167,8 +1211,23 @@ respectively."
 
 ;; * Set a (new) list 
 
+(defun lister-insert-recursively (lister-buf data-list &optional level acc)
+  "Insert DATA-LIST with correct level indentation in LISTER-BUF.
+Return the marker list."
+  (if (listp data-list)
+      (apply #'append
+	     (seq-map (lambda (el)
+			(lister-insert-recursively lister-buf
+						   el
+						   (1+ (or level -1))
+						   acc))
+			data-list))
+    (setq acc (cons (lister-add lister-buf data-list (or level 0)) acc))))
+
 (defun lister-set-list (lister-buf data-list)
-  "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched."
+  "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
+All elements in DATA-LIST are inserted 'as is' unless they are lists. 
+Lists are inserted as sub lists."
   (save-lister-position lister-buf
     ;; delete old list:
     (when-let* ((ml lister-local-marker-list)
@@ -1183,8 +1242,10 @@ respectively."
       (setq lister-local-marker-list nil))
     ;; insert new list:
     (setq lister-local-marker-list
-	  (mapcar (apply-partially #'lister-add lister-buf)
-		  data-list))))
+	  (lister-insert-recursively lister-buf data-list))))
+	  
+	  ;; (mapcar (apply-partially #'lister-add lister-buf)
+	  ;; 	  data-list))))
 
 ;; * Set up a lister buffer
 
