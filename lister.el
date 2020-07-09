@@ -622,12 +622,12 @@ variable (`lister-local-mapper'). This function updates the local
 variable which holds the marker list.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-insert (lister-buf (position integer) data &optional (level 0))
+(cl-defmethod lister-insert (lister-buf (position integer) data &optional level)
   "Insert a representation of DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-item (lister-strflat raw-item)))
-	   (marker         (lister-insert-lines lister-buf position item level)))
+	   (marker         (lister-insert-lines lister-buf position item (or level 0))))
       (lister-set-data lister-buf marker data)
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
@@ -636,15 +636,15 @@ variable which holds the marker list.")
       (goto-char marker)
       marker)))
 
-(cl-defmethod lister-insert (lister-buf (position marker) data &optional (level 0))
+(cl-defmethod lister-insert (lister-buf (position marker) data &optional level)
     "Insert a representation of DATA at MARKER in LISTER-BUF."
-    (lister-insert lister-buf (marker-position position) data))
+    (lister-insert lister-buf (marker-position position) data level))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional (level 0))
+(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level)
   "Insert a representation of DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
-    (lister-insert lister-buf pos data)))
+    (lister-insert lister-buf pos data level)))
 
 ;; * Add
 
@@ -658,7 +658,9 @@ Return the marker pointing to the beginning of the newly added
 item, or nil."
   (lister-insert lister-buf
 		 (lister-next-free-position lister-buf)
-		 data))
+		 data
+		 nil ;; let insert determine the level
+		 ))
 
 
 ;; * Remove
@@ -712,9 +714,10 @@ point.")
 (cl-defmethod lister-replace (lister-buf (position marker) data)
   "Replace the item at marker POSITION with a new DATA item."
   (with-lister-buffer lister-buf
-    (let* ((buffer-pos (marker-position position)))
+    (let* ((buffer-pos (marker-position position))
+	   (level      (get-text-property buffer-pos 'level)))
       (lister-remove-lines lister-buf buffer-pos)
-      (lister-insert lister-buf buffer-pos data))))
+      (lister-insert lister-buf buffer-pos data level))))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
