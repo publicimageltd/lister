@@ -945,7 +945,7 @@ Example:
 	      (setq push-item (lister-group-by-level walk level-fn map-fn)
 		    walk (seq-drop walk (length push-item))))
 	    (push push-item res))))
-    (nreverse res)))
+    (reverse res)))
 
 (defun lister-get-props-at (buf pos &rest props)
   "Return the values of all PROPS at POS in BUF."
@@ -1258,8 +1258,8 @@ respectively."
 
 ;; * Set a (new) list 
 
-(cl-defun lister-insert-sequence (lister-buf seq &optional (level 0))
-  "Insert SEQ as items in LISTER-BUF with indentation LEVEL.
+(cl-defun lister-add-sequence (lister-buf seq &optional (level 0))
+  "Add SEQ as items to LISTER-BUF with indentation LEVEL.
 SEQ must be either a vector or a list.  Traverse SEQ and store its
 elements as data into the newly created list items.  Any element of
 the same type as SEQ will be interpreted as a nested list,
@@ -1274,7 +1274,7 @@ Return the marker list."
 	(error "Sequence must be a vector or a list."))
       (seq-doseq (item seq)
 	(setq marker (if (eq (type-of item) seq-type)
-			 (lister-insert-sequence lister-buf item (1+ level))
+			 (lister-add-sequence lister-buf item (1+ level))
 		       (list (lister-add lister-buf item level))))
 	(setq res (append marker res)))
       (reverse res))))
@@ -1297,8 +1297,7 @@ Lists are inserted as sub lists."
       (setq lister-local-marker-list nil))
     ;; insert new list:
     (setq lister-local-marker-list
-	  (lister-insert-sequence lister-buf data-list))))
-;;	  (lister-insert-recursively lister-buf data-list))))
+	  (lister-add-sequence lister-buf data-list))))
 
 ;; * Set up a lister buffer
 
