@@ -1210,6 +1210,36 @@ respectively."
   (cursor-intangible-mode))
 
 ;; * Set a (new) list 
+;;
+;; TODO These functions presume that a list is passed as a list, and
+;; an element is passed as a non-list. Yet if we want to store lists
+;; as data, this mechanism does not work. There should be a more
+;; generic way to identify lists and non-lists, e.g. by using a
+;; function. It is not clear, however, how such a function can
+;; properly distinguish, say, between a property list with only one
+;; item, and a normal list which wraps several elements. Further, we
+;; would have to convert this generically defined 'list', as it is
+;; defined by the function, into a real lisp list, so that we can
+;; spread it using `append'.
+;;
+;; More concretely, we should....
+;;
+;; - Find an elegant way to distinguish property lists from other lists,
+;;   preferrably without scanning for the existence of keys or the like. 
+;;
+;; - Rewrite `insert-recursively' in a more generic way, so that we
+;;   could pass any kind of elements as 'lists'. (We have to get rid
+;;   of 'append'.)
+;;
+;; - Add functions as arguments to `set-list' and relatives:
+;;
+;;    - An "identifier" function: list-p or element-p
+;;    - A "wrapper" function which turns an element into a list
+;;    - An "unwrapper" function 
+;;
+;; - Also use these functions to prepare the results when retrieving
+;;   the data (get-all-data)
+;;
 
 (defun lister-insert-recursively (lister-buf data-list &optional level acc)
   "Insert DATA-LIST with correct level indentation in LISTER-BUF.
@@ -1243,9 +1273,6 @@ Lists are inserted as sub lists."
     ;; insert new list:
     (setq lister-local-marker-list
 	  (lister-insert-recursively lister-buf data-list))))
-	  
-	  ;; (mapcar (apply-partially #'lister-add lister-buf)
-	  ;; 	  data-list))))
 
 ;; * Set up a lister buffer
 
