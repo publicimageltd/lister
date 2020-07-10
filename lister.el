@@ -926,7 +926,7 @@ list; elements with higher levels are stored into sublists of
 this list. MAP-FN can be used to additionally transform the
 elements when building the tree.
 
-Example: 
+Example:
    (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'second #'first)
  -> (a (b c) d)"
   (let* ((push-item  nil)
@@ -1257,49 +1257,27 @@ respectively."
   (cursor-intangible-mode))
 
 ;; * Set a (new) list 
-;;
-;; TODO These functions presume that a list is passed as a list, and
-;; an element is passed as a non-list. Yet if we want to store lists
-;; as data, this mechanism does not work. There should be a more
-;; generic way to identify lists and non-lists, e.g. by using a
-;; function. It is not clear, however, how such a function can
-;; properly distinguish, say, between a property list with only one
-;; item, and a normal list which wraps several elements. Further, we
-;; would have to convert this generically defined 'list', as it is
-;; defined by the function, into a real lisp list, so that we can
-;; spread it using `append'.
-;;
-;; More concretely, we should....
-;;
-;; - Find an elegant way to distinguish property lists from other lists,
-;;   preferrably without scanning for the existence of keys or the like. 
-;;
-;; - Rewrite `insert-recursively' in a more generic way, so that we
-;;   could pass any kind of elements as 'lists'. (We have to get rid
-;;   of 'append'.)
-;;
-;; - Add functions as arguments to `set-list' and relatives:
-;;
-;;    - An "identifier" function: list-p or element-p
-;;    - A "wrapper" function which turns an element into a list
-;;    - An "unwrapper" function 
-;;
-;; - Also use these functions to prepare the results when retrieving
-;;   the data (get-all-data)
-;;
 
-(defun lister-insert-recursively (lister-buf data-list &optional level acc)
-  "Insert DATA-LIST with correct level indentation in LISTER-BUF.
+(cl-defun lister-insert-sequence (lister-buf seq &optional (level 0))
+  "Insert SEQ as items in LISTER-BUF with indentation LEVEL.
+SEQ must be either a vector or a list.  Traverse SEQ and store its
+elements as data into the newly created list items.  Any element of
+the same type as SEQ will be interpreted as a nested list,
+i.e. (item1 item2 (subitem1 subitem2) item3).
+
 Return the marker list."
-  (if (listp data-list)
-      (apply #'append
-	     (seq-map (lambda (el)
-			(lister-insert-recursively lister-buf
-						   el
-						   (1+ (or level -1))
-						   acc))
-			data-list))
-    (setq acc (cons (lister-add lister-buf data-list (or level 0)) acc))))
+  (when seq
+    (let* ((seq-type (type-of seq))
+	   (marker   nil)
+	   (res      nil))
+      (unless (member seq-type '(vector cons))
+	(error "Sequence must be a vector or a list."))
+      (seq-doseq (item seq)
+	(setq marker (if (eq (type-of item) seq-type)
+			 (lister-insert-sequence lister-buf item (1+ level))
+		       (list (lister-add lister-buf item level))))
+	(setq res (append marker res)))
+      (reverse res))))
 
 (defun lister-set-list (lister-buf data-list)
   "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
@@ -1319,7 +1297,8 @@ Lists are inserted as sub lists."
       (setq lister-local-marker-list nil))
     ;; insert new list:
     (setq lister-local-marker-list
-	  (lister-insert-recursively lister-buf data-list))))
+	  (lister-insert-sequence lister-buf data-list))))
+;;	  (lister-insert-recursively lister-buf data-list))))
 
 ;; * Set up a lister buffer
 
