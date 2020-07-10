@@ -878,6 +878,8 @@ point.")
 
 ;; * Get data
 
+;; Get single data:
+
 (cl-defgeneric lister-get-data (lister-buf position)
   "Retrieve the data stored at POSITION in LISTER-BUF.
 
@@ -902,6 +904,8 @@ The object has to be stored by `lister-set-data', which see.")
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-get-data lister-buf marker)))
 
+;; Get lists of data:
+
 (defun lister-get-all-data (lister-buf)
   "Collect all data values in LISTER-BUF."
   (with-lister-buffer lister-buf
@@ -912,6 +916,49 @@ The object has to be stored by `lister-set-data', which see.")
   "Collect all visible data values in LISTER-BUF."
   (seq-map (apply-partially #'lister-get-data lister-buf)
 	   (lister-visible-markers lister-buf)))
+
+(cl-defun lister-group-by-level (l level-fn &optional (map-fn #'identity))
+  "Build a tree from the flat list L.
+L is a list of elements with no nesting. LEVEL-FN has to return
+the intended nesting level for each element it is called with (as
+an integer). Elements with the same level are treated as one
+list; elements with higher levels are stored into sublists of
+this list. MAP-FN can be used to additionally transform the
+elements when building the tree.
+
+Example: 
+   (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'second #'first)
+ -> (a (b c) d)"
+  (let* ((push-item  nil)
+	 (item       (car l))
+	 (level      (funcall level-fn item))
+	 (res        (list (funcall map-fn item)))
+	 (walk       (cdr l)))
+    (while walk
+      (let* ((new-item  (car walk))
+	     (new-level (funcall level-fn new-item)))
+	  (if (> level new-level)
+	      (setq walk nil)
+	    (if (= level new-level)
+		(setq push-item (funcall map-fn new-item)
+		      walk (cdr walk))
+	      (setq push-item (lister-group-by-level walk level-fn map-fn)
+		    walk (seq-drop walk (length push-item))))
+	    (push push-item res))))
+    (nreverse res)))
+
+(defun lister-get-props-at (buf pos &rest props)
+  "Return the values of all PROPS at POS in BUF."
+  (seq-map (lambda (prop)
+	     (get-text-property pos prop buf))
+	   props))
+  
+(defun lister-get-all-data-tree (lister-buf)
+  "Collect all data values in LISTER-BUF, respecting its hierarchy."
+  (let* ((data-list (seq-map (lambda (pos)
+			       (lister-get-props-at lister-buf pos 'data 'level))
+			     (buffer-local-value 'lister-local-marker-list lister-buf))))
+      (lister-group-by-level data-list #'second #'first)))
 
 ;; * Goto
 
