@@ -776,7 +776,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
 (defun lister-level-at-item-index (lister-buf n)
   "Return the level of the nth item."
   (with-current-buffer lister-buf
-    (get-text-property (seq-elt lister-local-marker-list n) 'level)))
+    (get-text-property (elt lister-local-marker-list n) 'level)))
 
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)
   "Return the beginning and the end of the sublist containing MARKER-OR-POS.
@@ -790,7 +790,7 @@ Example:
   (with-lister-buffer lister-buf
     (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
 	   (n       (seq-position lister-local-marker-list marker #'equal))
-	   (last-n  (1- (seq-length lister-local-marker-list)))
+	   (last-n  (1- (length lister-local-marker-list)))
 	   (level   (get-text-property marker 'level))
 	   (beg-n   (cl-loop for i downfrom n to 0
 			     ;; to determine ONLY the same level, use =
@@ -799,15 +799,24 @@ Example:
 	   (end-n   (cl-loop for i upfrom n to last-n
 			     while (<= level (lister-level-at-item-index lister-buf i))
 			     finally return (1- i)))
-	   (beg     (seq-elt lister-local-marker-list beg-n))
-	   (end     (seq-elt lister-local-marker-list end-n)))
+	   (beg     (elt lister-local-marker-list beg-n))
+	   (end     (elt lister-local-marker-list end-n)))
       (list beg end beg-n end-n))))
 
 (defun lister-remove-this-level (lister-buf pos-or-marker)
   "Remove all surrounding items matching the level of the item at POS-OR-MARKER."
   (let* ((beg-end (lister-sublist-boundaries lister-buf pos-or-marker)))
-    (seq-doseq (i (number-sequence (third beg-end) (fourth beg-end)))
-      (lister-remove lister-buf (first beg-end)))))
+    (with-current-buffer lister-buf
+      (setq lister-local-marker-list
+	    (append (seq-subseq lister-local-marker-list
+				0 (third beg-end))
+		    (seq-subseq lister-local-marker-list
+				(min (length lister-local-marker-list)
+				     (1+ (fourth beg-end))))))
+      (let* ((inhibit-read-only t))
+	(delete-region (first beg-end)
+		       (lister-end-of-lines lister-buf 
+					    (second beg-end)))))))
 
 (defun lister-remove-sublist-below (lister-buf pos-or-marker)
   "Remove the sublist below the item at POS-OR-MARKER.
