@@ -586,6 +586,8 @@ Use the boolean operator `and' or instead use OP, if specified."
 	(1- (marker-position lister-local-footer-marker))
       (point-max))))
 
+;; FIXME Don't know why we'd need to look at the NEXT item. Leaving
+;; this option just in case.
 (defun lister-looking-at-prop (lister-buf pos-or-marker prop direction)
   "Return the value of PROP, looking at either the previous or next item.
 DIRECTION can be the symbol `previous' or the symbol `next'. 
@@ -610,7 +612,36 @@ cursor gap of an item."
 						      prop
 						      lister-buf
 						      (lister-item-max lister-buf)))))
-    (when pos (get-text-property pos prop lister-buf))))  
+    (when pos (get-text-property pos prop lister-buf))))
+
+(defun lister-determine-level (lister-buf pos-or-marker level)
+  "Determine the indentation level for new items at POS-OR-MARKER.
+LEVEL can be nil, an integer or the symbols `:previous' or `:current'.
+
+It is assumed that the return value will be used to insert a new
+item at POS-OR-MARKER.
+
+If LEVEL is an integer, check it against the level of the
+previous (visible or invisible) item. If LEVEL is below or equal
+this previous item's level, return it unchanged. If LEVEL is
+greater, return the previous items's level + 1, thus making sure
+that no 'level gap' is introduced when inserting.
+
+If LEVEL is nil or the symbol `:previous', return the level of
+the previous item, thus preserving its indentation for the new
+item.
+
+If LEVEL is the symbol `:current', return the level of the item
+at point or 0 if there is no such item."
+  (if (eq level :current)
+      (or (get-text-property pos-or-marker 'level lister-buf) 0)
+    (let* ((prev-level
+	    (or (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous) 0)))
+      (if (or (null level) (eq level :previous))
+	  prev-level
+	(if (> level prev-level)
+	    (1+ prev-level)
+	  level)))))
 
 ;; * Insert items
 
@@ -659,11 +690,11 @@ variable which holds the marker list.")
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-item (lister-strflat raw-item)))
-	   (prev-level     (or level (get-text-property position 'level) 0))
+	   (new-level      (lister-determine-level lister-buf position level))
 	   (marker         (lister-insert-lines lister-buf
 						position
 						item
-						prev-level)))
+						new-level)))
       (lister-set-data lister-buf marker data)
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
@@ -1022,12 +1053,6 @@ positions."
 	    (append lister-local-marker-list)
 	    (seq-sort #'<)))))
 
-  ;; (with-lister-buffer lister-buf
-  ;;   (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
-  ;;     (setq lister-local-marker-list
-  ;; 	    (thread-last (append lister-local-marker-list (list the-marker))
-  ;; 	      (seq-sort #'<))))))
-
 ;; FIXME will be probably unused
 (defun lister-remove-marker (lister-buf marker-or-pos)
   "Remove MARKER-OR-POS from the local marker list of LISTER-BUF."
@@ -1272,7 +1297,7 @@ POS-OR-MARKER has to be a cursor gap position of an item. If
 POS-OR-MARKER is nil, add the sequence to the end of the list.
 
 LEVEL determines the level of indentation. When LEVEL is nil,
-insert SEQ at the level defined by the item at point.
+insert SEQ at the level defined by the previous item.
 
 SEQ must be either a vector or a list.  Traverse SEQ and store its
 elements as data into the newly created list items.  Any element of
@@ -1283,15 +1308,15 @@ Update the buffer local marker list.
 
 Return the position of the last inserted item marker."
   (when seq
-    (let* ((seq-type (type-of seq))
-	   (pos      (or pos-or-marker (lister-next-free-position lister-buf)))
-	   (n-level  (or level (get-text-property pos 'level lister-buf) 0)))
+    (let* ((seq-type     (type-of seq))
+	   (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
+	   (new-level    (lister-determine-level lister-buf pos level)))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
       (seq-doseq (item (seq-reverse seq))
 	(setq pos (if (eq (type-of item) seq-type)
-		      (lister-insert-sequence lister-buf pos item (1+ n-level))
-		    (lister-insert lister-buf pos item n-level))))
+		      (lister-insert-sequence lister-buf pos item (1+ new-level))
+		    (lister-insert lister-buf pos item new-level))))
       pos)))
 
 (defun lister-add-sequence (lister-buf seq &optional level)

@@ -85,13 +85,19 @@
   "Insert DATA at POINT, indenting it at LEVEL."
   (interactive (list (read-string "Data: ")
 		     (when current-prefix-arg
-		       (read-number
-			(format "Level (current level is %d): "
+		       (read-string
+			(format "Level at point is %s, enter new level for insertion (nil, integer or :previous, :current)\n : "
 				(get-text-property (point) 'level))))))
-  (lister-insert-sequence (current-buffer)
-			  (point)
-			  (split-string data nil t)
-			  level))
+  (let* ((level-arg (if (stringp level)
+			(if (string-empty-p level)
+			    nil
+			  (if (string-prefix-p ":" level)
+			      (intern level)
+			    (string-to-number level))))))
+    (lister-insert-sequence (current-buffer)
+			    (point)
+			    (split-string data nil t)
+			    level-arg)))
 
 (defun lister-key-delete-item ()
   "Delete item at point."
