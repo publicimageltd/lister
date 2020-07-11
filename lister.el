@@ -665,9 +665,7 @@ Return the marker of the inserted item's cursor gap position.")
 						item
 						new-level)))
       (lister-set-data lister-buf marker data)
-      (lister-set-prop lister-buf marker
-		       'cursor-sensor-functions
-		       '(lister-sensor-function))
+      (lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
       ;; update marker list:
@@ -1142,10 +1140,11 @@ MARKER-OR-POS can be a marker or a pos, or a list of markers or
 positions."
   (with-lister-buffer lister-buf    
     (setq lister-local-marker-list
-	  (thread-last (if (listp marker-or-pos) marker-or-pos (list marker-or-pos))
-	    (seq-map (apply-partially #'lister-pos-as-marker lister-buf))
-	    (append lister-local-marker-list)
-	    (seq-sort #'<)))))
+	  (sort 
+	   (thread-last (if (listp marker-or-pos) marker-or-pos (list marker-or-pos))
+	     (mapcar (apply-partially #'lister-pos-as-marker lister-buf))
+	     (append lister-local-marker-list))
+	   #'<))))
 
 ;; FIXME currently unused, should be expanded to remove whole lists of markers
 (defun lister-remove-marker (lister-buf marker-or-pos)
