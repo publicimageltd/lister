@@ -659,7 +659,7 @@ variable which holds the marker list.")
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-item (lister-strflat raw-item)))
-	   (prev-level     (or level (get-text-property position 'level)))
+	   (prev-level     (or level (get-text-property position 'level) 0))
 	   (marker         (lister-insert-lines lister-buf
 						position
 						item
@@ -1266,10 +1266,13 @@ respectively."
 
 ;; * Set a (new) list 
 
-(cl-defun lister-insert-sequence (lister-buf pos-or-marker seq &optional (level 0))
+(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
   "Insert SEQ as items at POS-OR-MARKER in LISTER-BUF.
 POS-OR-MARKER has to be a cursor gap position of an item. If
 POS-OR-MARKER is nil, add the sequence to the end of the list.
+
+LEVEL determines the level of indentation. When LEVEL is nil,
+insert SEQ at the level defined by the item at point.
 
 SEQ must be either a vector or a list.  Traverse SEQ and store its
 elements as data into the newly created list items.  Any element of
@@ -1281,21 +1284,25 @@ Update the buffer local marker list.
 Return the position of the last inserted item marker."
   (when seq
     (let* ((seq-type (type-of seq))
-	   (pos      (or pos-or-marker (lister-next-free-position lister-buf))))
+	   (pos      (or pos-or-marker (lister-next-free-position lister-buf)))
+	   (n-level  (or level (get-text-property pos 'level lister-buf) 0)))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
       (seq-doseq (item (seq-reverse seq))
 	(setq pos (if (eq (type-of item) seq-type)
-		      (lister-insert-sequence lister-buf pos item (1+ level))
-		    (lister-insert lister-buf pos item level))))
+		      (lister-insert-sequence lister-buf pos item (1+ n-level))
+		    (lister-insert lister-buf pos item n-level))))
       pos)))
 
-(cl-defun lister-add-sequence (lister-buf seq &optional (level 0))
+(defun lister-add-sequence (lister-buf seq &optional level)
   "Add SEQ as items to LISTER-BUF with indentation LEVEL.
 SEQ must be either a vector or a list.  Traverse SEQ and store its
 elements as data into the newly created list items.  Any element of
 the same type as SEQ will be interpreted as a nested list,
 i.e. (item1 item2 (subitem1 subitem2) item3).
+
+LEVEL determines the level of indentation. When LEVEL is nil,
+insert SEQ at the level defined by the item at point.
 
 Return the last inserted item marker."
   (lister-insert-sequence lister-buf nil seq level))
