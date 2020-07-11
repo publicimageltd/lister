@@ -643,50 +643,24 @@ at point or 0 if there is no such item."
 	    (1+ prev-level)
 	  level)))))
 
-;; * Insert items
+;; -----------------------------------------------------------
+;; * Insert, add, remove or replace list items
+;; -----------------------------------------------------------
 
-;; The following sections define functions to insert, add, remove and
-;; replace list items.
-
-;; A list item is simply a string representation of a DATA item. The
-;; following functions all insert a list item at a given position. The
-;; data item itself is passed as a DATA object. The object will be
-;; turned into a string representation by the buffer local mapper
-;; function (`lister-local-mapper').
+;; * Insert
 
 (cl-defgeneric lister-insert (lister-buf position data &optional level)
-  "Insert a representation of DATA at POSITION in LISTER-BUF.
+  "Insert DATA as item at POSITION in LISTER-BUF.
+POSITION can be either a buffer position or the symbol `:point'.
 
-Insert DATA at the indentation level LEVEL. If LEVEL is nil,
-align its indentation with the item currently at POSITION.
+Insert DATA at the indentation level LEVEL. For the possible
+values of LEVEL, see `lister-determine-level'.
 
-DATA can be any kind of lisp object. A mapper function creates a
-string representation (or a list of strings) for the data object.
-The mapper function accepts only one argument and returns a
-string or a list of strings. The function name has to be stored
-in the buffer local variable `lister-local-mapper'.
-
-If the buffer local variable `lister-local-filter-active' is set,
-only print DATA if it passes the filter defined in
-`lister-local-filter-term'.
-
-POSITION can be either a buffer position (no marker!) or the
-special key :point.
-
-If POSITION is a an integer, insert item at this buffer position.
-
-If POSITION is the symbol :point, insert it at point.
-
-Move point to the beginning of the inserted item.
-
-All modifications apply to LISTER-BUF. The representation of DATA
-is created by the mapper function stored as a buffer local
-variable (`lister-local-mapper'). This function updates the local
-variable which holds the marker list.")
+Return the marker of the inserted item's cursor gap position.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-insert (lister-buf (position integer) data &optional level)
-  "Insert a representation of DATA at buffer position POS in LISTER-BUF."
+  "Insert DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-item (lister-strflat raw-item)))
@@ -704,50 +678,61 @@ variable which holds the marker list.")
       marker)))
 
 (cl-defmethod lister-insert (lister-buf (position marker) data &optional level)
-    "Insert a representation of DATA at MARKER in LISTER-BUF."
+    "Insert DATA at MARKER in LISTER-BUF."
     (lister-insert lister-buf (marker-position position) data level))
 
 (cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level)
-  "Insert a representation of DATA at point in LISTER-BUF."
+  "Insert DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
     (lister-insert lister-buf pos data level)))
+
+(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
+  "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
+Insert SEQ above the item marked by POS-OR-MARKER. If
+POS-OR-MARKER is nil, add it to the end of the list.
+
+LEVEL determines the level of hierarchical indentation. See
+`lister-determine-level' for all possible values for LEVEL.
+
+SEQ must be either a vector or a list. Nested sequences will be
+inserted with added indentation.
+
+Return the position of the last inserted item marker."
+  (when seq
+    (let* ((seq-type     (type-of seq))
+	   (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
+	   (new-level    (lister-determine-level lister-buf pos level)))
+      (unless (member seq-type '(vector cons))
+	(error "Sequence must be a vector or a list."))
+      (seq-doseq (item (seq-reverse seq))
+	(setq pos (if (eq (type-of item) seq-type)
+		      (lister-insert-sequence lister-buf pos item (1+ new-level))
+		    (lister-insert lister-buf pos item new-level))))
+      pos)))
 
 ;; * Add
 
 (defun lister-add (lister-buf data &optional level)
   "Add a list item representing DATA to the end of the list in LISTER-BUF.
+Insert DATA at the indentation level LEVEL. For the possible
+values of LEVEL, see `lister-determine-level'.
 
-DATA will be inserted by `lister-insert'. See there for possible
-values of DATA and how filtering applies.
-
-If LEVEL is nil, insert it at the same level as the item to which
-this item is added.
-
-If LEVEL is an integer, insert it at that specific level.
-
-Return the marker pointing to the beginning of the newly added
-item, or nil."
+Return the marker of the added item's cursor gap position."
   (lister-insert lister-buf
 		 (lister-next-free-position lister-buf)
 		 data
 		 level))
 
-
-;; * Remove
+;; * Remove 
 
 (cl-defgeneric lister-remove (lister-buf position)
-  "Remove the item on POSITION in LISTER-BUF.
-
-POSITION can be either a marker or the symbol :point.
-
-If POSITION is a marker, remove the item at the marker position.
-
-If POSITION is the symbol :point, remove the item at point.")
+  "Remove the item at POSITION from LISTER-BUF.
+POSITION can be either a buffer position or the symbol `:point'.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (lister-buf (position marker))
-  "Remove the item at the POSITION defined by the passed marker."
+  "Remove the item at POSITION."
   (with-lister-buffer lister-buf
     (lister-remove-lines lister-buf position)
     (setq lister-local-marker-list 
@@ -762,33 +747,24 @@ If POSITION is the symbol :point, remove the item at point.")
       (lister-remove lister-buf marker)
     (error "lister-remove: no item found at point")))
 
-;; * Replace
+(cl-defmethod lister-remove (lister-buf (position integer))
+  "Remove the item at POSITION from LISTER-BUF."
+  (lister-remove lister-buf (lister-pos-as-marker position)))
+
+;; * Replace 
 
 (cl-defgeneric lister-replace (lister-buf position data)
-  "Replace the item at POSITION with a new item representing DATA.
-
-DATA can be any kind of lisp object. A mapper function creates a
-string representation (or a list of strings) for the data object.
-The mapper function accepts only one argument and returns a
-string or a list of strings. The function name has to be stored
-in the buffer local variable `lister-local-mapper'.
-
-POSITION can be either a marker or the special key :point.
-
-If POSITION is a marker, replace the item at the position defined
-by the marker.
-
-If POSITION is the symbol :point, store data at the item at
-point.")
+  "Replace the item at POSITION with one representing DATA.
+POSITION can be either a buffer position or the symbol `:point'.
+Preserve the indentation level.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-replace (lister-buf (position marker) data)
-  "Replace the item at marker POSITION with a new DATA item."
+(cl-defmethod lister-replace (lister-buf (position integer) data)
+  "Replace the item at POSITION with a new DATA item."
   (with-lister-buffer lister-buf
-    (let* ((buffer-pos (marker-position position))
-	   (level      (get-text-property buffer-pos 'level)))
-      (lister-remove-lines lister-buf buffer-pos)
-      (lister-insert lister-buf buffer-pos data level))))
+    (let* ((level      (get-text-property position 'level)))
+      (lister-remove-lines lister-buf position)
+      (lister-insert lister-buf position data level))))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
@@ -796,7 +772,47 @@ point.")
   (when-let* ((marker (lister-current-marker lister-buf)))
     (lister-replace lister-buf marker data)))
 
-;; * Return mark state of an item
+(cl-defmethod lister-replace (lister-buf (position marker) data)
+  "Replace the item at POSITION with a new DATA item."
+  (lister-replace lister-buf (lister-marker-pos marker) data))
+
+;; * Insert or add sequences as (sub-) lists
+
+
+(defun lister-add-sequence (lister-buf seq &optional level)
+  "Add SEQ as items to LISTER-BUF with indentation LEVEL.
+SEQ must be either a vector or a list.  Traverse SEQ and store its
+elements as data into the newly created list items.  Any element of
+the same type as SEQ will be interpreted as a nested list,
+i.e. (item1 item2 (subitem1 subitem2) item3).
+
+LEVEL determines the level of indentation. When LEVEL is nil,
+insert SEQ at the level defined by the item at point.
+
+Return the last inserted item marker."
+  (lister-insert-sequence lister-buf nil seq level))
+
+(defun lister-set-list (lister-buf data-list)
+  "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
+All elements in DATA-LIST are inserted 'as is' unless they are lists. 
+Lists are inserted as sub lists."
+  (save-lister-position lister-buf
+    ;; delete old list:
+    (when-let* ((ml lister-local-marker-list)
+		;; (nth 0 ml) is always the first item,
+		;; because header marker is stored in
+		;; its own buffer local variable:
+		(beg (nth 0 ml))
+		(end (or lister-local-footer-marker 
+			 (point-max)))
+		(inhibit-read-only t))
+      (delete-region beg end)
+      (setq lister-local-marker-list nil))
+    ;; insert new list:
+    (lister-add-sequence lister-buf data-list)))
+
+
+;; * Marking and unmarking items
 
 (cl-defgeneric lister-get-mark-state (lister-buf position)
   "For the list in LISTER-BUF, find out if the item at POSITION is marked.")
@@ -811,9 +827,6 @@ point.")
   "In LISTER-BUF, check if the item at point is marked."
   (ignore position) ;; silence byte compiler
   (lister-get-mark-state lister-buf (lister-current-marker lister-buf)))
-
-
-;; * Mark an item
 
 (cl-defgeneric lister-mark-item (lister-buf position value)
   "In LISTER-BUF, set the item's mark at POSITION to VALUE.")
@@ -1288,68 +1301,6 @@ respectively."
   :group 'lister
   (cursor-sensor-mode)
   (cursor-intangible-mode))
-
-;; * Set a (new) list 
-
-(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
-  "Insert SEQ as items at POS-OR-MARKER in LISTER-BUF.
-POS-OR-MARKER has to be a cursor gap position of an item. If
-POS-OR-MARKER is nil, add the sequence to the end of the list.
-
-LEVEL determines the level of indentation. When LEVEL is nil,
-insert SEQ at the level defined by the previous item.
-
-SEQ must be either a vector or a list.  Traverse SEQ and store its
-elements as data into the newly created list items.  Any element of
-the same type as SEQ will be interpreted as a nested list,
-i.e. (item1 item2 (subitem1 subitem2) item3)
-
-Update the buffer local marker list. 
-
-Return the position of the last inserted item marker."
-  (when seq
-    (let* ((seq-type     (type-of seq))
-	   (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
-	   (new-level    (lister-determine-level lister-buf pos level)))
-      (unless (member seq-type '(vector cons))
-	(error "Sequence must be a vector or a list."))
-      (seq-doseq (item (seq-reverse seq))
-	(setq pos (if (eq (type-of item) seq-type)
-		      (lister-insert-sequence lister-buf pos item (1+ new-level))
-		    (lister-insert lister-buf pos item new-level))))
-      pos)))
-
-(defun lister-add-sequence (lister-buf seq &optional level)
-  "Add SEQ as items to LISTER-BUF with indentation LEVEL.
-SEQ must be either a vector or a list.  Traverse SEQ and store its
-elements as data into the newly created list items.  Any element of
-the same type as SEQ will be interpreted as a nested list,
-i.e. (item1 item2 (subitem1 subitem2) item3).
-
-LEVEL determines the level of indentation. When LEVEL is nil,
-insert SEQ at the level defined by the item at point.
-
-Return the last inserted item marker."
-  (lister-insert-sequence lister-buf nil seq level))
-
-(defun lister-set-list (lister-buf data-list)
-  "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
-All elements in DATA-LIST are inserted 'as is' unless they are lists. 
-Lists are inserted as sub lists."
-  (save-lister-position lister-buf
-    ;; delete old list:
-    (when-let* ((ml lister-local-marker-list)
-		;; (nth 0 ml) is always the first item,
-		;; because header marker is stored in
-		;; its own buffer local variable:
-		(beg (nth 0 ml))
-		(end (or lister-local-footer-marker 
-			 (point-max)))
-		(inhibit-read-only t))
-      (delete-region beg end)
-      (setq lister-local-marker-list nil))
-    ;; insert new list:
-    (lister-add-sequence lister-buf data-list)))
 
 ;; * Set up a lister buffer
 
