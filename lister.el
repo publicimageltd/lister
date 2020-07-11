@@ -42,6 +42,9 @@
 (defvar-local lister-local-mapper nil
   "Function which converts any DATA object to a list of strings.")
 
+(defvar-local lister-local-action nil
+  "Function which gets called 'on' an item to do something with it.")
+
 (defvar-local lister-local-filter-term nil
   "Pseudo lisp term which is used as a filter.
 The filter is constructed by wrapping this term into a lambda
@@ -662,6 +665,9 @@ Return the marker of the inserted item's cursor gap position.")
 						item
 						new-level)))
       (lister-set-data lister-buf marker data)
+      (lister-set-prop lister-buf marker
+		       'cursor-sensor-functions
+		       '(lister-sensor-function))
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
       ;; update marker list:
@@ -943,6 +949,21 @@ FN has to accept a marker object as its sole argument."
 ;; * Setting and getting data
 ;; -----------------------------------------------------------
 
+;; Generic property handling
+(defun lister-set-prop (buf gap-pos prop value)
+  "At GAP-POS, store VALUE in text property PROP."
+  (with-current-buffer buf
+    (let ((inhibit-read-only t))
+      (put-text-property gap-pos (1+ gap-pos) prop value))))
+
+(defun lister-get-prop (buf gap-pos prop)
+  "Get VALUE from GAP-POS."
+  (get-text-property gap-pos prop buf))
+
+(defun lister-get-props-at (buf pos &rest props)
+  "Return the values of all PROPS at POS in BUF."
+  (seq-map (apply-partially #'lister-get-prop buf pos) props))
+
 ;; Set data
 
 (cl-defgeneric lister-set-data (lister-buf position data)
@@ -952,10 +973,7 @@ POSITION can be a buffer position or the symbol `:point'.")
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-set-data (lister-buf (position integer) data)
   "Store DATA at POSITION in LISTER-BUF."
-  (let ((inhibit-read-only t))
-    (thread-last lister-buf
-      (put-text-property position (1+ position) 'cursor-sensor-functions '(lister-sensor-function))
-      (put-text-property position (1+ position) 'data data))))
+  (lister-set-prop lister-buf position 'data data))
 
 (cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
   "In LISTER-BUF, store DATA in the item at point."
@@ -977,7 +995,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-get-data (lister-buf (position marker))
   "Return the data stored at marker POSITION in LISTER-BUF."
-  (get-text-property position 'data lister-buf))
+  (lister-get-prop lister-buf position 'data))
 
 (cl-defmethod lister-get-data (lister-buf (position integer))
   "Return the data stored at POSITION in LISTER-BUF."
@@ -1039,9 +1057,6 @@ Example:
 	    (push push-item res))))
     (reverse res)))
 
-(defun lister-get-props-at (buf pos &rest props)
-  "Return the values of all PROPS at POS in BUF."
-  (seq-map (lambda (prop) (get-text-property pos prop buf)) props))
   
 (cl-defun lister-get-all-data-tree (lister-buf)
   "Collect all data values in LISTER-BUF, respecting its hierarchy."
@@ -1287,6 +1302,13 @@ respectively."
   (interactive)
   (lister-mark-all-items (current-buffer) nil))
 
+(defun lister-key-action ()
+  "Do something with the item at point."
+  (interactive)
+  (if-let* ((fn lister-local-action))
+      (funcall lister-local-action (point))
+    (message "No action defined")))
+
 (defvar lister-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
@@ -1295,6 +1317,7 @@ respectively."
     (define-key map "u" 'lister-key-unmark-all-items)
     (define-key map "n" 'next-line)
     (define-key map "p" 'previous-line)
+    (define-key map (kbd "RET") #'lister-key-action)
     map)
   "Key map for `lister-mode'.")
 
