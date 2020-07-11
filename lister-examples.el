@@ -79,14 +79,35 @@
       (message "Filter is active. Filter term is '%s'." lister-local-filter-term)
     (message "Filter is not active.")))
 
+;; * Play around with the items
+
+(defun lister-key-insert-item (data level)
+  "Insert DATA at POINT, indenting it at LEVEL."
+  (interactive (list (read-string "Data: ")
+		     (read-number "Level (integer): ")))
+  (lister-insert (current-buffer) :point data level))
+
+(defun lister-key-delete-item ()
+  "Delete item at point."
+  (interactive)
+  (lister-remove (current-buffer) :point))
+
+(defun lister-key-get-data-tree ()
+  "Store the data tree in the global variable 'test-data-tree'."
+  (interactive)
+  (setq test-data-tree (lister-get-all-data-tree (current-buffer)))
+  (message "Variable `test-data-tree' set to %s." test-data-tree))
 
 ;; * Use highlighting
 
 (defun lister-key-toggle-highlight-mode ()
+  "Toggle highlight mode."
   (interactive)
   (call-interactively 'lister-highlight-mode))
 
 ;; * The test "interface"
+
+
 
 (defun lister-interactive-test ()
   (interactive)
@@ -110,6 +131,9 @@
     (define-key lister-mode-map "n" #'lister-key-negate-filter)
     (define-key lister-mode-map "h" #'lister-key-toggle-highlight-mode)
     (define-key lister-mode-map "f" #'lister-key-toggle-filter)
+    (define-key lister-mode-map "+" #'lister-key-insert-item)
+    (define-key lister-mode-map "-" #'lister-key-delete-item)
+    (define-key lister-mode-map "t" #'lister-key-get-data-tree)
     (switch-to-buffer buf)))
 
 (provide 'lister-examples)
