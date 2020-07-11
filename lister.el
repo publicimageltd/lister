@@ -479,14 +479,12 @@ If DATA is nil, also return t."
 	(funcall `(lambda (data) ,term) data)
       t)))
 
-(defun lister-add-filter-term (current-term fn op)
-  "Combine CURRENT-TERM and FN with boolean operator OP.
-FN will be expanded to the list `(fn data)'.
-
+;; TODO This does not work as intended.
+(defun lister-add-filter-term (term fn op)
+  "Combine TERM and FN with boolean operator OP.
 Accepted operators are the symbols `or', `and', `xor' and `not'.
-
-If OP is the symbol `not', ignore FN and negate CURRENT-TERM.
-
+FN will be expanded to the list `(fn data)'.
+If OP is the symbol `not', ignore FN and negate TERM.
 Return the new term.
 
 Examples:
@@ -496,13 +494,13 @@ Examples:
                        nil 'fn 'not -> (not (fn data))"
   (unless (member op '(not and or xor))
     (error "Unknown operator '%s'; use either 'not', 'and' or 'or'." op))
-  (if (null current-term)
+  (if (null term)
       `(,op (,fn data))
-    (let* ((current-op (car current-term)))
+    (let* ((current-op (car term)))
       (if (and (eq op current-op)
 	       (not (eq op 'not)))
-	  (append current-term `((,fn data)))
-	`(,op ,current-term)))))
+	  (append term `((,fn data)))
+	`(,op ,term)))))
 
 (defun lister-add-filter (lister-buf fn &optional op)
   "Combine FN with the current filter in LISTER-BUF.
@@ -627,21 +625,21 @@ item.
 
 If LEVEL is the symbol `:current', return the level of the item
 at point or 0 if there is no such item."
-  (if (eq level :current)
-      (or (get-text-property pos-or-marker 'level lister-buf) 0)
-    (let* ((prev-level
-	    (or (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous) 0)))
-      (if (or (null level) (eq level :previous))
-	  prev-level
-	(if (> level prev-level)
-	    (1+ prev-level)
-	  level)))))
+  (let* ((item-level (get-text-property pos-or-marker 'level lister-buf))
+	 (prev-level (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous)))
+    (cond
+     ((null prev-level)      0) ;; there's no previous level, thus no indentation
+     ((null level)           prev-level)
+     ((eq level :previous)   prev-level)
+     ((eq level :current)    (or item-level 0))
+     ((> level prev-level)   (1+ prev-level))
+     (t                      level))))
 
 ;; -----------------------------------------------------------
 ;; * Insert, add, remove or replace list items
 ;; -----------------------------------------------------------
 
-;; * Insert
+;; Insert
 
 (cl-defgeneric lister-insert (lister-buf position data &optional level)
   "Insert DATA as item at POSITION in LISTER-BUF.
@@ -705,7 +703,19 @@ Return the position of the last inserted item marker."
 		    (lister-insert lister-buf pos item new-level))))
       pos)))
 
-;; * Add
+(defun lister-insert-sublist (lister-buf pos-or-marker seq)
+  "Insert SEQ as an indented sublist at POS-OR-MARKER."
+  (let* ((current-level (or (get-text-property pos-or-marker 'level lister-buf) 0)))
+    (lister-insert-sequence lister-buf pos-or-marker seq (1+ current-level))))
+
+(defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
+  "Insert SEQ as an indented sublist below the item at POS-OR-MARKER."
+  (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
+	      (current-level  (get-text-property pos-or-marker 'level lister-buf)))
+    (lister-insert-sequence lister-buf next-item seq (1+ current-level))
+    (goto-char pos-or-marker)))
+
+;; Add
 
 (defun lister-add (lister-buf data &optional level)
   "Add a list item representing DATA to the end of the list in LISTER-BUF.
@@ -731,7 +741,7 @@ possible values of LEVEL, see `lister-determine-level'.
 Return the last inserted item marker."
   (lister-insert-sequence lister-buf nil seq level))
 
-;; * Remove 
+;; Remove 
 
 (cl-defgeneric lister-remove (lister-buf position)
   "Remove the item at POSITION from LISTER-BUF.
@@ -757,7 +767,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
   "Remove the item at POSITION from LISTER-BUF."
   (lister-remove lister-buf (lister-pos-as-marker position)))
 
-;; * Replace 
+;; Replace 
 
 (cl-defgeneric lister-replace (lister-buf position data)
   "Replace the item at POSITION with one representing DATA.
@@ -782,7 +792,7 @@ Preserve the indentation level.")
   "Replace the item at POSITION with a new DATA item."
   (lister-replace lister-buf (lister-pos-as-integer marker) data))
 
-;; * Replace the whole list (set list)
+;; Replace the whole list (set list)
 
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
