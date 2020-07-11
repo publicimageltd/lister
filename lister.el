@@ -318,6 +318,7 @@ Return the marker pointing to the gap position."
 	(put-text-property beg (1+ beg) 'item t)
 	(put-text-property beg (1+ beg) 'level level)
 	(put-text-property beg (1+ beg) 'nlines (length item-list))
+	(put-text-property beg (1+ beg) 'nchars (- (point) beg))
 	(lister-make-marker buf beg)))))
 
 (defun lister-remove-lines (buf marker-or-pos)	
@@ -339,18 +340,12 @@ If NEW-LINES is nil, simply delete the entry at POS."
 (defun lister-end-of-lines (buf marker-or-pos)
   "Return the end position of the 'lines' element starting at POS.
 A 'lines' element can be the header, a list item or the footer.
-Use the text property symbol `nlines' to determine the size of
+Use the text property symbol `nchars' to determine the size of
 the item."
-  (with-current-buffer buf
-    (save-mark-and-excursion
-      (goto-char marker-or-pos)
-      ;; NOTE: get-text-property accepts markers as POS, but this is
-      ;; undocumented:
-      (let* ((nlines (get-text-property marker-or-pos 'nlines)))
-	(if (and nlines (integerp nlines))
-	    (forward-line nlines)
-	  (error "Did not find text property 'nlines at buffer position %s" (lister-pos-as-integer marker-or-pos))))
-      (point))))
+  (if-let* ((nchars (lister-get-prop buf marker-or-pos 'nchars)))
+      (+ marker-or-pos nchars)
+    (error "Did not find text property 'nchar at buffer position %d"
+	   (lister-pos-as-integer marker-or-pos))))
 
 ;; * Set header or footer of the list
 
@@ -779,7 +774,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
     (get-text-property (elt lister-local-marker-list n) 'level)))
 
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)
-  "Return the beginning and the end of the sublist containing MARKER-OR-POS.
+  "Return the inner boundaries of the sublist containing MARKER-OR-POS.
 Returns a list with a marker pointing to the first item of the
 sublist, a second marker pointing to the last item of the
 sublist, and the integer positions of the index positions
@@ -1197,6 +1192,7 @@ The resulting list will be in display order."
 	(goto-char pos)
 	(let* ((result   (list pos))
 	       (lines     nil))
+	  ;; FIXME ersetzen durch 'nchars
 	  (while (setq lines (get-text-property (point) 'nlines))
 	    (forward-line lines)
 	    (when (get-text-property (point) 'item)
