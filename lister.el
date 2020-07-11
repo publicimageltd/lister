@@ -597,7 +597,7 @@ cursor gap of an item."
 						     prop
 						     lister-buf
 						     (lister-item-min lister-buf)))
-	  (setq pos (and pos (1- pos))))
+	  (setq pos (and pos (max 1 (1- pos)))))
       ;; looking down:
       (setq pos (next-single-property-change pos-or-marker
 					     prop
@@ -883,17 +883,18 @@ SEQ can be nested to insert hierarchies."
   (ignore position) ;; silence byte compiler
   (lister-get-mark-state lister-buf (lister-current-marker lister-buf)))
 
+
 (cl-defgeneric lister-mark-item (lister-buf position value)
   "In LISTER-BUF, set the item's mark at POSITION to VALUE.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-mark-item (lister-buf (position marker) value)
-    "In LISTER-BUF, set the item's mark at POSITION to VALUE."
-  (with-current-buffer lister-buf
-    (let* ((inhibit-read-only t))
-      (put-text-property position (1+ position)  ;; works with markers AND integers 
-			 'mark value)
-      (lister-display-mark-state lister-buf position))))
+  "In LISTER-BUF, set the item's mark at POSITION to VALUE."
+  (lister-set-prop lister-buf position 'mark value)
+  (lister-display-mark-state lister-buf position)
+  (when-let* ((next-item (lister-end-of-lines lister-buf position)))
+    (unless (invisible-p next-item)
+      (lister-goto lister-buf next-item))))
 
 (cl-defmethod lister-mark-item (lister-buf (position (eql :point)) value)
     "In LISTER-BUF, set the item's mark at POSITION to VALUE."
@@ -904,7 +905,8 @@ SEQ can be nested to insert hierarchies."
 (defun lister-mark-all-items (lister-buf value)
   "Set all items to the marking state VALUE in LISTER-BUF."
   (with-lister-buffer lister-buf
-    (seq-do (lambda (m) (lister-mark-item lister-buf m value)) lister-local-marker-list)))
+    (save-excursion
+      (seq-do (lambda (m) (lister-mark-item lister-buf m value)) lister-local-marker-list))))
 
 (defun lister-mark-some-items (lister-buf marked-data value)
   "In LISTER-BUF, mark items which are members of MARKED-DATA.
@@ -921,7 +923,8 @@ the mark or nil to remove it."
 The item is referred to via the MARKER pointing to its cursor gap
 position."
   (with-lister-buffer lister-buf
-    (let* ((state    (lister-get-mark-state lister-buf marker))
+    (let* ((inhibit-read-only t)
+	   (state    (lister-get-mark-state lister-buf marker))
 	   (face-fun (if state 'lister-add-face-property 'lister-remove-face-property))
 	   (beg      marker)
 	   (end      (lister-end-of-lines lister-buf beg)))
@@ -1002,7 +1005,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
   ;; creating a marker on the fly seems too much, since
   ;; `get-text-property' also accepts markers. Yet this way,
   ;; we also catch type errors.
-  (lister-get-data (lister-pos-as-marker lister-buf position)))
+  (lister-get-data lister-buf (lister-pos-as-marker lister-buf position)))
 
 (cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
@@ -1091,7 +1094,7 @@ POSITION is a buffer position or one of the symbols `:last' or
 
 (cl-defmethod lister-goto (lister-buf (position integer))
   "Move point to POSITION."
-  (lister-goto lister-buf (lister-pos-as-marker position)))
+  (lister-goto lister-buf (lister-pos-as-marker lister-buf position)))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
   "Move point to the last visible item in LISTER-BUF."
