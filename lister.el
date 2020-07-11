@@ -1011,14 +1011,22 @@ list item.")
 
 ;; * Marker Handling
 
-;; FIXME possibly only used once
 (defun lister-add-marker (lister-buf marker-or-pos)
-  "Add MARKER-OR-POS to the local markerlist of LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
-      (setq lister-local-marker-list
-	    (thread-last (append lister-local-marker-list (list the-marker))
-	      (seq-sort #'<))))))
+  "Add MARKER-OR-POS to the local markerlist of LISTER-BUF.
+MARKER-OR-POS can be a marker or a pos, or a list of markers or
+positions."
+  (with-lister-buffer lister-buf    
+    (setq lister-local-marker-list
+	  (thread-last (if (listp marker-or-pos) marker-or-pos (list marker-or-pos))
+	    (seq-map (apply-partially #'lister-pos-as-marker lister-buf))
+	    (append lister-local-marker-list)
+	    (seq-sort #'<)))))
+
+  ;; (with-lister-buffer lister-buf
+  ;;   (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
+  ;;     (setq lister-local-marker-list
+  ;; 	    (thread-last (append lister-local-marker-list (list the-marker))
+  ;; 	      (seq-sort #'<))))))
 
 ;; FIXME will be probably unused
 (defun lister-remove-marker (lister-buf marker-or-pos)
@@ -1258,6 +1266,30 @@ respectively."
 
 ;; * Set a (new) list 
 
+(cl-defun lister-insert-sequence (lister-buf pos-or-marker seq &optional (level 0))
+  "Insert SEQ as items at POS-OR-MARKER in LISTER-BUF.
+POS-OR-MARKER has to be a cursor gap position of an item. If
+POS-OR-MARKER is nil, add the sequence to the end of the list.
+
+SEQ must be either a vector or a list.  Traverse SEQ and store its
+elements as data into the newly created list items.  Any element of
+the same type as SEQ will be interpreted as a nested list,
+i.e. (item1 item2 (subitem1 subitem2) item3)
+
+Update the buffer local marker list. 
+
+Return the position of the last inserted item marker."
+  (when seq
+    (let* ((seq-type (type-of seq))
+	   (pos      (or pos-or-marker (lister-next-free-position lister-buf))))
+      (unless (member seq-type '(vector cons))
+	(error "Sequence must be a vector or a list."))
+      (seq-doseq (item (seq-reverse seq))
+	(setq pos (if (eq (type-of item) seq-type)
+		      (lister-insert-sequence lister-buf pos item (1+ level))
+		    (lister-insert lister-buf pos item level))))
+      pos)))
+
 (cl-defun lister-add-sequence (lister-buf seq &optional (level 0))
   "Add SEQ as items to LISTER-BUF with indentation LEVEL.
 SEQ must be either a vector or a list.  Traverse SEQ and store its
@@ -1265,19 +1297,8 @@ elements as data into the newly created list items.  Any element of
 the same type as SEQ will be interpreted as a nested list,
 i.e. (item1 item2 (subitem1 subitem2) item3).
 
-Return the marker list."
-  (when seq
-    (let* ((seq-type (type-of seq))
-	   (marker   nil)
-	   (res      nil))
-      (unless (member seq-type '(vector cons))
-	(error "Sequence must be a vector or a list."))
-      (seq-doseq (item seq)
-	(setq marker (if (eq (type-of item) seq-type)
-			 (lister-add-sequence lister-buf item (1+ level))
-		       (list (lister-add lister-buf item level))))
-	(setq res (append marker res)))
-      (reverse res))))
+Return the last inserted item marker."
+  (lister-insert-sequence lister-buf nil seq level))
 
 (defun lister-set-list (lister-buf data-list)
   "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
@@ -1296,8 +1317,7 @@ Lists are inserted as sub lists."
       (delete-region beg end)
       (setq lister-local-marker-list nil))
     ;; insert new list:
-    (setq lister-local-marker-list
-	  (lister-add-sequence lister-buf data-list))))
+    (lister-add-sequence lister-buf data-list)))
 
 ;; * Set up a lister buffer
 
