@@ -805,6 +805,15 @@ Example:
     (seq-doseq (i (number-sequence (third beg-end) (fourth beg-end)))
       (lister-remove lister-buf (first beg-end)))))
 
+(defun lister-remove-sublist-below (lister-buf pos-or-marker)
+  "Remove the sublist below the item at POS-OR-MARKER.
+Do nothing if the next item is not a sublist."
+  (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
+	      (current-level  (get-text-property pos-or-marker 'level lister-buf))
+	      (next-level     (get-text-property next-item 'level lister-buf)))
+    (when (> next-level current-level)
+      (lister-remove-this-level lister-buf next-item))))
+
 ;; Replace 
 
 (cl-defgeneric lister-replace (lister-buf position data)
