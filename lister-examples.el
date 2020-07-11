@@ -81,11 +81,17 @@
 
 ;; * Play around with the items
 
-(defun lister-key-insert-item (data level)
+(defun lister-key-insert-item (data &optional level)
   "Insert DATA at POINT, indenting it at LEVEL."
   (interactive (list (read-string "Data: ")
-		     (read-number "Level (integer): ")))
-  (lister-insert (current-buffer) :point data level))
+		     (when current-prefix-arg
+		       (read-number
+			(format "Level (current level is %d): "
+				(get-text-property (point) 'level))))))
+  (lister-insert-sequence (current-buffer)
+			  (point)
+			  (split-string data nil t)
+			  level))
 
 (defun lister-key-delete-item ()
   "Delete item at point."
