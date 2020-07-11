@@ -1374,6 +1374,7 @@ Return BUF."
     (setq lister-local-mapper mapper-fn)
     (setq lister-enter-item-hook nil
 	  lister-leave-item-hook nil)
+    (setq buffer-undo-list t)
     (setq lister--ignore-next-sensor-event nil)
     (let ((cursor-sensor-inhibit t)
 	  (inhibit-read-only t))
