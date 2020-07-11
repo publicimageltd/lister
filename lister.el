@@ -570,7 +570,7 @@ Use the boolean operator `and' or instead use OP, if specified."
   (lister-deactivate-filter lister-buf)
   (lister-activate-filter lister-buf))
 
-;; * Finding parent items.
+;; * Finding properties in other items
 
 (defun lister-item-min (lister-buf)
   "Return the first allowed position for an item"
@@ -715,14 +715,27 @@ Return the position of the last inserted item marker."
 
 (defun lister-add (lister-buf data &optional level)
   "Add a list item representing DATA to the end of the list in LISTER-BUF.
-Insert DATA at the indentation level LEVEL. For the possible
+Insert DATA at the indentation level LEVEL. For all possible
 values of LEVEL, see `lister-determine-level'.
 
 Return the marker of the added item's cursor gap position."
   (lister-insert lister-buf
 		 (lister-next-free-position lister-buf)
-		 data
-		 level))
+		 data level))
+
+(defun lister-add-sequence (lister-buf seq &optional level)
+  "Add SEQ as items to LISTER-BUF with indentation LEVEL.
+SEQ must be either a vector or a list.  Traverse SEQ and store its
+elements as data into the newly created list items.  Any element of
+the same type as SEQ will be interpreted as a nested list,
+i.e. (item1 item2 (subitem1 subitem2) item3).
+
+LEVEL determines the level of indentation. When LEVEL is nil,
+insert SEQ at the level defined by the item at point. For all
+possible values of LEVEL, see `lister-determine-level'.
+
+Return the last inserted item marker."
+  (lister-insert-sequence lister-buf nil seq level))
 
 ;; * Remove 
 
@@ -733,11 +746,10 @@ POSITION can be either a buffer position or the symbol `:point'.")
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (lister-buf (position marker))
   "Remove the item at POSITION."
+  (lister-remove-lines lister-buf position)
   (with-lister-buffer lister-buf
-    (lister-remove-lines lister-buf position)
     (setq lister-local-marker-list 
-	  (seq-remove (lambda (m)
-			(eq m position))
+	  (seq-remove (lambda (m) (eq m position))
 		      lister-local-marker-list))))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
@@ -761,41 +773,26 @@ Preserve the indentation level.")
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-replace (lister-buf (position integer) data)
   "Replace the item at POSITION with a new DATA item."
-  (with-lister-buffer lister-buf
-    (let* ((level      (get-text-property position 'level)))
-      (lister-remove-lines lister-buf position)
-      (lister-insert lister-buf position data level))))
+  (let* ((level      (get-text-property position 'level lister-buf)))
+    (lister-remove-lines lister-buf position)
+    (lister-insert lister-buf position data level)))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
   (ignore position) ;; silence byte compiler
-  (when-let* ((marker (lister-current-marker lister-buf)))
-    (lister-replace lister-buf marker data)))
+  (if-let* ((marker (lister-current-marker lister-buf)))
+      (lister-replace lister-buf marker data)
+    (error "lister-replace: no item found at point")))
 
 (cl-defmethod lister-replace (lister-buf (position marker) data)
   "Replace the item at POSITION with a new DATA item."
   (lister-replace lister-buf (lister-marker-pos marker) data))
 
-;; * Insert or add sequences as (sub-) lists
+;; * Replace the whole list (set list)
 
-
-(defun lister-add-sequence (lister-buf seq &optional level)
-  "Add SEQ as items to LISTER-BUF with indentation LEVEL.
-SEQ must be either a vector or a list.  Traverse SEQ and store its
-elements as data into the newly created list items.  Any element of
-the same type as SEQ will be interpreted as a nested list,
-i.e. (item1 item2 (subitem1 subitem2) item3).
-
-LEVEL determines the level of indentation. When LEVEL is nil,
-insert SEQ at the level defined by the item at point.
-
-Return the last inserted item marker."
-  (lister-insert-sequence lister-buf nil seq level))
-
-(defun lister-set-list (lister-buf data-list)
-  "In LISTER-BUF, insert DATA-LIST, leaving header and footer untouched.
-All elements in DATA-LIST are inserted 'as is' unless they are lists. 
-Lists are inserted as sub lists."
+(defun lister-set-list (lister-buf seq)
+  "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
+SEQ can be nested to insert hierarchies."
   (save-lister-position lister-buf
     ;; delete old list:
     (when-let* ((ml lister-local-marker-list)
@@ -809,10 +806,11 @@ Lists are inserted as sub lists."
       (delete-region beg end)
       (setq lister-local-marker-list nil))
     ;; insert new list:
-    (lister-add-sequence lister-buf data-list)))
+    (lister-add-sequence lister-buf seq)))
 
-
+;; -----------------------------------------------------------
 ;; * Marking and unmarking items
+;; -----------------------------------------------------------
 
 (cl-defgeneric lister-get-mark-state (lister-buf position)
   "For the list in LISTER-BUF, find out if the item at POSITION is marked.")
@@ -890,74 +888,71 @@ FN has to accept a marker object as its sole argument."
   (lister-map-marked-items lister-buf
 			   (apply-partially #'lister-get-data lister-buf)))
 
-;; * Set data
+;; -----------------------------------------------------------
+;; * Setting and getting data
+;; -----------------------------------------------------------
+
+;; Set data
 
 (cl-defgeneric lister-set-data (lister-buf position data)
   "Store the lisp object DATA at POSITION in LISTER-BUF.
-
-POSITION can be either a marker or the symbol :point.
-
-If POSITION is a marker, store the data at the position defined
-by the marker.
-
-If POSITION is the symbol :point, store data at the item at
-point.")
+POSITION can be a buffer position or the symbol `:point'.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-set-data (lister-buf (position marker) data)
-  "Store DATA at the position defined by MARKER in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (let ((inhibit-read-only t))
-      (put-text-property position (1+ position)
-			 'cursor-sensor-functions
-			 '(lister-sensor-function))
-      (put-text-property position (1+ position)
-			 'data data))))
+(cl-defmethod lister-set-data (lister-buf (position integer) data)
+  "Store DATA at POSITION in LISTER-BUF."
+  (let ((inhibit-read-only t))
+    (thread-last lister-buf
+      (put-text-property position (1+ position) 'cursor-sensor-functions '(lister-sensor-function))
+      (put-text-property position (1+ position) 'data data))))
 
 (cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
   "In LISTER-BUF, store DATA in the item at point."
   (ignore position) ;; silence byte compiler
-  (when-let* ((marker (lister-current-marker lister-buf)))
-    (lister-set-data lister-buf marker data)))
+  (if-let* ((marker (lister-current-marker lister-buf)))
+      (lister-set-data lister-buf marker data)
+    (error "lister-set-data: no item at point.")))
 
-;; * Get data
+(cl-defmethod lister-set-data (lister-buf (position marker) data)
+  "Insert DATA at POSITION in LISTER-BUF."
+  (lister-set-data lister-buf (lister-marker-pos position) data))
 
-;; Get single data:
+;; Get data
 
 (cl-defgeneric lister-get-data (lister-buf position)
-  "Retrieve the data stored at POSITION in LISTER-BUF.
-
-POSITION can be either a marker or the symbol :point.
-
-If POSITION is a marker, return the data at the marker position.
-
-If POSITION is the symbol :point, return the data of the item at
-point.
-
-The object has to be stored by `lister-set-data', which see.")
+  "Return the data stored at POSITION in LISTER-BUF.
+POSITION can be either a buffer position or the symbol `:point'.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-get-data (lister-buf (position marker))
-  "Retrieve the data stored at marker POSITION in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (get-text-property position 'data)))
+  "Return the data stored at marker POSITION in LISTER-BUF."
+  (get-text-property position 'data lister-buf))
+
+(cl-defmethod lister-get-data (lister-buf (position integer))
+  "Return the data stored at POSITION in LISTER-BUF."
+  ;; creating a marker on the fly seems too much, since
+  ;; `get-text-property' also accepts markers. Yet this way,
+  ;; we also catch type errors.
+  (lister-get-data (lister-pos-as-marker lister-buf position)))
 
 (cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
   (ignore position) ;; silence byte compiler
-  (when-let* ((marker (lister-current-marker lister-buf)))
-    (lister-get-data lister-buf marker)))
+  (if-let* ((marker (lister-current-marker lister-buf)))
+      (lister-get-data lister-buf marker)
+    (error "lister-get-data: no item at point")))
 
 ;; Get lists of data:
 
 (defun lister-get-all-data (lister-buf)
-  "Collect all data values in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (seq-map (apply-partially #'lister-get-data lister-buf)
-	     lister-local-marker-list)))
+  "Collect all data values of all items in LISTER-BUF.
+The values are collected in a flat list, ignoring any nested
+levels or hierarchies."
+  (seq-map (apply-partially #'lister-get-data lister-buf)
+	   (buffer-local-value 'lister-local-marker-list lister-buf)))
 
 (defun lister-get-visible-data (lister-buf)
-  "Collect all visible data values in LISTER-BUF."
+  "Collect the data values of all items visible in LISTER-BUF."
   (seq-map (apply-partially #'lister-get-data lister-buf)
 	   (lister-visible-markers lister-buf)))
 
@@ -993,12 +988,12 @@ Example:
 
 (defun lister-get-props-at (buf pos &rest props)
   "Return the values of all PROPS at POS in BUF."
-  (seq-map (lambda (prop)
-	     (get-text-property pos prop buf))
-	   props))
+  (seq-map (lambda (prop) (get-text-property pos prop buf)) props))
   
-(defun lister-get-all-data-tree (lister-buf)
-  "Collect all data values in LISTER-BUF, respecting its hierarchy."
+(cl-defun lister-get-all-data-tree (lister-buf &optional (seq-type 'cons))
+  "Collect all data values in LISTER-BUF, respecting its hierarchy.
+The results are returned in a sequence of type SEQ-TYPE, which
+can be the symbol `cons' or `vector'."
   (let* ((data-list (seq-map (lambda (pos)
 			       (lister-get-props-at lister-buf pos 'data 'level))
 			     (buffer-local-value 'lister-local-marker-list lister-buf))))
