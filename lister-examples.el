@@ -148,7 +148,7 @@
     (lister-add-enter-callback buf #'lister-item-message)
     (define-key lister-mode-map "a" #'lister-key-filter-by-a)
     (define-key lister-mode-map "b" #'lister-key-filter-by-b)
-    (define-key lister-mode-map "n" #'lister-key-negate-filter)
+    (define-key lister-mode-map "!" #'lister-key-negate-filter)
     (define-key lister-mode-map "h" #'lister-key-toggle-highlight-mode)
     (define-key lister-mode-map "f" #'lister-key-toggle-filter)
     (define-key lister-mode-map "+" #'lister-key-insert-item)
