@@ -697,10 +697,11 @@ Return the position of the last inserted item marker."
 	   (new-level    (lister-determine-level lister-buf pos level)))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
-      (seq-doseq (item (seq-reverse seq))
+      (seq-doseq (item seq)
 	(setq pos (if (eq (type-of item) seq-type)
 		      (lister-insert-sequence lister-buf pos item (1+ new-level))
-		    (lister-insert lister-buf pos item new-level))))
+		    (lister-end-of-lines lister-buf
+					 (lister-insert lister-buf pos item new-level)))))
       pos)))
 
 (defun lister-insert-sublist (lister-buf pos-or-marker seq)
@@ -750,11 +751,12 @@ POSITION can be either a buffer position or the symbol `:point'.")
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (lister-buf (position marker))
   "Remove the item at POSITION."
-  (lister-remove-lines lister-buf position)
   (with-lister-buffer lister-buf
     (setq lister-local-marker-list 
-	  (seq-remove (lambda (m) (eq m position))
-		      lister-local-marker-list))))
+	  (seq-remove (lambda (m) (= m position))
+		      lister-local-marker-list)))
+  (lister-remove-lines lister-buf position))
+
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
@@ -766,6 +768,42 @@ POSITION can be either a buffer position or the symbol `:point'.")
 (cl-defmethod lister-remove (lister-buf (position integer))
   "Remove the item at POSITION from LISTER-BUF."
   (lister-remove lister-buf (lister-pos-as-marker position)))
+
+(defun lister-level-at-item-index (lister-buf n)
+  "Return the level of the nth item."
+  (with-current-buffer lister-buf
+    (get-text-property (seq-elt lister-local-marker-list n) 'level)))
+
+(defun lister-sublist-boundaries (lister-buf marker-or-pos)
+  "Return the beginning and the end of the sublist containing MARKER-OR-POS.
+Returns a list with a marker pointing to the first item of the
+sublist, a second marker pointing to the last item of the
+sublist, and the integer positions of the index positions
+corresponding to these two items on `lister-local-marker-list'.
+
+Example:
+  (#<marker ....> #<marker ...> 0 3) ;; the first four items"
+  (with-lister-buffer lister-buf
+    (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
+	   (n       (seq-position lister-local-marker-list marker #'equal))
+	   (last-n  (1- (seq-length lister-local-marker-list)))
+	   (level   (get-text-property marker 'level))
+	   (beg-n   (cl-loop for i downfrom n to 0
+			     ;; to determine ONLY the same level, use =
+			     while (<= level (lister-level-at-item-index lister-buf i))
+			     finally return (1+ i)))
+	   (end-n   (cl-loop for i upfrom n to last-n
+			     while (<= level (lister-level-at-item-index lister-buf i))
+			     finally return (1- i)))
+	   (beg     (seq-elt lister-local-marker-list beg-n))
+	   (end     (seq-elt lister-local-marker-list end-n)))
+      (list beg end beg-n end-n))))
+
+(defun lister-remove-this-level (lister-buf pos-or-marker)
+  "Remove all surrounding items matching the level of the item at POS-OR-MARKER."
+  (let* ((beg-end (lister-sublist-boundaries lister-buf pos-or-marker)))
+    (seq-doseq (i (number-sequence (third beg-end) (fourth beg-end)))
+      (lister-remove lister-buf (first beg-end)))))
 
 ;; Replace 
 

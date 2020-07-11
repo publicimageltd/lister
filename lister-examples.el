@@ -36,7 +36,8 @@
 
 (defun lister-item-message ()
   "Display the data of the item in the echo area."
-  (message "Stored data: %s."
+  (message "Point: %d Stored data: %s."
+	   (point)
 	   (lister-get-data (current-buffer) :point)))
 
 ;; * Use the filter
