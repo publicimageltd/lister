@@ -633,17 +633,19 @@ at point or 0 if there is no such item."
 
 ;; Insert
 
-(cl-defgeneric lister-insert (lister-buf position data &optional level)
+(cl-defgeneric lister-insert (lister-buf position data &optional level dont-add-marker)
   "Insert DATA as item at POSITION in LISTER-BUF.
 POSITION can be either a buffer position or the symbol `:point'.
 
 Insert DATA at the indentation level LEVEL. For the possible
 values of LEVEL, see `lister-determine-level'.
 
+Do not update the local marker list if DONT-ADD-MARKER is t. 
+
 Return the marker of the inserted item's cursor gap position.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-insert (lister-buf (position integer) data &optional level)
+(cl-defmethod lister-insert (lister-buf (position integer) data &optional level dont-add-marker)
   "Insert DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((raw-item       (funcall lister-local-mapper data))
@@ -657,22 +659,22 @@ Return the marker of the inserted item's cursor gap position.")
       (lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
       (when lister-local-filter-active 
 	(lister-possibly-hide-item lister-buf marker data))
-      ;; update marker list:
-      (lister-add-marker lister-buf marker)
+      (unless dont-add-marker
+	(lister-add-marker lister-buf marker))
       (goto-char marker)
       marker)))
 
-(cl-defmethod lister-insert (lister-buf (position marker) data &optional level)
+(cl-defmethod lister-insert (lister-buf (position marker) data &optional level dont-add-marker)
     "Insert DATA at MARKER in LISTER-BUF."
-    (lister-insert lister-buf (marker-position position) data level))
+    (lister-insert lister-buf (marker-position position) data level dont-add-marker))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level)
+(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level dont-add-marker)
   "Insert DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
     (lister-insert lister-buf pos data level)))
 
-(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
+(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level dont-add-marker)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
 Insert SEQ above the item marked by POS-OR-MARKER. If
 POS-OR-MARKER is nil, add it to the end of the list.
@@ -680,22 +682,29 @@ POS-OR-MARKER is nil, add it to the end of the list.
 LEVEL determines the level of hierarchical indentation. See
 `lister-determine-level' for all possible values for LEVEL.
 
+Do not update the local marker list if DONT-ADD-MARKER is t. 
+
 SEQ must be either a vector or a list. Nested sequences will be
 inserted with added indentation.
 
-Return the position of the last inserted item marker."
+Return the list of newly inserted markers."
   (when seq
     (let* ((seq-type     (type-of seq))
 	   (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
-	   (new-level    (lister-determine-level lister-buf pos level)))
+	   (new-level    (lister-determine-level lister-buf pos level))
+	   (new-marker   nil))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
       (seq-doseq (item seq)
-	(setq pos (if (eq (type-of item) seq-type)
-		      (lister-insert-sequence lister-buf pos item (1+ new-level))
-		    (lister-end-of-lines lister-buf
-					 (lister-insert lister-buf pos item new-level)))))
-      pos)))
+	(setq new-marker (append
+			  (if (eq (type-of item) seq-type)
+			      (lister-insert-sequence lister-buf pos item (1+ new-level) t)
+			    (list (lister-insert lister-buf pos item new-level t)))
+			  new-marker))
+	(setq pos (lister-end-of-lines lister-buf (car new-marker))))
+      (unless dont-add-marker
+	(lister-add-marker lister-buf new-marker))
+      new-marker)))
 
 (defun lister-insert-sublist (lister-buf pos-or-marker seq)
   "Insert SEQ as an indented sublist at POS-OR-MARKER."
