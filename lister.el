@@ -55,15 +55,15 @@ expression with the argument DATA.")
 (defvar-local lister-local-marker-list nil
   "Stores a list of marker positions for each lister list item.")
 
-(defvar-local lister-left-margin 2
+(defvar-local lister-local-left-margin 2
   "Add this left margin when inserting a item.
 Set this to nil if no left margin is wanted.")
 
-(defvar-local lister-top-margin nil
+(defvar-local lister-local-top-margin nil
   "Add this top margin when inserting an item.
 Set this to nil if no top margin is wanted.")
 
-(defvar-local lister-bottom-margin nil
+(defvar-local lister-local-bottom-margin nil
   "Add this bottom margin when inserting an item.
 Set this to nil if no bottom margin is wanted.")
 
@@ -268,14 +268,14 @@ N and OFFSET must be an integer or nil"
 (defun lister-add-vertical-margins (lister-buf strings)
   "Pad a list of STRINGS vertically by adding empty strings.
 Margins are taken from the buffer local variables
-`lister-top-margin' and `lister-bottom-margin'."
+`lister-local-top-margin' and `lister-local-bottom-margin'."
   (with-current-buffer lister-buf
     (append
-     (and lister-top-margin
-	  (make-list lister-top-margin ""))
+     (and lister-local-top-margin
+	  (make-list lister-local-top-margin ""))
      strings
-     (and lister-bottom-margin
-	  (make-list lister-bottom-margin "")))))
+     (and lister-local-bottom-margin
+	  (make-list lister-local-bottom-margin "")))))
 
 (cl-defun lister-insert-lines (buf marker-or-pos lines level)
   "Insert list LINES with padding at POS in BUF.
@@ -291,7 +291,7 @@ text.
 Return the marker pointing to the gap position."
   (when lines
     (with-current-buffer buf
-      (let* ((padded-item-list  (lister-indent-lines lines lister-left-margin level))
+      (let* ((padded-item-list  (lister-indent-lines lines lister-local-left-margin level))
 	     (item-list         (lister-add-vertical-margins buf padded-item-list))
 	     (beg               (lister-pos-as-integer marker-or-pos))
 	     (inhibit-read-only t))
