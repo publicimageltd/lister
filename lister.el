@@ -1273,20 +1273,25 @@ respectively."
 	    (when (eq direction 'entered)
 	      (run-hooks 'lister-enter-item-hook))))))))
 
-(defun lister-add-enter-callback (lister-buf fn-name &optional append)
-  "Register FN-NAME as a buffer local callback function."
+(defun lister-add-enter-callback (lister-buf callback-fn &optional append)
+  "Register CALLBACK-FN as callback on entering an items."
   (with-current-buffer lister-buf
-    (add-hook 'lister-enter-item-hook fn-name append t)))
+    (add-hook 'lister-enter-item-hook callback-fn append t)))
 
-(defun lister-remove-enter-callback (lister-buf fn-name)
-  "Remove FN-NAME from the list of callback functions."
+(defun lister-remove-enter-callback (lister-buf callback-fn)
+  "Remove CALLBACK-FN from the list of callback functions."
   (with-current-buffer lister-buf
-    (remove-hook 'lister-enter-item-hook fn-name t)))
+    (remove-hook 'lister-enter-item-hook callback-fn t)))
 
-(defun lister-add-leave-callback (lister-buf fn-name)
-  "Let FN-NAME be called when leaving a list item."
+(defun lister-add-leave-callback (lister-buf callback-fn)
+  "Register CALLBACK-FN as callback on leaving an item."
   (with-current-buffer lister-buf
-    (add-hook 'lister-leave-item-hook fn-name nil t)))
+    (add-hook 'lister-leave-item-hook callback-fn nil t)))
+
+(defun lister-add-leave-callback (lister-buf callback-fn)
+  "Remove CALLBACK-FN as callback on leaving an item."
+  (with-current-buffer lister-buf
+    (add-hook 'lister-leave-item-hook callback-fn nil t)))
 
 ;; * Lister Major Mode
 
