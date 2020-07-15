@@ -23,13 +23,6 @@
 
 ;;; Commentary:
 
-;; TODO
-;;
-;; - Ersetze "marker on the fly" durch (lister-pos-as-marker ....)
-;;
-;; - Extend documentation
-;;;; - Add convenience functions to handle the normal case to 'enter' an item (by calling hooks with point at the item)
-;;
 ;;; Code:
 
 
