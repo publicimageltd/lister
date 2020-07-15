@@ -758,7 +758,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
 
 (cl-defmethod lister-remove (lister-buf (position integer))
   "Remove the item at POSITION from LISTER-BUF."
-  (lister-remove lister-buf (lister-pos-as-marker position)))
+  (lister-remove lister-buf (lister-pos-as-marker lister-buf position)))
 
 (defun lister-level-at-item-index (lister-buf n)
   "Return the level of the nth item."
@@ -796,14 +796,14 @@ Example:
     (with-current-buffer lister-buf
       (setq lister-local-marker-list
 	    (append (seq-subseq lister-local-marker-list
-				0 (third beg-end))
+				0 (cl-third beg-end))
 		    (seq-subseq lister-local-marker-list
 				(min (length lister-local-marker-list)
-				     (1+ (fourth beg-end))))))
+				     (1+ (cl-fourth beg-end))))))
       (let* ((inhibit-read-only t))
-	(delete-region (first beg-end)
+	(delete-region (cl-first beg-end)
 		       (lister-end-of-lines lister-buf 
-					    (second beg-end)))))))
+					    (cl-second beg-end)))))))
 
 (defun lister-remove-sublist-below (lister-buf pos-or-marker)
   "Remove the sublist below the item at POS-OR-MARKER.
@@ -837,7 +837,7 @@ Preserve the indentation level.")
 
 (cl-defmethod lister-replace (lister-buf (position marker) data)
   "Replace the item at POSITION with a new DATA item."
-  (lister-replace lister-buf (lister-pos-as-integer marker) data))
+  (lister-replace lister-buf (lister-pos-as-integer position) data))
 
 ;; Replace the whole list (set list)
 
@@ -1033,7 +1033,7 @@ this list. MAP-FN can be used to additionally transform the
 elements when building the tree.
 
 Example:
-   (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'second #'first)
+   (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'cl-second #'cl-first)
  -> (a (b c) d)"
   (let* ((push-item  nil)
 	 (item       (car l))
@@ -1060,7 +1060,7 @@ Example:
   (let* ((data-list (seq-map (lambda (pos)
 			       (lister-get-props-at lister-buf pos 'data 'level))
 			     (buffer-local-value 'lister-local-marker-list lister-buf))))
-      (lister-group-by-level data-list #'second #'first)))
+      (lister-group-by-level data-list #'cl-second #'cl-first)))
 
 ;; -----------------------------------------------------------
 ;; * Moving point
@@ -1288,7 +1288,7 @@ respectively."
   (with-current-buffer lister-buf
     (add-hook 'lister-leave-item-hook callback-fn nil t)))
 
-(defun lister-add-leave-callback (lister-buf callback-fn)
+(defun lister-remove-leave-callback (lister-buf callback-fn)
   "Remove CALLBACK-FN as callback on leaving an item."
   (with-current-buffer lister-buf
     (add-hook 'lister-leave-item-hook callback-fn nil t)))
