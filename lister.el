@@ -154,6 +154,8 @@ what you do."
 Throw an error if BUF is not in `lister mode' or a major mode
 derived from it. Also cancel if the local mapper function is not
 defined."
+  (unless buf
+    (error "Expected buffer, got nil."))
   (with-current-buffer buf
     (or
      (and (derived-mode-p 'lister-mode)
@@ -502,7 +504,7 @@ Combination is done with `and' unless another operator OP is
 passed explicitly. See `lister-add-filter-term'."
   (with-lister-buffer lister-buf
     (setq lister-local-filter-term 
-	  (lister-add-filter-term lister-local-filter-term fn 'and))))
+	  (lister-add-filter-term lister-local-filter-term fn (or op 'and)))))
 
 (defun lister-negate-filter (lister-buf)
   "Negate the current filter term in LISTER-BUF."
@@ -523,7 +525,7 @@ Set FN as the first filter in a boolean combination of filters.
 Use the boolean operator `and' or instead use OP, if specified."
   (with-lister-buffer lister-buf
     (setq lister-local-filter-term
-	  (lister-add-filter-term nil fn 'and))))
+	  (lister-add-filter-term nil fn (or op 'and)))))
 
 (defun lister-clear-filter (lister-buf)
   "Remove all filter from LISTER-BUF."
@@ -733,7 +735,7 @@ possible values of LEVEL, see `lister-determine-level'.
 Return the last inserted item marker."
   (lister-insert-sequence lister-buf nil seq level))
 
-;; Remove 
+;; Remove items
 
 (cl-defgeneric lister-remove (lister-buf position)
   "Remove the item at POSITION from LISTER-BUF.
@@ -752,13 +754,23 @@ POSITION can be either a buffer position or the symbol `:point'.")
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
   (ignore position) ;; silence byte compiler
-  (if-let* ((marker (lister-current-marker lister-buf)))
-      (lister-remove lister-buf marker)
-    (error "lister-remove: no item found at point")))
+  (lister-remove lister-buf (lister-current-marker lister-buf)))
+
+(cl-defmethod lister-remove (lister-buf (position (eql :last)))
+  "Remove the last item."
+  (ignore position) ;; silence byte compiler
+  (lister-remove lister-buf (lister-goto lister-buf :last)))
+
+(cl-defmethod lister-remove (lister-buf (position (eql :first)))
+  "Remove the last item."
+  (ignore position) ;; silence byte compiler
+  (lister-remove lister-buf (lister-goto lister-buf :first)))
 
 (cl-defmethod lister-remove (lister-buf (position integer))
   "Remove the item at POSITION from LISTER-BUF."
   (lister-remove lister-buf (lister-pos-as-marker lister-buf position)))
+
+;; Remove sublists
 
 (defun lister-level-at-item-index (lister-buf n)
   "Return the level of the nth item."
@@ -814,26 +826,32 @@ Do nothing if the next item is not a sublist."
     (when (> next-level current-level)
       (lister-remove-this-level lister-buf next-item))))
 
-;; Replace 
+;; Replace items
 
 (cl-defgeneric lister-replace (lister-buf position data)
   "Replace the item at POSITION with one representing DATA.
-POSITION can be either a buffer position or the symbol `:point'.
-Preserve the indentation level.")
+POSITION can be either a buffer position or the symbols `:point',
+`:first' or `:last'. Preserve the indentation level.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-replace (lister-buf (position integer) data)
   "Replace the item at POSITION with a new DATA item."
-  (let* ((level      (get-text-property position 'level lister-buf)))
-    (lister-remove-lines lister-buf position)
+  (let* ((level  (get-text-property position 'level lister-buf)))
+    (lister-remove lister-buf position)
     (lister-insert lister-buf position data level)))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
   (ignore position) ;; silence byte compiler
-  (if-let* ((marker (lister-current-marker lister-buf)))
-      (lister-replace lister-buf marker data)
-    (error "lister-replace: no item found at point")))
+  (lister-replace lister-buf (lister-current-marker lister-buf) data))
+
+(cl-defmethod lister-replace (lister-buf (position (eql :last)) data)
+  "Replace the item at point with a new DATA item."
+  (lister-replace lister-buf (lister-goto lister-buf position) data))
+
+(cl-defmethod lister-replace (lister-buf (position (eql :first)) data)
+  "Replace the item at point with a new DATA item."
+  (lister-replace lister-buf (lister-goto lister-buf position) data))
 
 (cl-defmethod lister-replace (lister-buf (position marker) data)
   "Replace the item at POSITION with a new DATA item."
@@ -1071,7 +1089,7 @@ Example:
 (cl-defgeneric lister-goto (lister-buf position)
   "In LISTER-BUF, move point to POSITION.
 POSITION is a buffer position or one of the symbols `:last' or
-`:first'.")
+`:first'. Return the position.")
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-goto (lister-buf (position marker))
@@ -1084,14 +1102,16 @@ POSITION is a buffer position or one of the symbols `:last' or
       (let ((previous-point (point)))
 	(goto-char position)
 	(lister-sensor-function (selected-window) previous-point 'left)
-	(lister-sensor-function (selected-window) previous-point 'entered)))))
+	(lister-sensor-function (selected-window) previous-point 'entered)
+	position))))
 
 (cl-defmethod lister-goto (lister-buf (position integer))
   "Move point to POSITION."
   (lister-goto lister-buf (lister-pos-as-marker lister-buf position)))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
-  "Move point to the last visible item in LISTER-BUF."
+  "Move point to the last visible item in LISTER-BUF.
+Return the position."
   (ignore position) ;; silence byte compiler
   (with-lister-buffer lister-buf
     (if-let* ((last-marker (car (last (lister-visible-markers lister-buf)))))
@@ -1099,7 +1119,8 @@ POSITION is a buffer position or one of the symbols `:last' or
       (error "lister-goto: no visible item, cannot go to last item"))))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :first)))
-  "Move point to the first visible item in LISTER-BUF."
+  "Move point to the first visible item in LISTER-BUF.
+Return the position."
   (ignore position) ;; silence byte compiler
   (with-lister-buffer lister-buf
     (if-let* ((first-marker (car (lister-visible-markers lister-buf))))
@@ -1154,13 +1175,13 @@ positions."
 (defun lister-current-marker (lister-buf)
   "Return MARKER of the item at point in LISTER-BUF.
 Only return a marker if point is on the beginning of ITEM.
-Also return nil if no marker is available."
-  (with-lister-buffer lister-buf 
-    (save-excursion
-      (when (get-text-property (point) 'item)
-	(seq-find (lambda (m)
-		    (eq (marker-position m) (point)))
-		  lister-local-marker-list)))))
+Throw an error if no marker is available."
+  (with-lister-buffer lister-buf
+    (or
+     (when (get-text-property (point) 'item)
+       (seq-find (lambda (m) (eq (marker-position m) (point)))
+		 lister-local-marker-list))
+     (error "No item at point"))))
 
 (defun lister-first-lines (buf)
   "Return position of the first 'lines' element in BUF.
