@@ -84,16 +84,15 @@ Alternatively, the value can be the name of a face.")
 
 (defvar-local lister-enter-item-hook nil
   "List of functions to call when point enters an existing item.
+Use `lister-add-enter-callback' to add a function to this buffer
+local hook. Do not use `add-hook'. 
 
 When the callback function is called, the lister buffer is set
 current and point is on the current item. Use `lister-get-data'
 to access the data.
 
 To avoid recursion, `cursor-sensor-inhibit' is set to `t' during
-the execution of the callback functions.
-
-Use `lister-add-enter-callback' to add a function to this buffer
-local hook.")
+the execution of the callback functions.")
 
 (defvar-local lister-leave-item-hook nil
   "List of functions to call when point leaves an existing item.
@@ -1274,10 +1273,15 @@ respectively."
 	    (when (eq direction 'entered)
 	      (run-hooks 'lister-enter-item-hook))))))))
 
-(defun lister-add-enter-callback (lister-buf fn-name)
-  "Let FN-NAME be called when entering a list item."
+(defun lister-add-enter-callback (lister-buf fn-name &optional append)
+  "Register FN-NAME as a buffer local callback function."
   (with-current-buffer lister-buf
-    (add-hook 'lister-enter-item-hook fn-name nil t)))
+    (add-hook 'lister-enter-item-hook fn-name append t)))
+
+(defun lister-remove-enter-callback (lister-buf fn-name)
+  "Remove FN-NAME from the list of callback functions."
+  (with-current-buffer lister-buf
+    (remove-hook 'lister-enter-item-hook fn-name t)))
 
 (defun lister-add-leave-callback (lister-buf fn-name)
   "Let FN-NAME be called when leaving a list item."
