@@ -341,8 +341,8 @@ key-value-pairs for MAKE-FN."
 
 (defun delve-toggle ()
   (interactive)
-  (when (and (not (null delve-test-buffer))
-	     (not (buffer-live-p delve-test-buffer)))
+  (unless (and delve-test-buffer
+	       (buffer-live-p delve-test-buffer))
     (setq delve-test-buffer (delve-new-buffer))
     (with-current-buffer delve-test-buffer
       ;; (lister-highlight-mode) ;; TODO Bug: Faces werden nicht wieder hergestellt
