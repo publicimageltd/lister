@@ -1345,7 +1345,7 @@ respectively."
   "Do something with the item at point."
   (interactive)
   (if-let* ((fn lister-local-action))
-      (funcall lister-local-action (point))
+      (funcall lister-local-action (lister-get-data (current-buffer) :point))
     (message "No action defined")))
 
 (defvar lister-mode-map
