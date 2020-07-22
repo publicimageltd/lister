@@ -826,14 +826,18 @@ Example:
 		       (lister-end-of-lines lister-buf 
 					    (cl-second beg-end)))))))
 
-(defun lister-remove-sublist-below (lister-buf pos-or-marker)
-  "Remove the sublist below the item at POS-OR-MARKER.
-Do nothing if the next item is not a sublist."
+(defun lister-sublist-below-p (lister-buf pos-or-marker)
+  "Check if the next item is a sublist with respect to POS-OR-MARKER."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
 	      (current-level  (get-text-property pos-or-marker 'level lister-buf))
 	      (next-level     (get-text-property next-item 'level lister-buf)))
-    (when (> next-level current-level)
-      (lister-remove-this-level lister-buf next-item))))
+    (> next-level current-level)))
+
+(defun lister-remove-sublist-below (lister-buf pos-or-marker)
+  "Remove the sublist below the item at POS-OR-MARKER.
+Do nothing if the next item is not a sublist."
+  (when (lister-sublist-below-p lister-buf pos-or-marker)
+    (lister-remove-this-level lister-buf (lister-end-of-lines lister-buf pos-or-marker))))
 
 ;; Replace items
 
