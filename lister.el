@@ -327,15 +327,17 @@ If NEW-LINES is nil, simply delete the entry at POS."
     (lister-remove-lines buf marker-or-pos)
     (lister-insert-lines buf marker-or-pos new-lines level)))
 
-(defun lister-end-of-lines (buf marker-or-pos)
+(defun lister-end-of-lines (buf marker-or-pos &optional no-error)
   "Return the end position of the 'lines' element starting at POS.
 A 'lines' element can be the header, a list item or the footer.
 Use the text property symbol `nchars' to determine the size of
 the item."
   (if-let* ((nchars (lister-get-prop buf marker-or-pos 'nchars)))
       (+ marker-or-pos nchars)
-    (error "Did not find text property 'nchar at buffer position %d"
-	   (lister-pos-as-integer marker-or-pos))))
+    (if no-error
+        (lister-pos-as-integer marker-or-pos)
+      (error "Did not find text property 'nchar at buffer position %d"
+	     (lister-pos-as-integer marker-or-pos)))))
 
 ;; * Set header or footer of the list
 
