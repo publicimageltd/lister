@@ -444,7 +444,7 @@ The VALUE t hides the item, nil makes it visible."
 	(remove-text-properties beg end '(invisible nil))
 	;; re-open the gap for the marker:
 	;;
-	;; This might be too precise, we could simply change all text
+	;; This might be too precise, simply change all text
 	;; properties in the buffer in one run. But is the latter way
 	;; really faster?
 	(cl-dolist (m lister-local-marker-list)

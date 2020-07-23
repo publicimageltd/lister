@@ -42,15 +42,17 @@
 
 (defun lister-highlight-item ()
   (let* ((pos    (point))
-	 (end    (lister-end-of-lines (current-buffer) pos)))
-    (lister-add-face-property pos end
-			      lister-highlight-face-or-property)))
+	 (end    (lister-end-of-lines (current-buffer) pos t)))
+    (when (/= pos end)
+      (lister-add-face-property pos end
+				lister-highlight-face-or-property))))
 
 (defun lister-unhighlight-item ()
   (let* ((pos    (point))
-	 (end    (lister-end-of-lines (current-buffer) pos)))
-    (lister-remove-face-property pos end
-				 lister-highlight-face-or-property)))
+	 (end    (lister-end-of-lines (current-buffer) pos t)))
+    (when (/= pos end)
+      (lister-remove-face-property pos end
+				   lister-highlight-face-or-property))))
 
 ;; * Define the mode
 
