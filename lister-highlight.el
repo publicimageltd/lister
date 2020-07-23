@@ -24,12 +24,17 @@
 
 ;;; Code:
 
-(require 'lister "lister.el")
+(require 'cl-lib)
+(cl-eval-when (eval)
+  (if (not (member default-directory load-path))
+      (add-to-list 'load-path default-directory)))
+
+(require 'lister)
 
 ;; * Highlight face
 
 (defvar lister-highlight-face-or-property
-  '(:foreground "yellow")
+  'hl-line
   "Text property or name of face to add when highlighting an
   item.")
 
@@ -61,6 +66,7 @@
 	(add-hook 'lister-enter-item-hook #'lister-highlight-item nil t)
 	(add-hook 'lister-leave-item-hook #'lister-unhighlight-item nil t)
 	(when lister-local-marker-list
+;;	  (lister-goto (current-buffer) :point)))
 	  (let* ((previous-point (point)))
 	    (lister-sensor-function (selected-window) previous-point 'entered))))
     ;; disable:

@@ -114,38 +114,34 @@ local hook.")
 ;; * Useful stuff
 ;; -----------------------------------------------------------
 
-(defun lister-add-face-property (beg end face-or-plist)
-  "A wrapper around `add-face-text-property'.
-Use this in conjunction with `lister-remove-face-property'. Do
-not change the text property of the face directly, unless you
-know what you do."
-  (let* ((current-props (get-text-property beg 'face))
-	 (new-props     (if current-props
-			    face-or-plist
-			  ;; We always want a list of either plists or
-			  ;; face names (i.e. '((:underline t))). So
-			  ;; if this is the first face plist or face
-			  ;; name to add, wrap it in a list.
-			  (list face-or-plist))))
-    (add-face-text-property beg end new-props)))
+(defun lister-add-face-property (beg end value)
+  "A wrapper around `add-face-text-property'."
+  (add-face-text-property beg end value))
 
-(defun lister-remove-face-property (beg end face-or-plist)
-  "Remove FACE-OR-PLIST from the face property from BEG to END.
-Use this in conjunction with `lister-add-face-property'. Do not
-change the text property of the face directly, unless you know
-what you do."
-  (let* ((face-prop-value   (get-text-property beg 'face))
-	 (current-props     (if (listp face-prop-value) face-prop-value (list face-prop-value)))
-	 ;; this works because our wrapper around
-	 ;; add-face-text-propery makes sure the value of the face
-	 ;; property is always a list, even if we've added just a
-	 ;; single item, such as a face name:
-	 (new-props         (seq-remove
-			     (apply-partially #'equal face-or-plist)
-			     current-props)))
-    (if new-props 
-	(add-text-properties beg end (list 'face new-props))
-      (remove-text-properties beg end '(face)))))
+(defun lister-remove-face-property (beg end value)
+  "Remove VALUE from the face property from BEG to END.
+This is a slightly modified copy of `font-lock--remove-face-from-text-property'."
+  (let ((beg (text-property-not-all beg end 'face nil))
+	next prev)
+    (while beg
+      (setq next (next-single-property-change beg 'face nil end)
+	    prev (get-text-property beg 'face))
+      (cond ((or (atom prev)
+		 (keywordp (car prev))
+		 (eq (car prev) 'foreground-color)
+		 (eq (car prev) 'background-color))
+	     (when (eq value prev)
+	       (remove-list-of-text-properties beg next (list 'face))))
+	    ((memq value prev)		;Assume prev is not dotted.
+	     (let ((new (remq value prev)))
+	       (cond ((null new)
+		      (remove-list-of-text-properties beg next (list 'face)))
+		     ((= (length new) 1)
+		      (put-text-property beg next 'face (car new)))
+		     (t
+		      (put-text-property beg next 'face new))))))
+      (setq beg (text-property-not-all next end 'face nil)))))
+
 
 ;; * Helper functions to work with lister buffers
 
