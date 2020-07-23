@@ -32,6 +32,7 @@
   (if (not (member default-directory load-path))
       (add-to-list 'load-path default-directory)))
 
+(setq load-prefer-newer t)
 (require 'lister)
 (require 'lister-highlight)
 (require 'org-roam)
