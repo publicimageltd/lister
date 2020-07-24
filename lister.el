@@ -1277,13 +1277,11 @@ Also recreates the markers for the header and the footer of the list."
 
 
 (defun lister-sensor-function (win previous-point direction)
-  "Use WIN, PREVIOUS-POINT and DIRECTION to call callback functions.
-
-This is a dispatcher function which is be used by the
-`cursor-sensor-function' property. To use the cursor sensor
-function for list items, add callbacks to
-`lister-add-enter-callback' and `lister-add-leave-callback',
-respectively."
+  "Run hooks on entering or leaving a lister item.
+If `cursor-sensor-mode' is enabled, this function will be called
+on entering or leaving the cursor gap of an item. Use the
+arguments WIN, PREVIOUS-POINT and DIRECTION to determine what
+kind of event has been caused."
   (with-current-buffer (window-buffer win)
     (when (derived-mode-p 'lister-mode)
       (let ((cursor-sensor-inhibit t)
