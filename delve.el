@@ -1,4 +1,4 @@
-;;; zettelbrowse.el --- Delve into the depths of your zettelkasten       -*- lexical-binding: t; -*-
+;;; delve.el --- Delve into the depths of your zettelkasten       -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020  
 
