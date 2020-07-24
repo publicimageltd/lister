@@ -39,26 +39,22 @@
 
 ;; * Item data types
 
-(defstruct (delve-generic-item (:constructor delve-make-generic-item))
-  type)
+(defstruct (delve-generic-item (:constructor delve-make-generic-item)))
 
 (defstruct (delve-tag (:constructor delve-make-tag)
-		      (:include delve-generic-item (type 'tag)))
+		      (:include delve-generic-item))
   tag
   count)
 
 (defstruct (delve-zettel (:constructor delve-make-zettel)
-			 (:include delve-generic-item (type 'zettel)))
+			 (:include delve-generic-item))
   title
   file
   tags
   mtime
   atime)
 
-;; * Item types and mapper function
-
-(defvar delve-types '(zettel tag string)
-  "List defining the possible item types in a delve list.")
+;; * Item mapper functions
 
 (defun delve-represent-zettel (zettel)
   (list (propertize (delve-zettel-title zettel) 'face 'org-document-title)
@@ -76,12 +72,10 @@
 
 (defun delve-mapper (data)
   "Transform DATA into a printable list."
-  (let* ((type (delve-generic-item-type data)))
-    (cl-case type
-      (zettel (delve-represent-zettel data))
-      (tag    (delve-represent-tag data))
-      (string (list "STRING ITEM:" (format "%s" data)))
-      (t      (list (format "UNKNOWN TYPE: %s"  type))))))
+  (cl-case (type-of data)
+      (delve-zettel (delve-represent-zettel data))
+      (delve-tag    (delve-represent-tag data))
+      (t      (list (format "UNKNOWN TYPE: %s"  type)))))
 
 ;; * Global variables
 
