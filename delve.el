@@ -214,10 +214,7 @@ key-value-pairs for MAKE-FN."
   
 ;; * Org Roam Queries
 
-(defun delve-sort-query-results (sort-fn accessor l)
-  (seq-sort (lambda (i1 i2)
-	      (funcall sort-fn (funcall accessor i1) (funcall accessor i2)))
-	    l))
+;; Queries returning plain lists:
 
 (defun delve-db-roam-tags ()
   "Return a list of all #+ROAM_TAGS."
@@ -244,6 +241,23 @@ key-value-pairs for MAKE-FN."
 	       (delve-make-tag :tag tag
 			       :count (delve-db-count-tag tag)))
 	     tags)))
+
+
+
+;; Queries resulting in delve types:
+
+;; We could just use cl-sort with :key, but we want this function to
+;; be used with thread-last, so we use our own. A possible drawback
+;; may be that cl-sort works destructively and thus should be more
+;; efficient on bigger lists, which are copied by seq-sort.
+(defun delve-sort-query-results (sort-fn accessor-fn l)
+  "Sort L using SORT-FN, accessing the items of L with ACCESSOR-FN."
+  (seq-sort (lambda (i1 i2)
+	      (funcall sort-fn
+		       (funcall accessor-fn i1)
+		       (funcall accessor-fn i2)))
+	    l))
+
 
 (defun delve-query-zettel-with-tag (tag)
   "Return a list of all zettel tagged TAG."
