@@ -344,7 +344,7 @@ passed to MAKE-FN."
 
 ;; * Delve actions and keys
 
-(defvar delve-test-buffer nil)
+;; Set or reset the global list of the buffer
 
 (defun delve-start-with-list (buf seq)
   "Delete all items in BUF and start afresh with SEQ."
@@ -356,11 +356,10 @@ passed to MAKE-FN."
   (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries buf pos)))
     (delve-start-with-list buf (lister-get-all-data-tree buf beg end))))
 
-
 (defun delve-initial-list ()
-  "Populate the delve buffer with a list of tags."
+  "Populate the current delve buffer with a list of tags."
   (interactive)
-  (delve-start-with-list delve-test-buffer (delve-query-roam-tags)))
+  (delve-start-with-list (current-buffer) (delve-query-roam-tags)))
 
 (defun delve-sublist-to-top ()
   "Replace all items with the current sublist at point."
@@ -368,6 +367,8 @@ passed to MAKE-FN."
   (unless lister-local-marker-list
     (user-error "There are not items in this buffer."))
   (delve-start-with-list-at-point (current-buffer) (point)))
+
+
 
 ;; TODO auch POS muss als Argument übergeben werden, darf nicht implizit bleiben
 (defun delve-insert-zettel-with-tag (buf tag)
@@ -428,22 +429,26 @@ passed to MAKE-FN."
 
 ;; * Interactive entry points
 
+(defvar delve-toggle-buffer nil
+  "The last created lister buffer.
+Calling `delve-toggle' switches to this buffer.")
+
 ;;;###autoload
 (defun delve ()
   "Delve into the org roam zettelkasten."
   (interactive)
-  (with-current-buffer (setq delve-test-buffer (delve-new-buffer))
+  (with-current-buffer (setq delve-toggle-buffer (delve-new-buffer))
     (delve-mode)
-    (lister-highlight-mode))
-  (delve-initial-list)
-  (switch-to-buffer delve-test-buffer))
+    (lister-highlight-mode)
+    (delve-initial-list))
+  (switch-to-buffer delve-toggle-buffer))
 
 ;;;###autoload
 (defun delve-toggle ()
   (interactive)
-  (if (and delve-test-buffer
-	   (buffer-live-p delve-test-buffer))
-      (switch-to-buffer delve-test-buffer)
+  (if (and delve-toggle-buffer
+	   (buffer-live-p delve-toggle-buffer))
+      (switch-to-buffer delve-toggle-buffer)
     (delve)))
 
 
