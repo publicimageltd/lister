@@ -348,18 +348,23 @@ specific query for special usecases."
 
 (defun delve-query-zettel-with-tag (tag)
   "Return a list of all zettel tagged TAG."
-  (delve-query-all-zettel "ZETTEL" [:where (like tags:tags $r1)] (format "%%%s%%" tag)))
+  (delve-query-all-zettel "ZETTEL" [:where (like tags:tags $r1)
+				    :order-by (asc titles:title)]
+			  (format "%%%s%%" tag)))
 
 (defun delve-query-zettel-matching-title (term)
   "Return a list of all zettel where the title contains TERM."
-  (delve-query-all-zettel "ZETTEL" [:where (like titles:title $r1)] (format "%%%s%%" term)))
+  (delve-query-all-zettel "ZETTEL" [:where (like titles:title $r1)
+				    :order-by (asc titles:title)]
+			  (format "%%%s%%" term)))
 
 (defun delve-query-backlinks (zettel)
   "Return all zettel linking to ZETTEL."
   (let* ((with-clause [:with backlinks :as [:select (as links:to file)
 					    :from links
 					    :where (and (= links:type "file")
-							(= links:from $s1))]])
+							(= links:from $s1))]
+			                    :order-by (asc titles:title)])		      
 	 (constraint [:join backlinks :using [[ file ]]])
 	 (args       (delve-zettel-file zettel)))
     (delve-query-all-zettel "BACKLINK" constraint args with-clause)))
