@@ -57,6 +57,14 @@
   tolinks
   subtype)
 
+(defstruct (delve-search (:constructor delve-make-search))
+  name
+  with-clause
+  constraint
+  args
+  postprocess 
+  (result-subtype "ZETTEL"))
+
 ;; * Item mapper functions
 
 (defun delve-represent-tags (zettel)
@@ -119,11 +127,20 @@
 		(when (delve-tag-count tag)
 		  (format " (%d)" (delve-tag-count tag))))))
 
+(defun delve-represent-search (search)
+  "Return propertized strings representing a SEARCH object."
+  (list (concat (if (featurep 'all-the-icons)
+		    (all-the-icons-faicon "search")
+		  "Search:")
+		" "
+		(propertize (delve-search-name search) 'face 'org-level-2))))
+
 (defun delve-mapper (data)
   "Transform DATA into a printable list."
   (cl-case (type-of data)
       (delve-zettel (delve-represent-zettel data))
       (delve-tag    (delve-represent-tag data))
+      (delve-search (delve-represent-search data))
       (t      (list (format "UNKNOWN TYPE: %s"  (type-of data))))))
 
 ;; * Global variables
@@ -359,6 +376,17 @@ specific query for special usecases."
 			:where (= links:from $s1)]
 		       file)))
 
+;; Sorting query results:
+
+(defun delve-query-sort-by-mtime (zettel)
+  "Sort ZETTELS by mtime, last one first."
+  (cl-sort zettel (lambda (e1 e2) (time-less-p e2 e1))
+	   :key #'delve-zettel-mtime))
+
+(defun delve-query-last-10-modified (zettel)
+  "Return the last 10 modified ZETTEL."
+  (seq-take (delve-query-sort-by-mtime zettel) 10))
+
 ;; Queries resulting in delve types:
 
 (defun delve-query-zettel-with-tag (tag)
@@ -412,9 +440,12 @@ specific query for special usecases."
 
 ;; Key "."
 (defun delve-initial-list (&optional empty-list)
-  "Populate the current delve buffer with a list of tags."
+  "Populate the current delve buffer with a useful list of tags."
   (interactive "P")
   (delve-start-with-list (current-buffer) (unless empty-list (delve-query-roam-tags)))
+  (lister-insert (current-buffer) :point
+		 (delve-make-search :name "10 Last Modified"
+				    :postprocess #'delve-query-last-10-modified))
   (when (equal (window-buffer) (current-buffer))
     (recenter)))
 
@@ -444,6 +475,18 @@ specific query for special usecases."
 	(lister-insert-sublist-below buf pos all)
       (user-error "No links found."))))
 
+(defun delve-execute-search (search)
+  "Return the results of executing SEARCH."
+  (let* ((res (delve-query-all-zettel
+	       (delve-search-result-subtype search)
+	       (delve-search-constraint search)
+	       (delve-search-args search)
+	       (delve-search-with-clause search))))
+    (setq test
+	  (if (and res (delve-search-postprocess search))
+	      (funcall (delve-search-postprocess search) res)
+	    res))))
+
 ;; Key "Enter"
 (defun delve-action (data)
   "Action on pressing the enter key."
@@ -451,7 +494,10 @@ specific query for special usecases."
       (lister-remove-sublist-below (current-buffer) (point))
     (cl-case (type-of data)
       (delve-tag     (delve-insert-zettel-with-tag (current-buffer) (point) (delve-tag-tag data)))
-      (delve-zettel  (delve-insert-links (current-buffer) (point) data)))))
+      (delve-zettel  (delve-insert-links (current-buffer) (point) data))
+      (delve-search  (lister-insert-sublist-below
+		      (current-buffer) (point)
+		      (delve-execute-search data))))))
 
 ;; Other key actions
 
