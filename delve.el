@@ -445,7 +445,7 @@ specific query for special usecases."
     ;; this does not work, I have no clue why:
     (org-roam-buffer-toggle-display)))
 
-;; Key "+"
+;; Key "i"
 (defun delve-insert-zettel  ()
   "Choose a zettel and insert it in the current delve buffer."
   (interactive)
@@ -558,7 +558,7 @@ specific query for special usecases."
     (define-key map "N" #'delve-narrow-sublist)
     (define-key map (kbd "C-l") #'delve-sublist-to-top)
     (define-key map "."  #'delve-initial-list)
-    (define-key map "+" #'delve-insert-zettel)
+    (define-key map "i" #'delve-insert-zettel)
     (define-key map (kbd "<delete>") #'delve-delete-item)
     map)
   "Key map for `delve-mode'.")
