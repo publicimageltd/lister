@@ -788,7 +788,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
 
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)
   "Return the inner boundaries of the sublist containing MARKER-OR-POS.
-Returns a list with a marker pointing to the first item of the
+Return a list with a marker pointing to the first item of the
 sublist, a second marker pointing to the last item of the
 sublist, and the integer positions of the index positions
 corresponding to these two items on `lister-local-marker-list'.
