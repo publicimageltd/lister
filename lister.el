@@ -1085,12 +1085,30 @@ Example:
 	    (push push-item res))))
     (reverse res)))
 
+
+(defun lister-marker-sublist (lister-buf beg end)
+  "Return LISTER-BUF's marker list from BEG to and including END.
+If either BEG or END is nil, use the position of the first or
+last item, respectively."
+  (when-let* ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
+    (if (and (null beg) (null end))
+	mlist
+      (when-let* ((top (if beg (lister-index-position lister-buf beg) 0))
+		  (bot (if end (lister-index-position lister-buf end) (1- (length mlist)))))
+	(seq-subseq mlist top
+		    ;; the manual says 'end is the last item', the
+		    ;; docstring says 'end is exclusive'. The docstring is
+		    ;; right.	       
+		    (1+ bot))))))
   
-(cl-defun lister-get-all-data-tree (lister-buf)
-  "Collect all data values in LISTER-BUF, respecting its hierarchy."
+(defun lister-get-all-data-tree (lister-buf &optional beg end)
+  "Collect all data values in LISTER-BUF, respecting its hierarchy.
+Optionally restrict the result to the items ranging from the
+buffer positions BEG and END (END is inclusive). If either BEG or
+END is nil, use the position of the first or last item."
   (let* ((data-list (seq-map (lambda (pos)
 			       (lister-get-props-at lister-buf pos 'data 'level))
-			     (buffer-local-value 'lister-local-marker-list lister-buf))))
+			     (lister-marker-sublist lister-buf beg end))))
       (lister-group-by-level data-list #'cl-second #'cl-first)))
 
 ;; -----------------------------------------------------------
