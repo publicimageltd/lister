@@ -443,9 +443,21 @@ specific query for special usecases."
   "Populate the current delve buffer with a useful list of tags."
   (interactive "P")
   (delve-start-with-list (current-buffer) (unless empty-list (delve-query-roam-tags)))
+  (when lister-highlight-mode
+    (lister-unhighlight-item))
   (lister-insert (current-buffer) :point
 		 (delve-make-search :name "10 Last Modified"
 				    :postprocess #'delve-query-last-10-modified))
+  (lister-insert (current-buffer) :point
+		 (delve-make-search :name "10 Most Linked to"
+				    :constraint [:order-by (desc backlinks)
+						  :limit 10]))
+  (lister-insert (current-buffer) :point
+		 (delve-make-search :name "10 Most Linked from"
+				    :constraint [:order-by (desc tolinks)
+							   :limit 10]))
+  (when lister-highlight-mode
+      (lister-highlight-item))
   (when (equal (window-buffer) (current-buffer))
     (recenter)))
 
