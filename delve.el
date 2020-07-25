@@ -111,7 +111,11 @@
 
 (defun delve-represent-tag (tag)
   "Return propertized strings representing a TAG object."
-  (list (concat "Tag: " (propertize (delve-tag-tag tag) 'face 'org-level-1)
+  (list (concat (if (featurep 'all-the-icons)
+		    (all-the-icons-faicon "tag")
+		  "Tag:")
+		" "
+		(propertize (delve-tag-tag tag) 'face 'org-level-1)
 		(when (delve-tag-count tag)
 		  (format " (%d)" (delve-tag-count tag))))))
 
@@ -584,6 +588,7 @@ specific query for special usecases."
     (set-keymap-parent map lister-mode-map)
     (define-key map "v" #'delve-view)
     (define-key map "o" #'delve-open)
+    (define-key map (kbd "<C-return>") #'delve-open)
     (define-key map "N" #'delve-narrow-sublist)
     (define-key map (kbd "C-l") #'delve-sublist-to-top)
     (define-key map "."  #'delve-initial-list)
@@ -618,7 +623,7 @@ Calling `delve-toggle' switches to this buffer.")
   "Delve into the org roam zettelkasten."
   (interactive)
   (unless org-roam-mode
-    (with-temp-message "Turnin on org roam mode..."
+    (with-temp-message "Turning on org roam mode..."
       (org-roam-mode)))
   (with-current-buffer (setq delve-toggle-buffer (delve-new-buffer))
     (delve-mode)
