@@ -635,7 +635,8 @@ at point or 0 if there is no such item."
 
 (cl-defgeneric lister-insert (lister-buf position data &optional level dont-add-marker)
   "Insert DATA as item at POSITION in LISTER-BUF.
-POSITION can be either a buffer position or the symbol `:point'.
+POSITION can be a buffer position , the symbol `:point' or the
+symbol `:next'.
 
 Insert DATA at the indentation level LEVEL. For the possible
 values of LEVEL, see `lister-determine-level'.
@@ -648,13 +649,14 @@ Return the marker of the inserted item's cursor gap position.")
 (cl-defmethod lister-insert (lister-buf (position integer) data &optional level dont-add-marker)
   "Insert DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
-    (let* ((raw-item       (funcall lister-local-mapper data))
+    (let* ((cursor-sensor-inhibit t)
+	   (raw-item       (funcall lister-local-mapper data))
 	   (item           (lister-validate-lines (lister-strflat raw-item)))
 	   (new-level      (lister-determine-level lister-buf position level))
 	   (marker         (lister-insert-lines lister-buf
-						position
-						item
-						new-level)))
+						  position
+						  item
+						  new-level)))
       (lister-set-data lister-buf marker data)
       (lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
       (when lister-local-filter-active 
@@ -673,6 +675,13 @@ Return the marker of the inserted item's cursor gap position.")
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
     (lister-insert lister-buf pos data level)))
+
+(cl-defmethod lister-insert (lister-buf (position (eql :next)) data &optional level dont-add-marker)
+  "Insert DATA after current item in LISTER-BUF."
+  (ignore position) ;; silence byte compiler warning
+  (let* ((pos  (with-current-buffer lister-buf (point)))
+	 (next (lister-end-of-lines lister-buf pos t)))
+    (lister-insert lister-buf (or next pos) data level)))
 
 (defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level dont-add-marker)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
@@ -1041,12 +1050,12 @@ POSITION can be either a buffer position or the symbol `:point'.")
 
 ;; Get lists of data:
 
-(defun lister-get-all-data (lister-buf)
+(defun lister-get-all-data (lister-buf &optional beg end)
   "Collect all data values of all items in LISTER-BUF.
 The values are collected in a flat list, ignoring any nested
 levels or hierarchies."
   (seq-map (apply-partially #'lister-get-data lister-buf)
-	   (buffer-local-value 'lister-local-marker-list lister-buf)))
+	   (lister-marker-sublist lister-buf beg end)))
 
 (defun lister-get-visible-data (lister-buf)
   "Collect the data values of all items visible in LISTER-BUF."

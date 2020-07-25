@@ -54,17 +54,30 @@
   mtime
   atime
   backlinks
-  tolinks)
+  tolinks
+  subtype)
 
 ;; * Item mapper functions
+
+(defun delve-represent-tags (zettel)
+  "Return a the tags list of ZETTEL as a propertized string."
+  (when (delve-zettel-tags zettel)
+    (concat "(" (propertize (string-join (delve-zettel-tags zettel) ", ") 'face 'org-level-1) ") ")))
+
+(defun delve-represent-title (zettel)
+  "Return the title of ZETTEL as a propertized string."
+  (propertize (or (delve-zettel-title zettel) (delve-zettel-file zettel) "NO FILE, NO TITLE.")
+	      'face
+	      'org-document-title))
 
 (defun delve-represent-zettel (zettel)
   (list
    ;;
    (concat
-    (when (delve-zettel-tags zettel)
-      (concat "(" (propertize (string-join (delve-zettel-tags zettel) ", ") 'face 'org-level-1) ") "))
-    (propertize (delve-zettel-title zettel) 'face 'org-document-title))
+    (when (delve-zettel-subtype zettel)
+      (concat " " (propertize (delve-zettel-subtype zettel) 'face 'font-lock-constant-face) " "))
+    (delve-represent-tags zettel)
+    (delve-represent-title zettel))
    ;;
    (concat
     (format "%s backlinks; %s links to this zettel." 
@@ -157,7 +170,8 @@ Each element of PATTERN can be either a symbol, an integer, a
 list with an integer and a function name, or a list with an
 integer and a sexp.
 
-If the element in PATTERN is a symbol, just pass it through.
+If the element in PATTERN is a symbol or a string, just pass it
+through.
 
 If the element in PATTERN is an integer, use it as an index to
 return the correspondingly indexed element of the original item.
@@ -180,11 +194,15 @@ Examples:
  (delve-db-rearrange [1 (0 1+)] '((1 0) (1 0)))      -> ((0 2) (0 2))
  (delve-db-rearrange [1 (0 (1+ it))] '((1 0) (1 0))) -> ((0 2) (0 2))
 
- (delve-db-rearrange [:count 1] '((0 20) (1 87))) -> ((:count 20) (:count 87))"
+ (delve-db-rearrange [:count 1] '((0 20) (1 87))) -> ((:count 20) (:count 87))
+ (delve-db-rearrang [:count 1 :string \"hi\"] '((0 20) (1 87))) 
+  -> ((:count 20 :string \"hi\")
+      (:count 87 :string \"hi\"))"
   (seq-map (lambda (item)
 	     (seq-mapcat (lambda (index-or-list)
 			   (list
-			    (if (symbolp index-or-list)
+			    (if (or (symbolp index-or-list)
+				    (stringp index-or-list))
 				index-or-list
 			      (if (listp index-or-list)
 				  (progn
@@ -201,8 +219,8 @@ Examples:
 (defun delve-db-rearrange-into (make-fn keyed-pattern l)
   "Rearrange each item in L and pass the result to MAKE-FN.
 KEYED-PATTERN is an extension of the pattern used by
-`delve-db-rearrange'. For each element, this extended pattern
-also requires a keyword. The object is created by using the
+`delve-db-rearrange'. The extended pattern also requires a
+keyword for each element. The object is created by using the
 keywords and the associated result value as key-value-pairs
 passed to MAKE-FN."
   (seq-map (lambda (item)
@@ -213,17 +231,31 @@ passed to MAKE-FN."
 
 ;; One query to rule them all:
 
-(defun delve-query-all-zettel (&optional constraints args with-clause)
+(defun delve-query-all-zettel (&optional subtype constraints args with-clause)
   "Return all zettel items with all fields.
-The result list can be constraint by using CONSTRAINTS and ARGS.
-CONSTRAINTS must be a vector which will be added to the SQL query
-vector. Useful values are e.g. [ :where (like fieldname string) ],
-[ :limit 10 ] or [ :order-by (asc fieldname) ]. Available fields are
-`titles:file', `titles:title', `tags.tags', `files:meta',
-`tolinks' and `backlinks'.
+The zettel objects will be of subtype SUBTYPE.
 
-If CONSTRAINTS contains any of the pseudo variable symboles like
-$s1 or $r1, pass their values via ARGS to the query.
+The result list can be modified using WITH-CLAUSE, CONSTRAINTS
+and ARGS. The final query is constructed like this:
+ 
+ WITH-CLAUSE + main query + CONSTRAINTS 
+
+This final query is passed to the SQL database. If CONSTRAINTS or
+WITH-CLAUSE contain pseudo variable symbols like `$s1' or `$r1',
+use ARGS to fill their values in when constructing the query.
+
+The main query provides the fields `titles:file', `titles:title',
+`tags:tags', `files:meta', `tolinks' (an integer) and
+`backlinks' (an integer), which can be referred to in the
+CONSTRAINTS clause.
+
+Useful values for CONSTRAINTS  are e.g. 
+
+  [:where (like fieldname string) ]
+  [:limit 10 ] or 
+  [:order-by (asc fieldname) ]
+
+For examples using the WITH-CLAUSE, see `delve-query-backlinks'.
 
 The unconstraint query can be a bit slow because is collects the
 number of backlinks for each item; consider building a more
@@ -245,28 +277,14 @@ specific query for special usecases."
     (with-temp-message "Querying database..."
       (thread-last (delve-db-safe-query (vconcat with-clause base-query constraints) args)
 	(delve-db-rearrange-into 'delve-make-zettel
-				 [ :file 0
-				  :title 1
-				  :tags 2
-				  :mtime (3 (plist-get it :mtime))
-				  :atime (3 (plist-get it :atime))
-				  :tolinks 4
-				  :backlinks 5 ])))))
-
-;; (defun delve-query-all-links (zettel)
-;;   "Return all zettel linking to or from ZETTEL."
-;;   (let* ((base-query
-;; 	  [:select [ from, to ]
-;; 	   :from links
-;; 	   :where (and (= links:type "file")
-;; 		       (or (= links:from $s1)
-;; 			   (= links:to   $s1)))]))
-;;     (thread-last (delve-db-safe-query base-query (delve-zettel-file zettel))
-;;       (delve-db-rearrange-into 'delve-make-zettel
-;; 			       [ :])
-    
-	 
-;;   )
+				 `[ :file 0
+				   :subtype ,subtype 
+				   :title 1
+				   :tags 2
+				   :mtime (3 (plist-get it :mtime))
+				   :atime (3 (plist-get it :atime))
+				   :tolinks 4
+				   :backlinks 5 ])))))
 
 ;; Queries returning plain lists:
 
@@ -316,50 +334,31 @@ specific query for special usecases."
 
 (defun delve-query-zettel-with-tag (tag)
   "Return a list of all zettel tagged TAG."
-  (delve-query-all-zettel [:where (like tags:tags $r1)] (format "%%%s%%" tag)))
+  (delve-query-all-zettel "ZETTEL" [:where (like tags:tags $r1)] (format "%%%s%%" tag)))
 
 (defun delve-query-zettel-matching-title (term)
   "Return a list of all zettel where the title contains TERM."
-  (delve-query-all-zettel [:where (like titles:title $r1)] (format "%%%s%%" term)))
+  (delve-query-all-zettel "ZETTEL" [:where (like titles:title $r1)] (format "%%%s%%" term)))
 
 (defun delve-query-backlinks (zettel)
   "Return all zettel linking to ZETTEL."
   (let* ((with-clause [:with backlinks :as [:select (as links:to file)
 					    :from links
-					    :where (= links:from $s1)]])
+					    :where (and (= links:type "file")
+							(= links:from $s1))]])
 	 (constraint [:join backlinks :using [[ file ]]])
 	 (args       (delve-zettel-file zettel)))
-    (delve-query-all-zettel constraint args with-clause)))
+    (delve-query-all-zettel "BACKLINK" constraint args with-clause)))
 
 (defun delve-query-tolinks (zettel)
   "Return all zettel linking from ZETTEL."
   (let* ((with-clause [:with tolinks :as [:select (as links:from file)
 					    :from links
-					    :where (= links:to $s1)]])
+					  :where (and (= links:type "file")
+						      (= links:to $s1))]])
 	 (constraint [:join tolinks :using [[ file ]]])
 	 (args       (delve-zettel-file zettel)))
-    (delve-query-all-zettel constraint args with-clause)))
-
-
-;; (defun delve-query-backlinks (zettel)
-;;   "Return all zettel linking to ZETTEL."
-;;   (thread-last
-;;       (delve-db-safe-query [:select [ titles:title titles:file files:meta tags:tags
-;; 				      links:to links:from ]
-;; 				    :from links
-;; 				    :left-join titles    :on (= links:from titles:file)
-;; 				    :left-join files     :on (= links:from files:file)
-;; 				    :left-join tags      :on (= links:from tags:file)
-;; 				    :where (= links:to $s1)
-;; 				    :order-by (asc links:from)]
-;; 			   (delve-zettel-file zettel))
-;;     (delve-db-rearrange-into 'delve-make-zettel
-;; 			     [:title  0
-;; 			      :file   1
-;; 			      :mtime (2 (plist-get it :mtime))
-;; 			      :atime (2 (plist-get it :atime))
-;; 			      :tags 3 ])
-;;     (delve-query-update-link-counter)))
+    (delve-query-all-zettel "TOLINK" constraint args with-clause)))
 
 ;; * Delve actions and keys
 
@@ -368,17 +367,21 @@ specific query for special usecases."
 (defun delve-start-with-list (buf seq)
   "Delete all items in BUF and start afresh with SEQ."
   (lister-set-list buf seq)
-  (when seq (lister-goto buf :first)))
+  (when seq
+    (lister-goto buf :first)))
 
 (defun delve-start-with-list-at-point (buf pos)
   "Place the list at POS and its sublists as the new main list."
   (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries buf pos)))
     (delve-start-with-list buf (lister-get-all-data-tree buf beg end))))
 
-(defun delve-initial-list ()
+;; Key "."
+(defun delve-initial-list (&optional empty-list)
   "Populate the current delve buffer with a list of tags."
-  (interactive)
-  (delve-start-with-list (current-buffer) (delve-query-roam-tags)))
+  (interactive "P")
+  (delve-start-with-list (current-buffer) (unless empty-list (delve-query-roam-tags)))
+  (when (equal (window-buffer) (current-buffer))
+    (recenter)))
 
 ;; Key "C-l"
 (defun delve-sublist-to-top ()
@@ -440,22 +443,84 @@ specific query for special usecases."
     ;; this does not work, I have no clue why:
     (org-roam-buffer-toggle-display)))
 
+;; Key "+"
 (defun delve-insert-zettel  ()
-  "Choose a zettel and insert it at point in the current delve buffer."
+  "Choose a zettel and insert it in the current delve buffer."
   (interactive)
-  (let* ((completions  (org-roam--get-title-path-completions))
-	 (zettel-title (completing-read " Insert zettel: " completions))
-	 (zettel-file  (plist-get (cdr (assoc zettel-title completions)) :path))
-	 ;; TODO Zettel "füllen" als pauschale Funktion
-	 ;; (zettel (delve-make-zettel
-	 ;; 	  :title zettel-title
-	 ;; 	  :file  zettel-file
-	 ;; 	  :tags  (delve-db-safe-query [:select tags
-	 ;; 					       :from tags
-	 ;; 					       :where (= tags:file $s1)]
-	 ;; 				      zettel-file)
-	 ;; 	  :
-	 )))
+  (let* ((zettel (delve-query-all-zettel "ZETTEL" [:order-by (asc titles:title)]))
+	 (completion (seq-map (lambda (z) (cons (concat (delve-represent-tags z)
+							(delve-represent-title z))
+						z))
+			      zettel))
+	 (candidate  (completing-read " Insert zettel: " completion nil t))
+	 (pos        (point)))
+    (when lister-highlight-mode      
+      (lister-unhighlight-item))
+    (lister-insert (current-buffer) :next (alist-get candidate completion nil nil #'string=)) 
+    (lister-goto (current-buffer) pos)))
+
+;; Key "n"
+(defvar delve-narrow-buffer nil)
+(defvar delve-narrow-list nil)
+(defvar delve-narrow-pos nil)
+(defvar delve-narrow-input nil)
+
+(defun delve-narrow-interactive-minibuffer-setup ()
+  (add-hook 'post-command-hook #'delve-narrow-update nil t))
+
+(defun delve-narrow-update ()
+  (setq delve-narrow-input (minibuffer-contents-no-properties))
+  (lister-remove-this-level delve-narrow-buffer delve-narrow-pos)
+  (lister-insert-sublist delve-narrow-buffer
+			 delve-narrow-pos
+			 (seq-filter (apply-partially
+				       #'delve-narrow-match-p
+				       delve-narrow-input)
+				     delve-narrow-list)))
+
+(defun delve-narrow-match-p (regexp item)
+  (condition-case err
+      (when (string-match-p regexp
+			    (cl-case (type-of item)
+			      (delve-zettel (delve-zettel-title item))
+			      (delve-tag    (delve-tag-tag item))
+			      (t "")))
+	(delve-narrow-propertize-minibuffer-prompt 'org-todo t)
+	t)
+    (error
+     (ignore err) ;; silence byte compiler
+     (delve-narrow-propertize-minibuffer-prompt 'org-todo)
+     t)))
+
+(defun delve-narrow-propertize-minibuffer-prompt (face-or-plist &optional de-propertize)
+  (with-current-buffer (window-buffer (minibuffer-window))
+    (let* ((inhibit-field-text-motion t)
+	   (inhibit-read-only t)
+	   (fn (if de-propertize 'lister-remove-face-property 'lister-add-face-property)))
+      (funcall fn (line-beginning-position) (minibuffer-prompt-end) face-or-plist))))
+
+(defun delve-narrow-sublist ()
+  "Interactively narrow the sublist at point"
+  (interactive)
+  (unless lister-local-marker-list
+    (user-error "No list to narrow."))
+  (when lister-highlight-mode
+    (lister-unhighlight-item))
+  (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries (current-buffer) (point))))
+    ;; TODO get-all-data ignores all levels; thus they are not
+    ;; reinserted.
+    (let* ((sublist (lister-get-all-data (current-buffer) beg end)))
+      (setq delve-narrow-buffer (current-buffer))
+      (setq delve-narrow-pos (lister-pos-as-integer beg))
+      (setq delve-narrow-input nil)
+      (setq delve-narrow-list sublist))
+    (minibuffer-with-setup-hook
+	#'delve-narrow-interactive-minibuffer-setup
+      (read-from-minibuffer "Narrow sublist: "))
+    (when lister-highlight-mode
+      (lister-highlight-item))))
+
+	   
 
 ;; * Delve Mode
 
@@ -464,8 +529,10 @@ specific query for special usecases."
     (set-keymap-parent map lister-mode-map)
     (define-key map "v" #'delve-view)
     (define-key map "o" #'delve-open)
+    (define-key map "N" #'delve-narrow-sublist)
     (define-key map (kbd "C-l") #'delve-sublist-to-top)
     (define-key map "."  #'delve-initial-list)
+    (define-key map "+" #'delve-insert-zettel)
     map)
   "Key map for `delve-mode'.")
 

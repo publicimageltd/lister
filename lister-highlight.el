@@ -41,14 +41,16 @@
 ;; * Callbacks which do the highlighting
 
 (defun lister-highlight-item ()
-  (let* ((pos    (point))
+  (let* ((inhibit-read-only t)
+	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
     (when (/= pos end)
       (lister-add-face-property pos end
 				lister-highlight-face-or-property))))
 
 (defun lister-unhighlight-item ()
-  (let* ((pos    (point))
+  (let* ((inhibit-read-only t)
+	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
     (when (/= pos end)
       (lister-remove-face-property pos end
@@ -68,7 +70,6 @@
 	(add-hook 'lister-enter-item-hook #'lister-highlight-item nil t)
 	(add-hook 'lister-leave-item-hook #'lister-unhighlight-item nil t)
 	(when lister-local-marker-list
-;;	  (lister-goto (current-buffer) :point)))
 	  (let* ((previous-point (point)))
 	    (lister-sensor-function (selected-window) previous-point 'entered))))
     ;; disable:
