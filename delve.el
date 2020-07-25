@@ -391,19 +391,6 @@ passed to MAKE-FN."
     map)
   "Key map for `delve-mode'.")
 
-(defvar delve-isearch-opoint nil
-  "Buffer local variable storing starting point during isearch.")
-
-(defun delve-before-isearch ()
-  (cursor-intangible-mode 0)
-  (setq-local delve-isearch-opoint (point)))
-
-(defun delve-after-isearch ()
-  (when (/= (point) delve-isearch-opoint)
-    (beginning-of-line))
-  (cursor-intangible-mode 1)
-  (when (not (get-text-property (point) 'item))
-    (goto-char delve-isearch-opoint)))
 
 (define-derived-mode delve-mode
   lister-mode "Delve"
@@ -413,9 +400,7 @@ passed to MAKE-FN."
 		nil
 		(concat "DELVE Version " delve-version-string))
   ;; Now add delve specific stuff:
-  (setq-local lister-local-action #'delve-action)
-  (add-hook 'isearch-mode-hook #'delve-before-isearch nil t)
-  (add-hook 'isearch-mode-end-hook #'delve-after-isearch nil t))
+  (setq-local lister-local-action #'delve-action))
 
 ;; * Interactive entry points
 

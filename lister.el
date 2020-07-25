@@ -1327,6 +1327,25 @@ kind of event has been caused."
 
 ;; * Lister Major Mode
 
+;; Handle isearch properly
+
+(defvar lister-isearch-opoint nil
+  "Buffer local variable storing starting point during isearch.")
+
+(defun lister-before-isearch ()
+  "Prepare lister buffer for using isearch."
+  (cursor-intangible-mode 0)
+  (setq-local lister-isearch-opoint (point)))
+
+(defun lister-after-isearch ()
+  "Make sure point will end on an item after isearch."
+  (when (/= (point) lister-isearch-opoint)
+    (beginning-of-line))
+  (cursor-intangible-mode 1)
+  (when (not (get-text-property (point) 'item))
+    (goto-char lister-isearch-opoint)))
+
+;; Keys
 (defun lister-key-toggle-mark ()
   "Toggle mark of item at point."
   (interactive)
@@ -1367,7 +1386,9 @@ kind of event has been caused."
   "Major mode for selecting list items."
   :group 'lister
   (cursor-sensor-mode)
-  (cursor-intangible-mode))
+  (cursor-intangible-mode)
+  (add-hook 'isearch-mode-hook #'lister-before-isearch nil t)
+  (add-hook 'isearch-mode-end-hook #'lister-after-isearch nil t))
 
 ;; * Set up a lister buffer
 
