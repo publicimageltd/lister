@@ -1414,7 +1414,7 @@ kind of event has been caused."
 (defun lister-setup (buf mapper-fn &optional data-list
 			 header footer
 			 filter-function
-			 major-mode-fn)
+			 no-major-mode)
   "Set up BUF to display DATA-LIST using MAPPER-FN.
 
 DATA-LIST is a list of data objects which will be passed to
@@ -1437,16 +1437,15 @@ Optional argument FILTER-FUNCTIONS defines a filter function
 which has to turned on using `lister-activate-filter' to become
 effective.
 
-Set the major mode to `lister-mode' or call MAJOR-MODE-FN as a
-function to set the major mode. The major mode has to be a mode
-derived from `lister-mode'.
+Set the major mode to `lister-mode' unless NO-MAJOR-MODE is true.
 
 Move point to the first list item. 
 
 Return BUF."
   (with-current-buffer buf
     ;; first of all, set the major mode
-    (funcall (or major-mode-fn 'lister-mode))
+    (unless no-major-mode
+      (lister-mode))
     ;; prepare the buffer:
     (setq lister-local-mapper mapper-fn)
     (setq lister-enter-item-hook nil
