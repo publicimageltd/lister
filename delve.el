@@ -473,20 +473,26 @@ specific query for special usecases."
   (lister-remove-this-level delve-narrow-buffer delve-narrow-pos)
   (lister-insert-sublist delve-narrow-buffer
 			 delve-narrow-pos
-			 (delve-narrow-reduce-list delve-narrow-input delve-narrow-list)))
+			 (or
+			  (delve-narrow-reduce-list
+			   delve-narrow-input
+			   delve-narrow-list)
+			  delve-narrow-list)))			 
 
 (defun delve-narrow-reduce-list (regexp l)
-  (reverse 
-   (seq-reduce (lambda (acc elt)
-		 (if (listp elt)
-		     (if-let ((new-list (delve-narrow-reduce-list regexp elt)))
+  (catch 'reduce
+    (delve-narrow-propertize-minibuffer-prompt 'isearch-fail t)
+    (reverse 
+     (seq-reduce (lambda (acc elt)
+		   (if (listp elt)
+		       (if-let ((new-list (delve-narrow-reduce-list regexp elt)))
 			 (cons new-list acc)
-		       acc)
-		   (if (delve-narrow-match-p regexp elt)
-		       (cons elt acc)
-		     acc)))
-	       l
-	       nil)))
+			 acc)
+		     (if (delve-narrow-match-p regexp elt)
+			 (cons elt acc)
+		       acc)))
+		 l
+		 nil))))
   
 (defun delve-narrow-match-p (regexp item)
   (condition-case err
@@ -498,21 +504,8 @@ specific query for special usecases."
 			(t            "")))
     (error
      (ignore err) ;; silence byte compiler
-     t)))
-
-;; (defun delve-narrow-match-p (regexp item)
-;;   (condition-case err
-;;       (when (string-match-p regexp
-;; 			    (cl-case (type-of item)
-;; 			      (delve-zettel (delve-zettel-title item))
-;; 			      (delve-tag    (delve-tag-tag item))
-;; 			      (t "")))
-;; 	(delve-narrow-propertize-minibuffer-prompt 'org-todo t)
-;; 	t)
-;;     (error
-;;      (ignore err) ;; silence byte compiler
-;;      (delve-narrow-propertize-minibuffer-prompt 'org-todo)
-;;      t)))
+     (delve-narrow-propertize-minibuffer-prompt 'isearch-fail)
+     (throw 'reduce nil))))
 
 (defun delve-narrow-propertize-minibuffer-prompt (face-or-plist &optional de-propertize)
   (with-current-buffer (window-buffer (minibuffer-window))
