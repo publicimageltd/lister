@@ -342,14 +342,32 @@ passed to MAKE-FN."
 			      :tags 3 ])
     (delve-query-update-link-counter)))
 
-;; * For testing purposes
+;; * Delve actions and keys
 
 (defvar delve-test-buffer nil)
 
-(defun delve-populate-buffer (buf)
-  (let* ((tags (delve-query-roam-tags)))
-    (lister-insert-sequence buf nil tags)
-    (when tags (lister-goto buf :first))))
+(defun delve-start-with-list (buf seq)
+  "Delete all items in BUF and start afresh with SEQ."
+  (lister-set-list buf seq)
+  (when seq (lister-goto buf :first)))
+
+(defun delve-start-with-list-at-point (buf pos)
+  "Place the list at POS and its sublists as the new main list."
+  (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries buf pos)))
+    (delve-start-with-list buf (lister-get-all-data-tree buf beg end))))
+
+
+(defun delve-initial-list ()
+  "Populate the delve buffer with a list of tags."
+  (interactive)
+  (delve-start-with-list delve-test-buffer (delve-query-roam-tags)))
+
+(defun delve-sublist-to-top ()
+  "Replace all items with the current sublist at point."
+  (interactive)
+  (unless lister-local-marker-list
+    (user-error "There are not items in this buffer."))
+  (delve-start-with-list-at-point (current-buffer) (point)))
 
 ;; TODO auch POS muss als Argument übergeben werden, darf nicht implizit bleiben
 (defun delve-insert-zettel-with-tag (buf tag)
@@ -388,6 +406,8 @@ passed to MAKE-FN."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map lister-mode-map)
     (define-key map "o" #'delve-visit)
+    (define-key map (kbd "C-l") #'delve-sublist-to-top)
+    (define-key map "."  #'delve-initial-list)
     map)
   "Key map for `delve-mode'.")
 
@@ -397,8 +417,12 @@ passed to MAKE-FN."
   "Major mode for browsing your org roam zettelkasten."
   ;; Setup lister first since it deletes all local vars:
   (lister-setup	(current-buffer) #'delve-mapper
-		nil
-		(concat "DELVE Version " delve-version-string))
+		nil                             ;; initial data
+		(concat "DELVE Version " delve-version-string) ;; header
+		nil ;; footer
+		nil ;; filter
+		t   ;; no major-mode
+		)
   ;; Now add delve specific stuff:
   (setq-local lister-local-action #'delve-action))
 
@@ -411,7 +435,7 @@ passed to MAKE-FN."
   (with-current-buffer (setq delve-test-buffer (delve-new-buffer))
     (delve-mode)
     (lister-highlight-mode))
-  (delve-populate-buffer delve-test-buffer)
+  (delve-initial-list)
   (switch-to-buffer delve-test-buffer))
 
 ;;;###autoload
