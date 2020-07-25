@@ -473,24 +473,46 @@ specific query for special usecases."
   (lister-remove-this-level delve-narrow-buffer delve-narrow-pos)
   (lister-insert-sublist delve-narrow-buffer
 			 delve-narrow-pos
-			 (seq-filter (apply-partially
-				       #'delve-narrow-match-p
-				       delve-narrow-input)
-				     delve-narrow-list)))
+			 (delve-narrow-reduce-list delve-narrow-input delve-narrow-list)))
 
+(defun delve-narrow-reduce-list (regexp l)
+  (reverse 
+   (seq-reduce (lambda (acc elt)
+		 (if (listp elt)
+		     (if-let ((new-list (delve-narrow-reduce-list regexp elt)))
+			 (cons new-list acc)
+		       acc)
+		   (if (delve-narrow-match-p regexp elt)
+		       (cons elt acc)
+		     acc)))
+	       l
+	       nil)))
+  
 (defun delve-narrow-match-p (regexp item)
   (condition-case err
-      (when (string-match-p regexp
-			    (cl-case (type-of item)
-			      (delve-zettel (delve-zettel-title item))
-			      (delve-tag    (delve-tag-tag item))
-			      (t "")))
-	(delve-narrow-propertize-minibuffer-prompt 'org-todo t)
-	t)
+      (string-match-p regexp
+		      (cl-case (type-of item)
+			(delve-zettel (delve-zettel-title item))
+			(delve-tag    (delve-tag-tag item))
+			(string       item) ;; for debugging
+			(t            "")))
     (error
      (ignore err) ;; silence byte compiler
-     (delve-narrow-propertize-minibuffer-prompt 'org-todo)
      t)))
+
+;; (defun delve-narrow-match-p (regexp item)
+;;   (condition-case err
+;;       (when (string-match-p regexp
+;; 			    (cl-case (type-of item)
+;; 			      (delve-zettel (delve-zettel-title item))
+;; 			      (delve-tag    (delve-tag-tag item))
+;; 			      (t "")))
+;; 	(delve-narrow-propertize-minibuffer-prompt 'org-todo t)
+;; 	t)
+;;     (error
+;;      (ignore err) ;; silence byte compiler
+;;      (delve-narrow-propertize-minibuffer-prompt 'org-todo)
+;;      t)))
 
 (defun delve-narrow-propertize-minibuffer-prompt (face-or-plist &optional de-propertize)
   (with-current-buffer (window-buffer (minibuffer-window))
@@ -508,8 +530,9 @@ specific query for special usecases."
     (lister-unhighlight-item))
   (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries (current-buffer) (point))))
     ;; TODO get-all-data ignores all levels; thus they are not
-    ;; reinserted.
-    (let* ((sublist (lister-get-all-data (current-buffer) beg end)))
+    ;; reinserted. So we should ideally call get-all-data-tree
+    ;; and make narrow-p recursively (if ITEM is a list, ....)
+    (let* ((sublist (lister-get-all-data-tree (current-buffer) beg end)))
       (setq delve-narrow-buffer (current-buffer))
       (setq delve-narrow-pos (lister-pos-as-integer beg))
       (setq delve-narrow-input nil)
