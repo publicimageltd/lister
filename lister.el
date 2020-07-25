@@ -848,6 +848,18 @@ Do nothing if the next item is not a sublist."
   (when (lister-sublist-below-p lister-buf pos-or-marker)
     (lister-remove-this-level lister-buf (lister-end-of-lines lister-buf pos-or-marker))))
 
+;; Remove marked items
+(defun lister-remove-marked-items (lister-buf &optional include-sublists)
+  "Remove all marked items from LISTER-BUF.
+If INCLUDE-SUBLISTS is set, also remove sublists belonging to
+marked items."
+  (seq-doseq (m (lister-marked-items lister-buf))
+    (when (and include-sublists
+	       (lister-sublist-below-p lister-buf m))
+      (lister-remove-sublist-below lister-buf m))
+    (lister-remove lister-buf m)))
+	     
+
 ;; Replace items
 
 (cl-defgeneric lister-replace (lister-buf position data)

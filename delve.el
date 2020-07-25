@@ -536,7 +536,15 @@ specific query for special usecases."
     (when lister-highlight-mode
       (lister-highlight-item))))
 
-	   
+;; Key "<delete>"
+(defun delve-delete-item ()
+  "Delete item at point."
+  (interactive)
+  (if (lister-marked-items (current-buffer))
+      (lister-remove-marked-items (current-buffer))
+    (lister-remove (current-buffer) :point))
+  (when lister-highlight-mode
+    (lister-highlight-mode)))
 
 ;; * Delve Mode
 
@@ -549,6 +557,7 @@ specific query for special usecases."
     (define-key map (kbd "C-l") #'delve-sublist-to-top)
     (define-key map "."  #'delve-initial-list)
     (define-key map "+" #'delve-insert-zettel)
+    (define-key map (kbd "<delete>") #'delve-delete-item)
     map)
   "Key map for `delve-mode'.")
 
