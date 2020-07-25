@@ -368,20 +368,20 @@ passed to MAKE-FN."
     (user-error "There are not items in this buffer."))
   (delve-start-with-list-at-point (current-buffer) (point)))
 
+;; Item action
 
-
-;; TODO auch POS muss als Argument übergeben werden, darf nicht implizit bleiben
-(defun delve-insert-zettel-with-tag (buf tag)
+(defun delve-insert-zettel-with-tag (buf pos tag)
+  "Insert all zettel tagged TAG below the item at POS."
   (let* ((zettel (delve-query-zettel-with-tag tag)))
     (if zettel
-	(lister-insert-sublist-below buf (point) zettel)
+	(lister-insert-sublist-below buf pos zettel)
       (user-error "No zettel found matching tag %s" tag))))
 
-;; TODO auch POS muss als Argument übergeben werden, darf nicht implizit bleiben
-(defun delve-insert-backlinks (buf zettel)
+(defun delve-insert-backlinks (buf pos zettel)
+  "Insert all backlinks to ZETTEL below the item at POS."
   (let* ((backlinks (delve-query-backlinks zettel)))
     (if backlinks
-	(lister-insert-sublist-below buf (point) backlinks)
+	(lister-insert-sublist-below buf pos backlinks)
       (user-error "No backlinks found."))))
 
 (defun delve-action (data)
@@ -389,8 +389,8 @@ passed to MAKE-FN."
   (if (lister-sublist-below-p (current-buffer) (point))
       (lister-remove-sublist-below (current-buffer) (point))
     (cl-case (type-of data)
-      (delve-tag     (delve-insert-zettel-with-tag (current-buffer) (delve-tag-tag data)))
-      (delve-zettel  (delve-insert-backlinks (current-buffer) data)))))
+      (delve-tag     (delve-insert-zettel-with-tag (current-buffer) (point) (delve-tag-tag data)))
+      (delve-zettel  (delve-insert-backlinks (current-buffer) (point) data)))))
 
 (defun delve-visit ()
   "Visit the item on point."
