@@ -70,21 +70,33 @@
 	      'face
 	      'org-document-title))
 
+(defun delve-format-time (time)
+  "Return TIME in a more human readable form."
+  (let* ((days         (time-to-days time))
+	 (current-days (time-to-days (current-time))))
+    (if (/= days current-days)
+	(format-time-string "%b %d " time)
+      (format-time-string " %R " time))))
+
 (defun delve-represent-zettel (zettel)
   "Return propertized strings representing a ZETTEL object."
   (list
    ;;
    (concat
+    (propertize 
+     (delve-format-time (delve-zettel-mtime zettel))
+     'face 'org-document-info-keyword)
     (when (delve-zettel-subtype zettel)
-      (concat " " (propertize (delve-zettel-subtype zettel) 'face 'font-lock-constant-face) " "))
+      (concat (propertize (delve-zettel-subtype zettel) 'face 'font-lock-constant-face) " "))
     (delve-represent-tags zettel)
-    (delve-represent-title zettel))
-   ;;
-   (concat
-    (format "%s backlinks; %s links to this zettel." 
-	    (delve-zettel-backlinks zettel)
-	    (delve-zettel-tolinks zettel))
-    (format-time-string "  Last modified: %D %T" (delve-zettel-mtime zettel)))))
+    (propertize 
+     (format "%d  → " (or (delve-zettel-backlinks zettel) 0))
+     'face '(:weight bold))	     
+    (delve-represent-title zettel)
+    (propertize 
+     (format " →  %d" (or (delve-zettel-tolinks zettel) 0))
+     'face '(:weight bold))
+    )))
 
 (defun delve-represent-tag (tag)
   "Return propertized strings representing a TAG object."
@@ -588,6 +600,9 @@ Calling `delve-toggle' switches to this buffer.")
 (defun delve ()
   "Delve into the org roam zettelkasten."
   (interactive)
+  (unless org-roam-mode
+    (with-temp-message "Turnin on org roam mode..."
+      (org-roam-mode)))
   (with-current-buffer (setq delve-toggle-buffer (delve-new-buffer))
     (delve-mode)
     (lister-highlight-mode)
