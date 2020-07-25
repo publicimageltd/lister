@@ -373,8 +373,10 @@ Setting LINES to `nil' effectively deletes the item."
 				  (funcall default-pos)
 				  item
 				  0)))
+      ;; close the cursor gap and mark this item as a header or footer:
       (when-let* ((m (symbol-value marker-var))
 		  (inhibit-read-only t))
+	(put-text-property m (1+ m)  'header-or-footer t)
 	(put-text-property m (1+ m)  'cursor-intangible t)
 	(put-text-property m (1+ m)  'front-sticky t)))))
 
