@@ -1,9 +1,9 @@
-;;; delve.el --- Delve into the depths of your zettelkasten       -*- lexical-binding: t; -*-
+;;; delve.el --- Delve into the depths of your org roam zettelkasten       -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020  
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Keywords: hypermedia
+;; Keywords: hypermedia, org-roam
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -52,18 +52,25 @@
   file
   tags
   mtime
-  atime)
+  atime
+  backlinks
+  tolinks)
 
 ;; * Item mapper functions
 
 (defun delve-represent-zettel (zettel)
-  (list (propertize (delve-zettel-title zettel) 'face 'org-document-title)
-	(concat "("
-		(if (delve-zettel-tags zettel)
-		    (propertize (string-join (delve-zettel-tags zettel) ", ") 'face 'org-level-1)
-		  "No tags")
-		")  "
-		(format-time-string "  Last modified: %D %T" (delve-zettel-mtime zettel)))))
+  (list
+   ;;
+   (concat
+    (when (delve-zettel-tags zettel)
+      (concat "(" (propertize (string-join (delve-zettel-tags zettel) ", ") 'face 'org-level-1) ") "))
+    (propertize (delve-zettel-title zettel) 'face 'org-document-title))
+   ;;
+   (concat
+    (format "%s backlinks; %s links to this zettel." 
+	    (delve-zettel-backlinks zettel)
+	    (delve-zettel-tolinks zettel))
+    (format-time-string "  Last modified: %D %T" (delve-zettel-mtime zettel)))))
 
 (defun delve-represent-tag (tag)
   (list (concat "Tag: " (propertize (delve-tag-tag tag) 'face 'org-level-1)
@@ -75,7 +82,7 @@
   (cl-case (type-of data)
       (delve-zettel (delve-represent-zettel data))
       (delve-tag    (delve-represent-tag data))
-      (t      (list (format "UNKNOWN TYPE: %s"  type)))))
+      (t      (list (format "UNKNOWN TYPE: %s"  (type-of data))))))
 
 ;; * Global variables
 
@@ -98,10 +105,7 @@ This is a simple copy of dash's `-flatten' using `seq'. "
 
 (defun delve-new-buffer ()
   "Return a new DELVE buffer."
-  (lister-setup (generate-new-buffer delve-buffer-name)
-		#'delve-mapper
-		nil
-		(concat "DELVE Version " delve-version-string)))
+   (generate-new-buffer delve-buffer-name))
 
 ;; * Org Roam DB
 ;; TODO Move this into a separate file delve-db
@@ -153,6 +157,8 @@ Each element of PATTERN can be either a symbol, an integer, a
 list with an integer and a function name, or a list with an
 integer and a sexp.
 
+If the element in PATTERN is a symbol, just pass it through.
+
 If the element in PATTERN is an integer, use it as an index to
 return the correspondingly indexed element of the original item.
 
@@ -161,11 +167,10 @@ this list as the index and the second as a mapping function. In
 this case, insert the corresponding item after passing it to the
 function. 
 
-A third option is to use a sexp instead of a function. In this
-case, the sexp will be eval'd with the variable `it' bound to the
-original item's element.
-
-If the elemen in PATTERN is a symbol, just pass it through.
+A third option is to use a list with an index and a sexp. Like
+the function in the second variant above, the sexp is used as a
+mapping function. The sexp will be eval'd with the variable `it'
+bound to the original item's element.
 
 Examples:
 
@@ -175,8 +180,7 @@ Examples:
  (delve-db-rearrange [1 (0 1+)] '((1 0) (1 0)))      -> ((0 2) (0 2))
  (delve-db-rearrange [1 (0 (1+ it))] '((1 0) (1 0))) -> ((0 2) (0 2))
 
- (delve-db-rearrange [:count 1] '((0 20) (1 87))) -> ((:count 20) (:count 87))
-"
+ (delve-db-rearrange [:count 1] '((0 20) (1 87))) -> ((:count 20) (:count 87))"
   (seq-map (lambda (item)
 	     (seq-mapcat (lambda (index-or-list)
 			   (list
@@ -197,14 +201,13 @@ Examples:
 (defun delve-db-rearrange-into (make-fn keyed-pattern l)
   "Rearrange each item in L and pass the result to MAKE-FN.
 KEYED-PATTERN is an extension of the pattern used by
-`delve-db-rearrange'. For each element, the pattern also
-specifies a keyword which is used to create the new object. The
-object is created by using the keywords and their result as
-key-value-pairs for MAKE-FN."
+`delve-db-rearrange'. For each element, this extended pattern
+also requires a keyword. The object is created by using the
+keywords and the associated result value as key-value-pairs
+passed to MAKE-FN."
   (seq-map (lambda (item)
 	     (apply make-fn item))
 	   (delve-db-rearrange keyed-pattern l)))
-  
   
 ;; * Org Roam Queries
 
@@ -227,7 +230,6 @@ key-value-pairs for MAKE-FN."
 				     (format "%%%s%%" tag))))
     n))
 
-
 (defun delve-query-roam-tags ()
   "Return a list of tags of all #+ROAM_TAGS."
   (let* ((tags (delve-db-roam-tags)))
@@ -237,6 +239,21 @@ key-value-pairs for MAKE-FN."
 	     tags)))
 
 
+(defun delve-db-count-backlinks (file)
+  "Return the number of files linking to FILE."
+  (caar (delve-db-safe-query [:select
+			[ (as (funcall count links:from) n) ]
+			:from links 
+			:where (= links:to $s1)]
+		       file)))
+
+(defun delve-db-count-tolinks (file)
+  "Return the number of files linked from FILE."
+  (caar (delve-db-safe-query [:select
+			[ (as (funcall count links:to) n) ]
+			:from links 
+			:where (= links:from $s1)]
+		       file)))
 
 ;; Queries resulting in delve types:
 
@@ -253,25 +270,38 @@ key-value-pairs for MAKE-FN."
 	    l))
 
 
+;; TODO This is way too much work for longer lists; find a better
+;; solution.
+(defun delve-query-update-link-counter (l)
+  "For each zettel object in L, update the links counter."
+  (with-temp-message "Counting links...."
+  (seq-map (lambda (z)
+	     (let ((file (delve-zettel-file z)))
+	       (setf (delve-zettel-backlinks z) (delve-db-count-backlinks file))
+	       (setf (delve-zettel-tolinks   z) (delve-db-count-tolinks file))
+	       z))
+	   l)))
+
+
 (defun delve-query-zettel-with-tag (tag)
   "Return a list of all zettel tagged TAG."
   (thread-last 
-      (delve-db-safe-query [:select [ tags:file titles:title titles:file tags:tags files:meta]
-				    :from tags
-				    :left-join titles
-				    :on (= tags:file titles:file )
-				    :left-join files
-				    :on (= tags:file files:file)
-				    :where (like tags:tags $r1)]
+      (delve-db-safe-query [:select [ tags:file titles:title tags:tags files:meta ]
+			    :from tags
+			    :left-join titles   :on (= tags:file titles:file )
+			    :left-join files    :on (= tags:file files:file  )
+			    :where (like tags:tags $r1) ]
 			   (format "%%%s%%" tag))
     (delve-db-rearrange-into 'delve-make-zettel
-			     [:title 1 :file 0
-				     :tags 3
-				     :mtime (4 (plist-get it :mtime))
-				     :atime (4 (plist-get it :atime))])
+			     [:file  0
+			      :title 1
+			      :tags  2
+			      :mtime (3 (plist-get it :mtime))
+			      :atime (3 (plist-get it :atime))])
     ;; (delve-sort-query-results #'string-lessp #'delve-zettel-title)))
     ;;    (delve-sort-query-results #'time-less-p #'delve-zettel-mtime)))
-    (delve-sort-query-results (lambda (e1 e2) (time-less-p (car e2) (car e1))) #'delve-zettel-mtime)))
+    (delve-sort-query-results (lambda (e1 e2) (time-less-p (car e2) (car e1))) #'delve-zettel-mtime)
+    (delve-query-update-link-counter)))
 
 (defun delve-query-zettel-matching-title (term)
   "Return a list of all zettel where the title contains TERM."
@@ -285,30 +315,33 @@ key-value-pairs for MAKE-FN."
 				    :where (like titles:title $r1)]
 			   (format "%%%s%%" term))
     (delve-db-rearrange-into 'delve-make-zettel
-			     [:title 0 :file 1 :tags 3
-				     :mtime (2 (plist-get it :mtime))
-				     :atime (2 (plist-get it :atime))])))
+			     [:title 0
+			      :file  1
+			      :mtime (2 (plist-get it :mtime))
+			      :atime (2 (plist-get it :atime))
+			      :tags  3])
+    (delve-query-update-link-counter)))
 
 (defun delve-query-backlinks (zettel)
   "Return all zettel linking to ZETTEL."
   (thread-last
       (delve-db-safe-query [:select [ titles:title titles:file files:meta tags:tags
-						   links:to links:from
-						   files:file tags:file ]
+				      links:to links:from ]
 				    :from links
-				    :left-join titles
-				    :on (= links:from titles:file)
-				    :left-join files
-				    :on (= links:from files:file)
-				    :left-join tags
-				    :on (= links:from tags:file)
+				    :left-join titles    :on (= links:from titles:file)
+				    :left-join files     :on (= links:from files:file)
+				    :left-join tags      :on (= links:from tags:file)
 				    :where (= links:to $s1)
 				    :order-by (asc links:from)]
 			   (delve-zettel-file zettel))
     (delve-db-rearrange-into 'delve-make-zettel
-			     [:title 0 :file 1 :tags 3
-				     :mtime (2 (plist-get it :mtime))
-				     :atime (2 (plist-get it :atime))])))
+			     [:title  0
+			      :file   1
+			      :mtime (2 (plist-get it :mtime))
+			      :atime (2 (plist-get it :atime))
+			      :tags 3 ])
+    (delve-query-update-link-counter)))
+
 ;; * For testing purposes
 
 (defvar delve-test-buffer nil)
@@ -348,18 +381,46 @@ key-value-pairs for MAKE-FN."
       (delve-zettel (find-file-other-window (delve-zettel-file data)))
       (t            (user-error "Cannot visit anything.")))))
 
+
+;; * Delve Mode
+
+(defvar delve-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map lister-mode-map)
+    (define-key map "o" #'delve-visit)
+    map)
+  "Key map for `delve-mode'.")
+
+; isearch-mode-hook ; isearch-mode-end-hook
+(define-derived-mode delve-mode
+  lister-mode "Delve"
+  "Major mode for browsing your org roam zettelkasten."
+  ;; Setup lister first since it deletes all local vars:
+  (lister-setup	(current-buffer) #'delve-mapper
+		nil
+		(concat "DELVE Version " delve-version-string))
+  ;; Now add delve specific stuff:
+  (setq-local lister-local-action #'delve-action))
+
+;; * Interactive entry points
+
+;;;###autoload
+(defun delve ()
+  "Delve into the org roam zettelkasten."
+  (interactive)
+  (with-current-buffer (setq delve-test-buffer (delve-new-buffer))
+    (delve-mode)
+    (lister-highlight-mode))
+  (delve-populate-buffer delve-test-buffer)
+  (switch-to-buffer delve-test-buffer))
+
+;;;###autoload
 (defun delve-toggle ()
   (interactive)
-  (unless (and delve-test-buffer
-	       (buffer-live-p delve-test-buffer))
-    (setq delve-test-buffer (delve-new-buffer))
-    (with-current-buffer delve-test-buffer
-      ;; (lister-highlight-mode) ;; TODO Bug: Faces werden nicht wieder hergestellt
-      (setq lister-local-action #'delve-action))
-    ;; TODO Eigenen major mode ableiten 
-    (define-key lister-mode-map "o" #'delve-visit)
-    (delve-populate-buffer delve-test-buffer))
-  (switch-to-buffer delve-test-buffer))
+  (if (and delve-test-buffer
+	   (buffer-live-p delve-test-buffer))
+      (switch-to-buffer delve-test-buffer)
+    (delve)))
 
 
 (provide 'delve)

@@ -158,7 +158,7 @@ defined."
 	  lister-local-mapper
 	  buf)
      (error
-      (if (not (eq major-mode 'lister-mode))
+      (if (not (derived-mode-p 'lister-mode))
 	  "Buffer %s has to be in lister mode; execution aborted." 
 	"Buffer %s has to have a local mapper function; execution aborted.")
       buf))))
