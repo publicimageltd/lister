@@ -361,6 +361,7 @@ passed to MAKE-FN."
   (interactive)
   (delve-start-with-list (current-buffer) (delve-query-roam-tags)))
 
+;; Key "C-l"
 (defun delve-sublist-to-top ()
   "Replace all items with the current sublist at point."
   (interactive)
@@ -384,6 +385,7 @@ passed to MAKE-FN."
 	(lister-insert-sublist-below buf pos backlinks)
       (user-error "No backlinks found."))))
 
+;; Key "Enter"
 (defun delve-action (data)
   "Action on pressing the enter key."
   (if (lister-sublist-below-p (current-buffer) (point))
@@ -392,21 +394,38 @@ passed to MAKE-FN."
       (delve-tag     (delve-insert-zettel-with-tag (current-buffer) (point) (delve-tag-tag data)))
       (delve-zettel  (delve-insert-backlinks (current-buffer) (point) data)))))
 
-(defun delve-visit ()
-  "Visit the item on point."
-  (interactive)
-  (let* ((data (lister-get-data (current-buffer) :point)))
-    (cl-case (type-of data)
-      (delve-zettel (find-file-other-window (delve-zettel-file data)))
-      (t            (user-error "Cannot visit anything.")))))
+;; Other key actions
 
+(defun delve-visit-zettel (buf pos visit-function)
+  "Open the zettel at POS using VISIT-FUNCTION."
+  (let* ((data (lister-get-data (current-buffer) pos)))
+    (unless (eq (type-of data) 'delve-zettel)
+      (user-error "Item at point is no zettel"))
+    (funcall visit-function (delve-zettel-file data))))
+
+;; Key "o"
+(defun delve-open ()
+  "Open the item on point, leaving delve."
+  (interactive)
+  (delve-visit-zettel (current-buffer) :point #'find-file)
+  (org-roam-buffer-toggle-display))
+
+;; Key "v"
+(defun delve-view ()
+  "View the item on point without leaving delve."
+  (interactive)
+  (save-selected-window
+    (delve-visit-zettel (current-buffer) :point #'find-file-other-window)
+    ;; this does not work, I have no clue why:
+    (org-roam-buffer-toggle-display)))
 
 ;; * Delve Mode
 
 (defvar delve-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map lister-mode-map)
-    (define-key map "o" #'delve-visit)
+    (define-key map "v" #'delve-view)
+    (define-key map "o" #'delve-open)
     (define-key map (kbd "C-l") #'delve-sublist-to-top)
     (define-key map "."  #'delve-initial-list)
     map)
