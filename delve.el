@@ -78,6 +78,18 @@
 	(format-time-string "%b %d " time)
       (format-time-string " %R " time))))
 
+(defun delve-format-subtype (zettel)
+  (let* ((subtype (delve-zettel-subtype zettel)))
+    (concat 
+     (if (not (featurep 'all-the-icons))
+	 (propertize subtype 'face 'font-lock-constant-face)
+       (pcase subtype
+	 ("ZETTEL"    (all-the-icons-faicon "list-alt"))
+	 ("TOLINK"    (all-the-icons-faicon "caret-left"))
+	 ("BACKLINK"  (all-the-icons-faicon "caret-right"))
+	 (_           (delve-zettel-subtype zettel))))
+     " ")))
+
 (defun delve-represent-zettel (zettel)
   "Return propertized strings representing a ZETTEL object."
   (list
@@ -86,12 +98,11 @@
     (propertize 
      (delve-format-time (delve-zettel-mtime zettel))
      'face 'org-document-info-keyword)
-    (when (delve-zettel-subtype zettel)
-      (concat (propertize (delve-zettel-subtype zettel) 'face 'font-lock-constant-face) " "))
+    (delve-format-subtype zettel)
     (delve-represent-tags zettel)
     (propertize 
-     (format "%d  → " (or (delve-zettel-backlinks zettel) 0))
-     'face '(:weight bold))	     
+     (format "%d → " (or (delve-zettel-backlinks zettel) 0))
+     'face '(:weight bold))
     (delve-represent-title zettel)
     (propertize 
      (format " →  %d" (or (delve-zettel-tolinks zettel) 0))
@@ -363,19 +374,20 @@ specific query for special usecases."
   (let* ((with-clause [:with backlinks :as [:select (as links:to file)
 					    :from links
 					    :where (and (= links:type "file")
-							(= links:from $s1))]
-			                    :order-by (asc titles:title)])		      
-	 (constraint [:join backlinks :using [[ file ]]])
+							(= links:from $s1))]])
+	 (constraint [:join backlinks :using [[ file ]]
+		      :order-by (asc titles:title)])
 	 (args       (delve-zettel-file zettel)))
     (delve-query-all-zettel "BACKLINK" constraint args with-clause)))
 
 (defun delve-query-tolinks (zettel)
   "Return all zettel linking from ZETTEL."
   (let* ((with-clause [:with tolinks :as [:select (as links:from file)
-					    :from links
+  				          :from links
 					  :where (and (= links:type "file")
 						      (= links:to $s1))]])
-	 (constraint [:join tolinks :using [[ file ]]])
+	 (constraint [:join tolinks :using [[ file ]]
+		      :order-by (asc titles:title)])
 	 (args       (delve-zettel-file zettel)))
     (delve-query-all-zettel "TOLINK" constraint args with-clause)))
 
