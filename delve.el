@@ -211,6 +211,63 @@ passed to MAKE-FN."
   
 ;; * Org Roam Queries
 
+;; One query to rule them all:
+
+(defun delve-query-all-zettel (&optional constraints args with-clause)
+  "Return all zettel items with all fields.
+The result list can be constraint by using CONSTRAINTS and ARGS.
+CONSTRAINTS must be a vector which will be added to the SQL query
+vector. Useful values are e.g. [ :where (like fieldname string) ],
+[ :limit 10 ] or [ :order-by (asc fieldname) ]. Available fields are
+`titles:file', `titles:title', `tags.tags', `files:meta',
+`tolinks' and `backlinks'.
+
+If CONSTRAINTS contains any of the pseudo variable symboles like
+$s1 or $r1, pass their values via ARGS to the query.
+
+The unconstraint query can be a bit slow because is collects the
+number of backlinks for each item; consider building a more
+specific query for special usecases."
+  (let* ((base-query 
+	  [:select [ titles:file                              ;; 0 file
+		    titles:title                              ;; 1 title
+		    tags:tags                                 ;; 2 tags
+		    files:meta                                ;; 3 meta
+		    (as [ :SELECT (funcall count) :FROM links ;; 4 tolinks
+			 :WHERE (= links:from titles:file) ]
+			tolinks)
+		    (as [ :SELECT (funcall count) :FROM links ;; 5 backlinks
+			 :WHERE (= links:to titles:file) ]
+			backlinks) ]
+	   :from titles
+	   :left :join files :using [[ file ]]
+	   :left :join tags :using  [[ file ]] ]))
+    (with-temp-message "Querying database..."
+      (thread-last (delve-db-safe-query (vconcat with-clause base-query constraints) args)
+	(delve-db-rearrange-into 'delve-make-zettel
+				 [ :file 0
+				  :title 1
+				  :tags 2
+				  :mtime (3 (plist-get it :mtime))
+				  :atime (3 (plist-get it :atime))
+				  :tolinks 4
+				  :backlinks 5 ])))))
+
+;; (defun delve-query-all-links (zettel)
+;;   "Return all zettel linking to or from ZETTEL."
+;;   (let* ((base-query
+;; 	  [:select [ from, to ]
+;; 	   :from links
+;; 	   :where (and (= links:type "file")
+;; 		       (or (= links:from $s1)
+;; 			   (= links:to   $s1)))]))
+;;     (thread-last (delve-db-safe-query base-query (delve-zettel-file zettel))
+;;       (delve-db-rearrange-into 'delve-make-zettel
+;; 			       [ :])
+    
+	 
+;;   )
+
 ;; Queries returning plain lists:
 
 (defun delve-db-roam-tags ()
@@ -257,90 +314,52 @@ passed to MAKE-FN."
 
 ;; Queries resulting in delve types:
 
-;; We could just use cl-sort with :key, but we want this function to
-;; be used with thread-last, so we use our own. A possible drawback
-;; may be that cl-sort works destructively and thus should be more
-;; efficient on bigger lists, which are copied by seq-sort.
-(defun delve-sort-query-results (sort-fn accessor-fn l)
-  "Sort L using SORT-FN, accessing the items of L with ACCESSOR-FN."
-  (seq-sort (lambda (i1 i2)
-	      (funcall sort-fn
-		       (funcall accessor-fn i1)
-		       (funcall accessor-fn i2)))
-	    l))
-
-
-;; TODO This is way too much work for longer lists; find a better
-;; solution.
-(defun delve-query-update-link-counter (l)
-  "For each zettel object in L, update the links counter."
-  (with-temp-message "Counting links...."
-  (seq-map (lambda (z)
-	     (let ((file (delve-zettel-file z)))
-	       (setf (delve-zettel-backlinks z) (delve-db-count-backlinks file))
-	       (setf (delve-zettel-tolinks   z) (delve-db-count-tolinks file))
-	       z))
-	   l)))
-
-
 (defun delve-query-zettel-with-tag (tag)
   "Return a list of all zettel tagged TAG."
-  (thread-last 
-      (delve-db-safe-query [:select [ tags:file titles:title tags:tags files:meta ]
-			    :from tags
-			    :left-join titles   :on (= tags:file titles:file )
-			    :left-join files    :on (= tags:file files:file  )
-			    :where (like tags:tags $r1) ]
-			   (format "%%%s%%" tag))
-    (delve-db-rearrange-into 'delve-make-zettel
-			     [:file  0
-			      :title 1
-			      :tags  2
-			      :mtime (3 (plist-get it :mtime))
-			      :atime (3 (plist-get it :atime))])
-    ;; (delve-sort-query-results #'string-lessp #'delve-zettel-title)))
-    ;;    (delve-sort-query-results #'time-less-p #'delve-zettel-mtime)))
-    (delve-sort-query-results (lambda (e1 e2) (time-less-p (car e2) (car e1))) #'delve-zettel-mtime)
-    (delve-query-update-link-counter)))
+  (delve-query-all-zettel [:where (like tags:tags $r1)] (format "%%%s%%" tag)))
 
 (defun delve-query-zettel-matching-title (term)
   "Return a list of all zettel where the title contains TERM."
-  (thread-last
-      (delve-db-safe-query [:select [ titles:title titles:file files:meta tags:tags]
-				    :from titles
-				    :left-join files
-				    :on (= titles:file files:file)
-				    :left-join tags
-				    :on (= titles:file tags:file)
-				    :where (like titles:title $r1)]
-			   (format "%%%s%%" term))
-    (delve-db-rearrange-into 'delve-make-zettel
-			     [:title 0
-			      :file  1
-			      :mtime (2 (plist-get it :mtime))
-			      :atime (2 (plist-get it :atime))
-			      :tags  3])
-    (delve-query-update-link-counter)))
+  (delve-query-all-zettel [:where (like titles:title $r1)] (format "%%%s%%" term)))
 
 (defun delve-query-backlinks (zettel)
   "Return all zettel linking to ZETTEL."
-  (thread-last
-      (delve-db-safe-query [:select [ titles:title titles:file files:meta tags:tags
-				      links:to links:from ]
-				    :from links
-				    :left-join titles    :on (= links:from titles:file)
-				    :left-join files     :on (= links:from files:file)
-				    :left-join tags      :on (= links:from tags:file)
-				    :where (= links:to $s1)
-				    :order-by (asc links:from)]
-			   (delve-zettel-file zettel))
-    (delve-db-rearrange-into 'delve-make-zettel
-			     [:title  0
-			      :file   1
-			      :mtime (2 (plist-get it :mtime))
-			      :atime (2 (plist-get it :atime))
-			      :tags 3 ])
-    (delve-query-update-link-counter)))
+  (let* ((with-clause [:with backlinks :as [:select (as links:to file)
+					    :from links
+					    :where (= links:from $s1)]])
+	 (constraint [:join backlinks :using [[ file ]]])
+	 (args       (delve-zettel-file zettel)))
+    (delve-query-all-zettel constraint args with-clause)))
+
+(defun delve-query-tolinks (zettel)
+  "Return all zettel linking from ZETTEL."
+  (let* ((with-clause [:with tolinks :as [:select (as links:from file)
+					    :from links
+					    :where (= links:to $s1)]])
+	 (constraint [:join tolinks :using [[ file ]]])
+	 (args       (delve-zettel-file zettel)))
+    (delve-query-all-zettel constraint args with-clause)))
+
+
+;; (defun delve-query-backlinks (zettel)
+;;   "Return all zettel linking to ZETTEL."
+;;   (thread-last
+;;       (delve-db-safe-query [:select [ titles:title titles:file files:meta tags:tags
+;; 				      links:to links:from ]
+;; 				    :from links
+;; 				    :left-join titles    :on (= links:from titles:file)
+;; 				    :left-join files     :on (= links:from files:file)
+;; 				    :left-join tags      :on (= links:from tags:file)
+;; 				    :where (= links:to $s1)
+;; 				    :order-by (asc links:from)]
+;; 			   (delve-zettel-file zettel))
+;;     (delve-db-rearrange-into 'delve-make-zettel
+;; 			     [:title  0
+;; 			      :file   1
+;; 			      :mtime (2 (plist-get it :mtime))
+;; 			      :atime (2 (plist-get it :atime))
+;; 			      :tags 3 ])
+;;     (delve-query-update-link-counter)))
 
 ;; * Delve actions and keys
 
@@ -378,12 +397,14 @@ passed to MAKE-FN."
 	(lister-insert-sublist-below buf pos zettel)
       (user-error "No zettel found matching tag %s" tag))))
 
-(defun delve-insert-backlinks (buf pos zettel)
+(defun delve-insert-links (buf pos zettel)
   "Insert all backlinks to ZETTEL below the item at POS."
-  (let* ((backlinks (delve-query-backlinks zettel)))
-    (if backlinks
-	(lister-insert-sublist-below buf pos backlinks)
-      (user-error "No backlinks found."))))
+  (let* ((backlinks (delve-query-backlinks zettel))
+	 (tolinks   (delve-query-tolinks zettel))
+	 (all       (append backlinks tolinks)))
+    (if all 
+	(lister-insert-sublist-below buf pos all)
+      (user-error "No links found."))))
 
 ;; Key "Enter"
 (defun delve-action (data)
@@ -392,7 +413,7 @@ passed to MAKE-FN."
       (lister-remove-sublist-below (current-buffer) (point))
     (cl-case (type-of data)
       (delve-tag     (delve-insert-zettel-with-tag (current-buffer) (point) (delve-tag-tag data)))
-      (delve-zettel  (delve-insert-backlinks (current-buffer) (point) data)))))
+      (delve-zettel  (delve-insert-links (current-buffer) (point) data)))))
 
 ;; Other key actions
 
@@ -418,6 +439,23 @@ passed to MAKE-FN."
     (delve-visit-zettel (current-buffer) :point #'find-file-other-window)
     ;; this does not work, I have no clue why:
     (org-roam-buffer-toggle-display)))
+
+(defun delve-insert-zettel  ()
+  "Choose a zettel and insert it at point in the current delve buffer."
+  (interactive)
+  (let* ((completions  (org-roam--get-title-path-completions))
+	 (zettel-title (completing-read " Insert zettel: " completions))
+	 (zettel-file  (plist-get (cdr (assoc zettel-title completions)) :path))
+	 ;; TODO Zettel "füllen" als pauschale Funktion
+	 ;; (zettel (delve-make-zettel
+	 ;; 	  :title zettel-title
+	 ;; 	  :file  zettel-file
+	 ;; 	  :tags  (delve-db-safe-query [:select tags
+	 ;; 					       :from tags
+	 ;; 					       :where (= tags:file $s1)]
+	 ;; 				      zettel-file)
+	 ;; 	  :
+	 )))
 
 ;; * Delve Mode
 
