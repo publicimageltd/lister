@@ -675,16 +675,21 @@ Calling `delve-toggle' switches to this buffer.")
     (delve-mode)
     (lister-highlight-mode)
     (delve-initial-list))
-  (switch-to-buffer delve-toggle-buffer))
+  (switch-to-buffer delve-toggle-buffer)
+  (delete-other-windows))
 
 ;;;###autoload
 (defun delve-toggle ()
   (interactive)
   (if (and delve-toggle-buffer
 	   (buffer-live-p delve-toggle-buffer))
-      (switch-to-buffer delve-toggle-buffer)
+      (if (equal (current-buffer) delve-toggle-buffer)
+	  (bury-buffer)
+	(switch-to-buffer delve-toggle-buffer)
+	(delete-other-windows))
     (delve)))
 
+(bind-key "<f2>" 'delve-toggle)
 
 (provide 'delve)
 ;;; delve.el ends here
