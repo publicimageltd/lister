@@ -71,6 +71,7 @@
 	      'org-document-title))
 
 (defun delve-represent-zettel (zettel)
+  "Return propertized strings representing a ZETTEL object."
   (list
    ;;
    (concat
@@ -86,6 +87,7 @@
     (format-time-string "  Last modified: %D %T" (delve-zettel-mtime zettel)))))
 
 (defun delve-represent-tag (tag)
+  "Return propertized strings representing a TAG object."
   (list (concat "Tag: " (propertize (delve-tag-tag tag) 'face 'org-level-1)
 		(when (delve-tag-count tag)
 		  (format " (%d)" (delve-tag-count tag))))))
