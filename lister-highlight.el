@@ -24,10 +24,10 @@
 
 ;;; Code:
 
-(require 'cl-lib)
-(cl-eval-when (eval)
-  (if (not (member default-directory load-path))
-      (add-to-list 'load-path default-directory)))
+;; (require 'cl-lib)
+;; (cl-eval-when (eval)
+;;   (if (not (member default-directory load-path))
+;;       (add-to-list 'load-path default-directory)))
 
 (require 'lister)
 
