@@ -33,14 +33,15 @@
 
 ;; * Highlight face
 
-(defvar lister-highlight-face-or-property
-  'hl-line
-  "Text property or name of face to add when highlighting an
-  item.")
+(defvar lister-highlight-face-or-property 'hl-line
+  "Face or property list used for highlighting.
+The value can be either the name of a face (a symbol) or a
+property list with face attributes.")
 
 ;; * Callbacks which do the highlighting
 
 (defun lister-highlight-item ()
+  "Highlight the item at point."
   (let* ((inhibit-read-only t)
 	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
@@ -49,6 +50,7 @@
 				lister-highlight-face-or-property))))
 
 (defun lister-unhighlight-item ()
+  "Remove the highlighting of the item at point."
   (let* ((inhibit-read-only t)
 	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
@@ -59,7 +61,7 @@
 ;; * Define the mode
 
 (define-minor-mode lister-highlight-mode
-  "Toggle highlighting of the selected lister item."
+  "Toggle automatic highlighting of the lister item at point."
   :lighter ""
   :group 'lister
   (unless (lister-buffer-p (current-buffer))
@@ -79,7 +81,6 @@
 	  (lister-sensor-function (selected-window) previous-point 'left)))
       (remove-hook 'lister-enter-item-hook #'lister-highlight-item t)
       (remove-hook 'lister-leave-item-hook #'lister-unhighlight-item t))))
-
 
 
 (provide 'lister-highlight)

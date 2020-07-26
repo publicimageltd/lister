@@ -20,7 +20,8 @@
 
 ;;; Commentary:
 
-;; 
+;; This is a playground for toying around with lister. It might be
+;; broken. 
 
 ;;; Code:
 
@@ -105,12 +106,6 @@
   (interactive)
   (lister-remove (current-buffer) :point))
 
-(defun lister-key-get-data-tree ()
-  "Store the data tree in the global variable 'test-data-tree'."
-  (interactive)
-  (setq test-data-tree (lister-get-all-data-tree (current-buffer)))
-  (message "Variable `test-data-tree' set to %s." test-data-tree))
-
 (defun lister-key-get-info ()
   "Display some information about the item at point."
   (interactive)
@@ -153,7 +148,6 @@
     (define-key lister-mode-map "f" #'lister-key-toggle-filter)
     (define-key lister-mode-map "+" #'lister-key-insert-item)
     (define-key lister-mode-map "-" #'lister-key-delete-item)
-    (define-key lister-mode-map "t" #'lister-key-get-data-tree)
     (define-key lister-mode-map "i" #'lister-key-get-info)
     (switch-to-buffer buf)))
 

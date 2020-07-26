@@ -1,6 +1,6 @@
 ;;; delve.el --- Delve into the depths of your org roam zettelkasten       -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020  
+;; Copyright (C) 2020
 
 ;; Author:  <joerg@joergvolbers.de>
 ;; Keywords: hypermedia, org-roam
@@ -37,16 +37,18 @@
 (require 'lister-highlight)
 (require 'org-roam)
 
+(declare-function all-the-icons-faicon "all-the-icons" (string) t)
+
 ;; * Item data types
 
-(defstruct (delve-generic-item (:constructor delve-make-generic-item)))
+(cl-defstruct (delve-generic-item (:constructor delve-make-generic-item)))
 
-(defstruct (delve-tag (:constructor delve-make-tag)
+(cl-defstruct (delve-tag (:constructor delve-make-tag)
 		      (:include delve-generic-item))
   tag
   count)
 
-(defstruct (delve-zettel (:constructor delve-make-zettel)
+(cl-defstruct (delve-zettel (:constructor delve-make-zettel)
 			 (:include delve-generic-item))
   title
   file
@@ -57,12 +59,12 @@
   tolinks
   subtype)
 
-(defstruct (delve-search (:constructor delve-make-search))
+(cl-defstruct (delve-search (:constructor delve-make-search))
   name
   with-clause
   constraint
   args
-  postprocess 
+  postprocess
   (result-subtype "ZETTEL"))
 
 ;; * Item mapper functions
@@ -87,8 +89,9 @@
       (format-time-string " %R " time))))
 
 (defun delve-format-subtype (zettel)
+  "Return the subtype of ZETTEL prettified."
   (let* ((subtype (delve-zettel-subtype zettel)))
-    (concat 
+    (concat
      (if (not (featurep 'all-the-icons))
 	 (propertize subtype 'face 'font-lock-constant-face)
        (pcase subtype
@@ -103,16 +106,16 @@
   (list
    ;;
    (concat
-    (propertize 
+    (propertize
      (delve-format-time (delve-zettel-mtime zettel))
      'face 'org-document-info-keyword)
     (delve-format-subtype zettel)
     (delve-represent-tags zettel)
-    (propertize 
+    (propertize
      (format "%d → " (or (delve-zettel-backlinks zettel) 0))
      'face '(:weight bold))
     (delve-represent-title zettel)
-    (propertize 
+    (propertize
      (format " →  %d" (or (delve-zettel-tolinks zettel) 0))
      'face '(:weight bold))
     )))
@@ -155,7 +158,7 @@
 
 (defun delve--flatten (l)
   "Flatten the list L and remove any nil's in it.
-This is a simple copy of dash's `-flatten' using `seq'. "
+This is a simple copy of dash's `-flatten' using `seq'."
   (if (and (listp l) (listp (cdr l)))
       (seq-mapcat #'delve--flatten l)
     (list l)))
@@ -210,7 +213,7 @@ return nil."
 	   nil)))
 
 (defun delve-db-rearrange (pattern l)
-  "For each item in L, return a new item rearranged by PATTERN. 
+  "For each item in L, return a new item rearranged by PATTERN.
 
 Each element of PATTERN can be either a symbol, an integer, a
 list with an integer and a function name, or a list with an
@@ -223,13 +226,13 @@ If the element in PATTERN is an integer, use it as an index to
 return the correspondingly indexed element of the original item.
 
 If the element in PATTERN is a list, use the first element of
-this list as the index and the second as a mapping function. In
+this list as the index and the second as a mapping function.  In
 this case, insert the corresponding item after passing it to the
-function. 
+function.
 
-A third option is to use a list with an index and a sexp. Like
+A third option is to use a list with an index and a sexp.  Like
 the function in the second variant above, the sexp is used as a
-mapping function. The sexp will be eval'd with the variable `it'
+mapping function.  The sexp will be eval'd with the variable `it'
 bound to the original item's element.
 
 Examples:
@@ -241,7 +244,7 @@ Examples:
  (delve-db-rearrange [1 (0 (1+ it))] '((1 0) (1 0))) -> ((0 2) (0 2))
 
  (delve-db-rearrange [:count 1] '((0 20) (1 87))) -> ((:count 20) (:count 87))
- (delve-db-rearrang [:count 1 :string \"hi\"] '((0 20) (1 87))) 
+ (delve-db-rearrang [:count 1 :string \"hi\"] '((0 20) (1 87)))
   -> ((:count 20 :string \"hi\")
       (:count 87 :string \"hi\"))"
   (seq-map (lambda (item)
@@ -252,7 +255,8 @@ Examples:
 				index-or-list
 			      (if (listp index-or-list)
 				  (progn
-				    (defvar it) ;; force dynamic binding for calling the sexp 
+				    (with-no-warnings
+				      (defvar it)) ;; force dynamic binding for calling the sexp
 				    (let* ((fn-or-sexp (cadr index-or-list))
 					   (it         (seq-elt item (car index-or-list))))
 				      (if (listp fn-or-sexp)
@@ -265,8 +269,8 @@ Examples:
 (defun delve-db-rearrange-into (make-fn keyed-pattern l)
   "Rearrange each item in L and pass the result to MAKE-FN.
 KEYED-PATTERN is an extension of the pattern used by
-`delve-db-rearrange'. The extended pattern also requires a
-keyword for each element. The object is created by using the
+`delve-db-rearrange'.  The extended pattern also requires a
+keyword for each element.  The object is created by using the
 keywords and the associated result value as key-value-pairs
 passed to MAKE-FN."
   (seq-map (lambda (item)
@@ -282,11 +286,11 @@ passed to MAKE-FN."
 The zettel objects will be of subtype SUBTYPE.
 
 The result list can be modified using WITH-CLAUSE, CONSTRAINTS
-and ARGS. The final query is constructed like this:
+and ARGS.  The final query is constructed like this:
  
- WITH-CLAUSE + main query + CONSTRAINTS 
+ WITH-CLAUSE + main query + CONSTRAINTS
 
-This final query is passed to the SQL database. If CONSTRAINTS or
+This final query is passed to the SQL database.  If CONSTRAINTS or
 WITH-CLAUSE contain pseudo variable symbols like `$s1' or `$r1',
 use ARGS to fill their values in when constructing the query.
 
@@ -295,10 +299,10 @@ The main query provides the fields `titles:file', `titles:title',
 `backlinks' (an integer), which can be referred to in the
 CONSTRAINTS clause.
 
-Useful values for CONSTRAINTS  are e.g. 
+Useful values for CONSTRAINTS  are e.g.
 
   [:where (like fieldname string) ]
-  [:limit 10 ] or 
+  [:limit 10 ] or
   [:order-by (asc fieldname) ]
 
 For examples using the WITH-CLAUSE, see `delve-query-backlinks'.
@@ -306,7 +310,7 @@ For examples using the WITH-CLAUSE, see `delve-query-backlinks'.
 The unconstraint query can be a bit slow because is collects the
 number of backlinks for each item; consider building a more
 specific query for special usecases."
-  (let* ((base-query 
+  (let* ((base-query
 	  [:select [ titles:file                              ;; 0 file
 		    titles:title                              ;; 1 title
 		    tags:tags                                 ;; 2 tags
@@ -324,7 +328,7 @@ specific query for special usecases."
       (thread-last (delve-db-safe-query (vconcat with-clause base-query constraints) args)
 	(delve-db-rearrange-into 'delve-make-zettel
 				 `[ :file 0
-				   :subtype ,subtype 
+				   :subtype ,subtype
 				   :title 1
 				   :tags 2
 				   :mtime (3 (plist-get it :mtime))
@@ -364,7 +368,7 @@ specific query for special usecases."
   "Return the number of files linking to FILE."
   (caar (delve-db-safe-query [:select
 			[ (as (funcall count links:from) n) ]
-			:from links 
+			:from links
 			:where (= links:to $s1)]
 		       file)))
 
@@ -372,14 +376,14 @@ specific query for special usecases."
   "Return the number of files linked from FILE."
   (caar (delve-db-safe-query [:select
 			[ (as (funcall count links:to) n) ]
-			:from links 
+			:from links
 			:where (= links:from $s1)]
 		       file)))
 
 ;; Sorting query results:
 
 (defun delve-query-sort-by-mtime (zettel)
-  "Sort ZETTELS by mtime, last one first."
+  "Sort ZETTEL by mtime, last one first."
   (cl-sort zettel (lambda (e1 e2) (time-less-p e2 e1))
 	   :key #'delve-zettel-mtime))
 
@@ -396,7 +400,7 @@ specific query for special usecases."
 			  (format "%%%s%%" tag)))
 
 (defun delve-query-zettel-matching-title (term)
-  "Return a list of all zettel where the title contains TERM."
+  "Return a list of all zettel with the title matching TERM."
   (delve-query-all-zettel "ZETTEL" [:where (like titles:title $r1)
 				    :order-by (asc titles:title)]
 			  (format "%%%s%%" term)))
@@ -434,30 +438,32 @@ specific query for special usecases."
     (lister-goto buf :first)))
 
 (defun delve-start-with-list-at-point (buf pos)
-  "Place the list at POS and its sublists as the new main list."
+  "In BUF, move the list to which POS belongs to the top."
   (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries buf pos)))
     (delve-start-with-list buf (lister-get-all-data-tree buf beg end))))
 
 ;; Key "."
 (defun delve-initial-list (&optional empty-list)
-  "Populate the current delve buffer with a useful list of tags."
+  "Populate the current delve buffer with a useful list of tags.
+If EMPTY-LIST is t, delete any items instead."
   (interactive "P")
   (delve-start-with-list (current-buffer) (unless empty-list (delve-query-roam-tags)))
-  (when lister-highlight-mode
-    (lister-unhighlight-item))
-  (lister-insert (current-buffer) :point
-		 (delve-make-search :name "10 Last Modified"
-				    :postprocess #'delve-query-last-10-modified))
-  (lister-insert (current-buffer) :point
-		 (delve-make-search :name "10 Most Linked to"
-				    :constraint [:order-by (desc backlinks)
-						  :limit 10]))
-  (lister-insert (current-buffer) :point
-		 (delve-make-search :name "10 Most Linked from"
-				    :constraint [:order-by (desc tolinks)
-							   :limit 10]))
-  (when lister-highlight-mode
-      (lister-highlight-item))
+  (unless empty-list
+    (when lister-highlight-mode
+      (lister-unhighlight-item))
+    (lister-insert (current-buffer) :point
+		   (delve-make-search :name "10 Last Modified"
+				      :postprocess #'delve-query-last-10-modified))
+    (lister-insert (current-buffer) :point
+		   (delve-make-search :name "10 Most Linked to"
+				      :constraint [:order-by (desc backlinks)
+							     :limit 10]))
+    (lister-insert (current-buffer) :point
+		   (delve-make-search :name "10 Most Linked from"
+				      :constraint [:order-by (desc tolinks)
+							     :limit 10]))
+    (when lister-highlight-mode
+      (lister-highlight-item)))
   (when (equal (window-buffer) (current-buffer))
     (recenter)))
 
@@ -466,26 +472,26 @@ specific query for special usecases."
   "Replace all items with the current sublist at point."
   (interactive)
   (unless lister-local-marker-list
-    (user-error "There are not items in this buffer."))
+    (user-error "There are not items in this buffer"))
   (delve-start-with-list-at-point (current-buffer) (point)))
 
 ;; Item action
 
 (defun delve-insert-zettel-with-tag (buf pos tag)
-  "Insert all zettel tagged TAG below the item at POS."
+  "In BUF, insert all zettel tagged TAG below the item at POS."
   (let* ((zettel (delve-query-zettel-with-tag tag)))
     (if zettel
 	(lister-insert-sublist-below buf pos zettel)
       (user-error "No zettel found matching tag %s" tag))))
 
 (defun delve-insert-links (buf pos zettel)
-  "Insert all backlinks to ZETTEL below the item at POS."
+  "In BUF, insert all backlinks to ZETTEL below the item at POS."
   (let* ((backlinks (delve-query-backlinks zettel))
 	 (tolinks   (delve-query-tolinks zettel))
 	 (all       (append backlinks tolinks)))
-    (if all 
+    (if all
 	(lister-insert-sublist-below buf pos all)
-      (user-error "No links found."))))
+      (user-error "No links found"))))
 
 (defun delve-execute-search (search)
   "Return the results of executing SEARCH."
@@ -494,14 +500,13 @@ specific query for special usecases."
 	       (delve-search-constraint search)
 	       (delve-search-args search)
 	       (delve-search-with-clause search))))
-    (setq test
-	  (if (and res (delve-search-postprocess search))
-	      (funcall (delve-search-postprocess search) res)
-	    res))))
+    (if (and res (delve-search-postprocess search))
+	(funcall (delve-search-postprocess search) res)
+      res)))
 
 ;; Key "Enter"
 (defun delve-action (data)
-  "Action on pressing the enter key."
+  "Act on the delve object DATA."
   (if (lister-sublist-below-p (current-buffer) (point))
       (lister-remove-sublist-below (current-buffer) (point))
     (cl-case (type-of data)
@@ -514,8 +519,8 @@ specific query for special usecases."
 ;; Other key actions
 
 (defun delve-visit-zettel (buf pos visit-function)
-  "Open the zettel at POS using VISIT-FUNCTION."
-  (let* ((data (lister-get-data (current-buffer) pos)))
+  "In BUF, open zettel at POS using VISIT-FUNCTION."
+  (let* ((data (lister-get-data buf pos)))
     (unless (eq (type-of data) 'delve-zettel)
       (user-error "Item at point is no zettel"))
     (funcall visit-function (delve-zettel-file data))))
@@ -547,9 +552,9 @@ specific query for special usecases."
 			      zettel))
 	 (candidate  (completing-read " Insert zettel: " completion nil t))
 	 (pos        (point)))
-    (when lister-highlight-mode      
+    (when lister-highlight-mode
       (lister-unhighlight-item))
-    (lister-insert (current-buffer) :next (alist-get candidate completion nil nil #'string=)) 
+    (lister-insert (current-buffer) :next (alist-get candidate completion nil nil #'string=))
     (lister-goto (current-buffer) pos)))
 
 ;; Key "n"
@@ -559,23 +564,30 @@ specific query for special usecases."
 (defvar delve-narrow-input nil)
 
 (defun delve-narrow-interactive-minibuffer-setup ()
+  "Set up minibuffer for in-buffer narrowing."
   (add-hook 'post-command-hook #'delve-narrow-update nil t))
 
 (defun delve-narrow-update ()
+  "Narrow in-buffer list.
+Reinsert the list items matching DELVE-NARROW-INPUT.  The complete
+list is stored in DELVE-NARROW-LIST.  Reinsert at buffer position
+DELVE-NARROW-POS.  Mark the minibuffer prompt if regexp is invalid."
   (setq delve-narrow-input (minibuffer-contents-no-properties))
   (lister-remove-this-level delve-narrow-buffer delve-narrow-pos)
+  (delve-narrow-propertize-minibuffer-prompt 'isearch-fail t)
   (lister-insert-sublist delve-narrow-buffer
 			 delve-narrow-pos
 			 (or
 			  (delve-narrow-reduce-list
 			   delve-narrow-input
 			   delve-narrow-list)
-			  delve-narrow-list)))			 
+			  delve-narrow-list)))
 
 (defun delve-narrow-reduce-list (regexp l)
+  "Return items in L matching REGEXP, preserving nesting.
+If REGEXP is invalid, return nil."
   (catch 'reduce
-    (delve-narrow-propertize-minibuffer-prompt 'isearch-fail t)
-    (reverse 
+    (reverse
      (seq-reduce (lambda (acc elt)
 		   (if (listp elt)
 		       (if-let ((new-list (delve-narrow-reduce-list regexp elt)))
@@ -588,6 +600,8 @@ specific query for special usecases."
 		 nil))))
   
 (defun delve-narrow-match-p (regexp item)
+  "Check if object ITEM match REGEXP.
+Also higlight the minibuffer prompt if regexp is invalid."
   (condition-case err
       (string-match-p regexp
 		      (cl-case (type-of item)
@@ -600,18 +614,21 @@ specific query for special usecases."
      (delve-narrow-propertize-minibuffer-prompt 'isearch-fail)
      (throw 'reduce nil))))
 
-(defun delve-narrow-propertize-minibuffer-prompt (face-or-plist &optional de-propertize)
+(defun delve-narrow-propertize-minibuffer-prompt (value &optional de-propertize)
+  "Add face property VALUE to the minibuffer prompt, or optionally remove it.
+If option DE-PROPERTIZE is set, remove the value from the
+minibuffer string, else add it."
   (with-current-buffer (window-buffer (minibuffer-window))
     (let* ((inhibit-field-text-motion t)
 	   (inhibit-read-only t)
 	   (fn (if de-propertize 'lister-remove-face-property 'lister-add-face-property)))
-      (funcall fn (line-beginning-position) (minibuffer-prompt-end) face-or-plist))))
+      (funcall fn (line-beginning-position) (minibuffer-prompt-end) value))))
 
 (defun delve-narrow-sublist ()
-  "Interactively narrow the sublist at point"
+  "Interactively narrow the sublist at point."
   (interactive)
   (unless lister-local-marker-list
-    (user-error "No list to narrow."))
+    (user-error "No list to narrow"))
   (when lister-highlight-mode
     (lister-unhighlight-item))
   (pcase-let ((`(,beg ,end _ ) (lister-sublist-boundaries (current-buffer) (point))))
@@ -692,6 +709,7 @@ Calling `delve-toggle' switches to this buffer.")
 
 ;;;###autoload
 (defun delve-toggle ()
+  "Toggle the display of the delve buffer."
   (interactive)
   (if (and delve-toggle-buffer
 	   (buffer-live-p delve-toggle-buffer))

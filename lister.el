@@ -674,14 +674,14 @@ Return the marker of the inserted item's cursor gap position.")
   "Insert DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
-    (lister-insert lister-buf pos data level)))
+    (lister-insert lister-buf pos data level dont-add-marker)))
 
 (cl-defmethod lister-insert (lister-buf (position (eql :next)) data &optional level dont-add-marker)
   "Insert DATA after current item in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos  (with-current-buffer lister-buf (point)))
 	 (next (lister-end-of-lines lister-buf pos t)))
-    (lister-insert lister-buf (or next pos) data level)))
+    (lister-insert lister-buf (or next pos) data level dont-add-marker)))
 
 (defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level dont-add-marker)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
