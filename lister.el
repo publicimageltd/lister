@@ -633,8 +633,8 @@ at point or 0 if there is no such item."
 
 (cl-defgeneric lister-insert (lister-buf position data &optional level dont-add-marker)
   "Insert DATA as item at POSITION in LISTER-BUF.
-POSITION can be a buffer position , the symbol `:point' or the
-symbol `:next'.
+POSITION can be a buffer position , the symbol `:point', `:first'
+or the symbol `:next'.
 
 Insert DATA at the indentation level LEVEL. For the possible
 values of LEVEL, see `lister-determine-level'.
@@ -647,14 +647,15 @@ Return the marker of the inserted item's cursor gap position.")
 (cl-defmethod lister-insert (lister-buf (position integer) data &optional level dont-add-marker)
   "Insert DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
+
+    (unless dont-add-marker
+      (lister-sensor-leave lister-buf))
+    
     (let* ((cursor-sensor-inhibit t)
-	   (raw-item       (funcall lister-local-mapper data))
-	   (item           (lister-validate-lines (lister-strflat raw-item)))
-	   (new-level      (lister-determine-level lister-buf position level))
-	   (marker         (lister-insert-lines lister-buf
-						  position
-						  item
-						  new-level)))
+	   (marker         (lister-insert-lines lister-buf position
+						(lister-validate-lines
+						 (lister-strflat (funcall lister-local-mapper data)))
+						(lister-determine-level lister-buf position level))))
       (lister-set-data lister-buf marker data)
       (lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
       (when lister-local-filter-active 
@@ -662,6 +663,10 @@ Return the marker of the inserted item's cursor gap position.")
       (unless dont-add-marker
 	(lister-add-marker lister-buf marker))
       (goto-char marker)
+
+      (unless dont-add-marker
+	(lister-sensor-enter lister-buf))
+ 
       marker)))
 
 (cl-defmethod lister-insert (lister-buf (position marker) data &optional level dont-add-marker)
@@ -672,6 +677,14 @@ Return the marker of the inserted item's cursor gap position.")
   "Insert DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
+    (lister-insert lister-buf pos data level dont-add-marker)))
+
+(cl-defmethod lister-insert (lister-buf (position (eql :first)) data &optional level dont-add-marker)
+  "Insert DATA as first item in LISTER-BUF."
+  (ignore position) ;; silence byte compiler warning
+  (let* ((pos (with-current-buffer lister-buf
+		(or (car lister-local-marker-list)
+		    (lister-next-free-position lister-buf)))))
     (lister-insert lister-buf pos data level dont-add-marker)))
 
 (cl-defmethod lister-insert (lister-buf (position (eql :next)) data &optional level dont-add-marker)
@@ -696,12 +709,17 @@ inserted with added indentation.
 
 Return the list of newly inserted markers."
   (when seq
-    (let* ((seq-type     (type-of seq))
+    (let* ((cursor-sensor-inhibit t)
+	   (seq-type     (type-of seq))
 	   (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	   (new-level    (lister-determine-level lister-buf pos level))
 	   (new-marker   nil))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
+
+      (unless dont-add-marker
+	(lister-sensor-leave lister-buf))
+      
       (seq-doseq (item seq)
 	(setq new-marker (append
 			  (if (eq (type-of item) seq-type)
@@ -709,8 +727,11 @@ Return the list of newly inserted markers."
 			    (list (lister-insert lister-buf pos item new-level t)))
 			  new-marker))
 	(setq pos (lister-end-of-lines lister-buf (car new-marker))))
+      
       (unless dont-add-marker
-	(lister-add-marker lister-buf new-marker))
+	(lister-add-marker lister-buf new-marker)
+	(lister-sensor-enter lister-buf (car (reverse new-marker))))
+
       new-marker)))
 
 (defun lister-insert-sublist (lister-buf pos-or-marker seq)
@@ -723,7 +744,7 @@ Return the list of newly inserted markers."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
 	      (current-level  (get-text-property pos-or-marker 'level lister-buf)))
     (lister-insert-sequence lister-buf next-item seq (1+ current-level))
-    (goto-char pos-or-marker)))
+    (lister-goto lister-buf pos-or-marker)))
 
 ;; Add
 
@@ -894,7 +915,7 @@ POSITION can be either a buffer position or the symbols `:point',
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
 SEQ can be nested to insert hierarchies."
-  (save-lister-position lister-buf
+  (with-lister-buffer lister-buf
     ;; delete old list:
     (when-let* ((ml lister-local-marker-list)
 		;; (nth 0 ml) is always the first item,
@@ -1149,11 +1170,10 @@ POSITION is a buffer position or one of the symbols `:last' or
   (with-lister-buffer lister-buf
     (if (invisible-p position)
 	(error "lister-goto: item not visible.")
-      (let ((previous-point (point)))
-	(goto-char position)
-	(lister-sensor-function (selected-window) previous-point 'left)
-	(lister-sensor-function (selected-window) previous-point 'entered)
-	position))))
+      (goto-char position)
+      (lister-sensor-leave lister-buf)
+      (lister-sensor-enter lister-buf)
+      position)))
 
 (cl-defmethod lister-goto (lister-buf (position integer))
   "Move point to POSITION."
@@ -1294,6 +1314,31 @@ The resulting list will be in display order."
 
 ;; * Cursor Sensor Function
 
+(defvar-local lister-sensor-last-item nil
+  "Last item on which the sensor function have been applied.")
+
+(defun lister-sensor-enter (buf &optional pos)
+  "Call the sensor functions on entering POS or point.
+POS can be a buffer position or a marker."
+  (with-current-buffer buf
+    (when cursor-sensor-mode
+      (save-excursion
+	(setq pos (or pos (point)))
+	(when (get-text-property pos 'item)
+	  (goto-char pos)
+	  (setq lister-sensor-last-item (lister-pos-as-integer pos))
+	  (run-hooks 'lister-enter-item-hook))))))
+
+(defun lister-sensor-leave (buf)
+  "Call the sensor functions on leaving last used item."
+  (with-current-buffer buf
+    (when (and cursor-sensor-mode
+	       lister-sensor-last-item)
+      (save-excursion
+	(goto-char lister-sensor-last-item)
+	(run-hooks 'lister-leave-item-hook)
+	(setq lister-sensor-last-item nil)))))
+
 (defun lister-sensor-function (win previous-point direction)
   "Run hooks on entering or leaving a lister item.
 If `cursor-sensor-mode' is enabled, this function will be called
@@ -1304,22 +1349,12 @@ kind of event has been caused."
     (when (derived-mode-p 'lister-mode)
       (let ((cursor-sensor-inhibit t)
 	    (inhibit-read-only t))
-	(if lister--ignore-next-sensor-event
-	    (setq lister--ignore-next-sensor-event nil)
-	  (if (eobp)
-	      ;; never leave the last list item:
-	      (progn 
-		(goto-char previous-point)
-		;; goto-char will cause a new `enter'-event, 
-		;; let us ignore it:
-		(setq lister--ignore-next-sensor-event t))
-	    (when (and (eq direction 'left)
-		       (not (eq previous-point (point-max))))
-	      (save-excursion
-		(goto-char previous-point)
-		(run-hooks 'lister-leave-item-hook)))
-	    (when (eq direction 'entered)
-	      (run-hooks 'lister-enter-item-hook))))))))
+	(cond
+	 ((eobp)                  (goto-char previous-point))
+	 ((not (get-text-property (point) 'item)) nil)
+	 ((eq direction 'left)    (lister-sensor-leave (current-buffer)))
+	 ((eq direction 'entered) (lister-sensor-enter (current-buffer)))
+	 (t nil))))))
 
 (defun lister-add-enter-callback (lister-buf callback-fn &optional append)
   "Register CALLBACK-FN as callback on entering an items."
@@ -1381,8 +1416,12 @@ kind of event has been caused."
 (defun lister-key-action ()
   "Do something with the item at point."
   (interactive)
+  (unless  (and (get-text-property (point) 'item)
+		(not (get-text-property (point) 'header-or-footer)))
+    (user-error "No item at point"))
   (if-let* ((fn lister-local-action))
-      (funcall lister-local-action (lister-get-data (current-buffer) :point))
+      (funcall lister-local-action
+	       (lister-get-data (current-buffer) :point))
     (message "No action defined")))
 
 (defvar lister-mode-map
