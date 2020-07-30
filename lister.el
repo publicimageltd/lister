@@ -306,7 +306,6 @@ Return the marker pointing to the gap position."
 	;; item:
 	(put-text-property beg (1+ beg) 'item t)
 	(put-text-property beg (1+ beg) 'level level)
-	(put-text-property beg (1+ beg) 'nlines (length item-list))
 	(put-text-property beg (1+ beg) 'nchars (- (point) beg))
 	(lister-make-marker buf beg)))))
 
@@ -335,7 +334,7 @@ the item."
       (+ marker-or-pos nchars)
     (if no-error
         (lister-pos-as-integer marker-or-pos)
-      (error "Did not find text property 'nchar at buffer position %d"
+      (error "Did not find text property 'nchars at buffer position %d"
 	     (lister-pos-as-integer marker-or-pos)))))
 
 ;; * Set header or footer of the list
@@ -1249,16 +1248,15 @@ A 'lines' element can be the header, a list item or the footer."
 (defun lister-lines-positions (buf)
   "Return all positions of 'lines' elements in BUF.
 A 'lines' element can be the header, a list item or the footer.
-The resulting list will be in display order."
+The resulting list is in display order."
   (when-let* ((pos (lister-first-lines buf)))
     (with-current-buffer buf
       (save-excursion
 	(goto-char pos)
 	(let* ((result   (list pos))
-	       (lines     nil))
-	  ;; FIXME ersetzen durch 'nchars
-	  (while (setq lines (get-text-property (point) 'nlines))
-	    (forward-line lines)
+	       (next     nil))
+	  (while (setq next (get-text-property (point) 'nchars))
+	    (goto-char (setq pos (+ pos next)))
 	    (when (get-text-property (point) 'item)
 	      (push (point) result)))
 	  (reverse result))))))
