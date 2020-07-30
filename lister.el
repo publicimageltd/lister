@@ -1292,27 +1292,7 @@ The resulting list will be in display order."
     (set-marker-insertion-type marker t)
     marker))
 
-;; FIXME This function should never be necessary, it is kept
-;; for easier debugging.
-(defun lister-recreate-marker-list (lister-buf)
-  "Create and store a new marker list for LISTER-BUF.
-Also recreates the markers for the header and the footer of the list."
-  (with-lister-buffer lister-buf
-    ;; get a freshly created list of each 'item',
-    ;; including header and footer:
-    (let* ((ml (lister-marker-list lister-buf)))
-      ;; move header and footer markers to their own variables:
-      (when lister-local-header-marker
-	(setq lister-local-header-marker (pop ml)))
-      (when lister-local-footer-marker
-	(setq lister-local-footer-marker (car (last ml)))
-	(setq ml (butlast ml)))
-      ;; store list:
-      (setq lister-local-marker-list ml))))
-
-
 ;; * Cursor Sensor Function
-
 
 (defun lister-sensor-function (win previous-point direction)
   "Run hooks on entering or leaving a lister item.
