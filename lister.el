@@ -1388,10 +1388,10 @@ kind of event has been caused."
       (let ((cursor-sensor-inhibit t)
 	    (inhibit-read-only t))
 	(cond
-	 ((eobp)                  (goto-char previous-point))
-	 ((not (get-text-property (point) 'item)) nil)
 	 ((eq direction 'left)    (lister-sensor-leave (current-buffer)))
 	 ((eq direction 'entered) (lister-sensor-enter (current-buffer)))
+	 ((eobp)                  (goto-char previous-point))
+	 ((not (get-text-property (point) 'item)) nil)
 	 (t nil))))))
 
 (defun lister-add-enter-callback (lister-buf callback-fn &optional append)
