@@ -213,11 +213,12 @@ Also inhibit any sensor functions."
 ;; insert, remove or replace lines of text, usually passed to these
 ;; functions as a list of strings.
 
-(defun lister-validate-lines (lines &optional warning)
+(defun lister-validate-lines (lines)
   "Pass LINES if it is a valid item or replace it with a warning string."
-  (if (or (null lines) (not (listp lines)))
-      (list (or warning "DATA ITEM UNDEFINED."))
-    lines))
+  (pcase lines
+    ((pred null)        '("NULL ITEM"))
+    ((pred listp)       lines)
+    (_                  '("NOT A LIST ITEM"))))
 
 (defun lister-strflat (l)
   "Recursively stringify all items in L, flattening any sublists.
