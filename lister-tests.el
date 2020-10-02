@@ -68,9 +68,6 @@
 	      (expect (get-text-property marker 'item buf)
 		      :to-be
 		      t)
-	      (expect (get-text-property marker 'nlines buf)
-		      :to-be
-		      2)
 	      (expect (get-text-property marker 'nchars buf)
 		      :to-be
 		      4))
