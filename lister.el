@@ -201,9 +201,11 @@ Also inhibit any sensor functions."
        (lister-sensor-leave ,temp-buf)
        ,@body
        (let* ((ml (lister-visible-markers ,temp-buf)))
-	 (lister-goto ,temp-buf (or (cl-find ,temp-pos ml :key #'marker-position)
-				    :last))
-	 (lister-sensor-enter (with-current-buffer ,temp-buf (point)))))))
+	 (lister-goto ,temp-buf
+		      (or (cl-find ,temp-pos ml :key #'marker-position)
+			  :last))
+	 (lister-sensor-enter ,temp-buf
+			      (with-current-buffer ,temp-buf (point)))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
