@@ -239,11 +239,10 @@
 	      (expect (invisible-p fourth-item) :to-be nil)))
 
 (describe "Moving to items:"
-	  :var (buf header footer)
+	  :var (buf header)
 	  (before-each
 	   (setq buf (lister-setup (test-new-buffer) #'list))
-	   (setq header "HEADER"
-		 footer "FOOTER")
+	   (setq header "HEADER")
 	   (lister-add buf "1")
 	   (lister-add buf "2")
 	   (lister-add buf "3"))	  
@@ -281,13 +280,13 @@
 		      :to-equal
 		      datalist))
 	  (it "Filter all data so that nothing is displayed."
-	      (lister-add-filter buf (lambda (data) nil))
+	      (lister-add-filter buf (lambda (data) (ignore data)))
 	      (lister-activate-filter buf)
 	      (expect (lister-visible-markers buf)
 		      :to-be
 		      nil))
 	  (it "Filter everything, then remove the filter."
-	      (lister-add-filter buf (lambda (data) nil))
+	      (lister-add-filter buf (lambda (data) (ignore data)))
 	      (lister-activate-filter buf)
 	      (lister-clear-filter buf)
 	      (lister-update-filter buf)
@@ -379,7 +378,22 @@
 						  :point))))
 	      (lister-goto buf :last)
 	      (lister-goto buf :first)
-	      (expect value :to-equal "D")))
+	      (expect value :to-equal "D"))
+	  (it "Do not call callback while wrapped in transaction"
+	    (lister-add-enter-callback buf
+				       (lambda ()
+					 (setq value
+					       (lister-get-data
+						buf
+						:point))))
+	    (let (in-between-value)
+	      (lister-goto buf :first)
+	      (lister-display-transaction buf
+		(lister-goto buf :last)
+		(setq in-between-value value)
+		(lister-goto buf :first))
+	      (expect value :to-equal "A")
+	      (expect in-between-value :to-equal "A"))))
 
 
 (provide 'lister-tests)

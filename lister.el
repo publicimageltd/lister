@@ -32,6 +32,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(require 'cursor-sensor)
 
 ;; * Variables
 
@@ -871,10 +872,8 @@ Example:
 
 (defun lister-remove-this-level (lister-buf pos-or-marker)
   "Remove all surrounding items matching the level of the item at POS-OR-MARKER."
-  (let* (pos
-	 (beg-end (lister-sublist-boundaries lister-buf pos-or-marker)))
+  (let* ((beg-end (lister-sublist-boundaries lister-buf pos-or-marker)))
     (with-current-buffer lister-buf
-      (setq pos (point))
       ;; split and recombine marker list:
       (setq lister-local-marker-list
 	    (append (seq-subseq lister-local-marker-list
