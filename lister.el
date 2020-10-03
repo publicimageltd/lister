@@ -24,7 +24,6 @@
 ;;; Commentary:
 
 ;;; TODO
-;;    - Remove dont-add-marker if transaction logic works
 
 ;;; Code:
 
@@ -186,27 +185,27 @@ Throw an error if BUF is not a lister buffer."
 (defvar lister-display-transaction-p nil
   "Inhibit taking care of user related display stuff.")
 
-;; TODO Test this macro! 
 (defmacro lister-display-transaction (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
-Also inhibit any sensor functions."
+Inhibit any sensor functions."
   (declare (indent 1) (debug (sexp body)))
   (let ((temp-pos (make-symbol (format "pos%d" (random))))
 	(temp-buf (make-symbol (format "buf%d" (random)))))
     `(let* ((,temp-buf ,buf)
-	    (,temp-pos (with-current-buffer ,temp-buf (point)))
-	    (cursor-sensor-inhibit t)
-	    (lister-display-transaction-p t))
+	    (,temp-pos (with-current-buffer ,temp-buf (point))))
        (unless (lister-buffer-p ,buf)
-	 (error "Display transaction failed; lister buffer expected."))
+	 (error "Display transaction failed; expected lister buffer."))
        (lister-sensor-leave ,temp-buf)
-       ,@body
-       (let* ((ml (lister-visible-markers ,temp-buf)))
+       (let ((lister-display-transaction-p t)
+	     (cursor-sensor-inhibit t))
+	 ,@body
+	 ;; Force application of the marker stack:
+	 (lister-add-marker lister-buf nil) 
 	 (lister-goto ,temp-buf
-		      (or (cl-find ,temp-pos ml :key #'marker-position)
-			  :last))
-	 (lister-sensor-enter ,temp-buf
-			      (with-current-buffer ,temp-buf (point)))))))
+		      (or (cl-find ,temp-pos (lister-visible-markers ,temp-buf) :key #'marker-position)
+			  :last)))
+       (lister-sensor-enter ,temp-buf
+			    (with-current-buffer ,temp-buf (point))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
@@ -643,7 +642,7 @@ at point or 0 if there is no such item."
 
 ;; Insert
 
-(cl-defgeneric lister-insert (lister-buf position data &optional level dont-add-marker)
+(cl-defgeneric lister-insert (lister-buf position data &optional level)
   "Insert DATA as item at POSITION in LISTER-BUF.
 POSITION can be a buffer position , the symbol `:point', `:first'
 or the symbol `:next'.
@@ -651,19 +650,14 @@ or the symbol `:next'.
 Insert DATA at the indentation level LEVEL. For the possible
 values of LEVEL, see `lister-determine-level'.
 
-Do not update the local marker list if DONT-ADD-MARKER is t. 
-
 Return the marker of the inserted item's cursor gap position.")
 
 ;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-insert (lister-buf (position integer) data &optional level dont-add-marker)
+(cl-defmethod lister-insert (lister-buf (position integer) data &optional level)
   "Insert DATA at buffer position POS in LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((cursor-sensor-inhibit t))
-
-      (unless lister-display-transaction-p
-	(lister-sensor-leave lister-buf))
-
+      (lister-sensor-leave lister-buf)
       (let* ((marker         (lister-insert-lines lister-buf position
 						(lister-validate-lines
 						 (lister-strflat (funcall lister-local-mapper data)))
@@ -672,40 +666,37 @@ Return the marker of the inserted item's cursor gap position.")
 	(lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
 	(when lister-local-filter-active 
 	  (lister-possibly-hide-item lister-buf marker data))
-	(unless dont-add-marker
-	  (lister-add-marker lister-buf marker))
+	(lister-add-marker lister-buf marker)
 	(goto-char marker)
-
-	(unless lister-display-transaction-p
-	  (lister-sensor-enter lister-buf))
+	(lister-sensor-enter lister-buf)
 	marker))))
 
-(cl-defmethod lister-insert (lister-buf (position marker) data &optional level dont-add-marker)
+(cl-defmethod lister-insert (lister-buf (position marker) data &optional level)
     "Insert DATA at MARKER in LISTER-BUF."
-    (lister-insert lister-buf (marker-position position) data level dont-add-marker))
+    (lister-insert lister-buf (marker-position position) data level))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level dont-add-marker)
+(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level)
   "Insert DATA at point in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf (point))))
-    (lister-insert lister-buf pos data level dont-add-marker)))
+    (lister-insert lister-buf pos data level)))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :first)) data &optional level dont-add-marker)
+(cl-defmethod lister-insert (lister-buf (position (eql :first)) data &optional level)
   "Insert DATA as first item in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos (with-current-buffer lister-buf
 		(or (car lister-local-marker-list)
 		    (lister-next-free-position lister-buf)))))
-    (lister-insert lister-buf pos data level dont-add-marker)))
+    (lister-insert lister-buf pos data level)))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :next)) data &optional level dont-add-marker)
+(cl-defmethod lister-insert (lister-buf (position (eql :next)) data &optional level)
   "Insert DATA after current item in LISTER-BUF."
   (ignore position) ;; silence byte compiler warning
   (let* ((pos  (with-current-buffer lister-buf (point)))
 	 (next (lister-end-of-lines lister-buf pos t)))
-    (lister-insert lister-buf (or next pos) data level dont-add-marker)))
+    (lister-insert lister-buf (or next pos) data level)))
 
-(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level dont-add-marker)
+(defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
 Insert SEQ above the item marked by POS-OR-MARKER. If
 POS-OR-MARKER is nil, add it to the end of the list.
@@ -713,42 +704,29 @@ POS-OR-MARKER is nil, add it to the end of the list.
 LEVEL determines the level of hierarchical indentation. See
 `lister-determine-level' for all possible values for LEVEL.
 
-Do not update the local marker list if DONT-ADD-MARKER is t. 
-
 SEQ must be either a vector or a list. Nested sequences will be
 inserted with added indentation.
 
 Return the list of newly inserted markers."
   (when seq
     (let* ((new-marker     nil)
-	   (cursor-sensor-inhibit t))
-
-      (unless lister-display-transaction-p
-	(lister-sensor-leave lister-buf))
-
+	   (seq-type     (type-of seq)))
+      (unless (member seq-type '(vector cons))
+	(error "Sequence must be a vector or a list."))
+      (lister-sensor-leave lister-buf)
       (let* ((lister-display-transaction-p t)
 	     (cursor-sensor-inhibit t)
-	     (seq-type     (type-of seq))
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
-
-	(unless (member seq-type '(vector cons))
-	  (error "Sequence must be a vector or a list."))
-
 	(seq-doseq (item seq)
 	  (setq new-marker (append
 			    (if (eq (type-of item) seq-type)
-				(lister-insert-sequence lister-buf pos item (1+ new-level) t)
-			      (list (lister-insert lister-buf pos item new-level t)))
+				(lister-insert-sequence lister-buf pos item (1+ new-level))
+			      (list (lister-insert lister-buf pos item new-level)))
 			    new-marker))
-	  (setq pos (lister-end-of-lines lister-buf (car new-marker))))
-
-	(unless dont-add-marker
-	  (lister-add-marker lister-buf new-marker)))
-
-      (unless lister-display-transaction-p
-	(lister-sensor-enter lister-buf (car (reverse new-marker))))
-
+	  (setq pos (lister-end-of-lines lister-buf (car new-marker)))))
+      (lister-add-marker lister-buf new-marker)
+      (lister-sensor-enter lister-buf (car (reverse new-marker)))
       new-marker)))
 
 (defun lister-insert-sublist (lister-buf pos-or-marker seq)
@@ -759,10 +737,8 @@ Return the list of newly inserted markers."
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
   "Insert SEQ as an indented sublist below the item at POS-OR-MARKER."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker)))
-    (unless lister-display-transaction-p
-      (lister-sensor-leave lister-buf))
-    (let* ((current-level  (get-text-property pos-or-marker 'level lister-buf))
-	   (lister-display-transaction-p t))
+    (lister-sensor-leave lister-buf)
+    (let* ((current-level  (get-text-property pos-or-marker 'level lister-buf)))
       (lister-insert-sequence lister-buf next-item seq (1+ current-level)))
     (lister-goto lister-buf pos-or-marker)))
 
@@ -801,22 +777,17 @@ POSITION can be either a buffer position or the symbol `:point'.")
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (lister-buf (position marker))
   "Remove the item at POSITION."
-  (unless lister-display-transaction-p
-    (lister-sensor-leave lister-buf))
-  
-  (let (npos)
+  (lister-sensor-leave lister-buf)  
+  (let (new-pos)
     (with-lister-buffer lister-buf
-      (setq npos (cl-position position lister-local-marker-list :test #'=))
-      (unless npos
+      (setq new-pos (cl-position position lister-local-marker-list :test #'=))
+      (unless new-pos
 	(error "lister-remove: Invalid marker position %d" position))
       (setq lister-local-marker-list
 	    (cl-remove position lister-local-marker-list :test #'=))
-      (setq npos (elt lister-local-marker-list (if (eq npos 0) 0 (1- npos)))))
-
+      (setq new-pos (elt lister-local-marker-list (if (eq new-pos 0) 0 (1- new-pos)))))
     (lister-remove-lines lister-buf position)
-
-    (unless lister-display-transaction-p
-      (lister-sensor-enter lister-buf npos))))
+    (lister-sensor-enter lister-buf new-pos)))
 
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
@@ -964,6 +935,7 @@ SEQ can be nested to insert hierarchies."
       (setq lister-sensor-last-item nil)
       (setq lister-local-marker-list nil))
     ;; insert new list:
+    (setq lister-temp-marker-stack nil)
     (lister-add-sequence lister-buf seq)))
 
 ;; -----------------------------------------------------------
@@ -1208,9 +1180,8 @@ Throw an error if item at POSITION is not visible."
     (if (invisible-p position)
 	(error "lister-goto: item not visible.")
       (goto-char position)
-      (unless lister-display-transaction-p
-	(lister-sensor-leave lister-buf)
-	(lister-sensor-enter lister-buf))
+      (lister-sensor-leave lister-buf)
+      (lister-sensor-enter lister-buf)
       position)))
 
 (cl-defmethod lister-goto (lister-buf (position integer))
@@ -1257,17 +1228,38 @@ not on an item."
 ;; * Marker 
 ;; -----------------------------------------------------------
 
+(defvar-local lister-temp-marker-stack nil
+  "List of markers to be added once a running transaction is finished.")
+
 (defun lister-add-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local markerlist of LISTER-BUF.
 MARKER-OR-POS can be a marker or a pos, or a list of markers or
-positions."
+positions.
+
+Don't add marker when current action belongs to a
+transaction (that is, if `lister-display-transaction-p' is set to
+t). Instead push it on a stack which will be added the next time
+this function is called outside of the transaction.
+
+If MARKER-OR-POS is nil, apply the local marker stack."
   (with-lister-buffer lister-buf
-      (setq lister-local-marker-list
-	    (sort 
-	     (thread-last (if (listp marker-or-pos) marker-or-pos (list marker-or-pos))
-	       (mapcar (apply-partially #'lister-pos-as-marker lister-buf))
-	       (append lister-local-marker-list))
-	     #'<))))
+    ;; marker-as-list can be nil if marker-or-pos is nil 
+    (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
+				   (if (listp marker-or-pos)
+				       marker-or-pos
+				     (list marker-or-pos)))))
+      (if lister-display-transaction-p
+	  ;; nil value for marker-as-list will be 'swallowed' by
+	  ;; append:
+	  (setq lister-temp-marker-stack (append marker-as-list lister-temp-marker-stack))
+	(setq lister-local-marker-list
+	      (sort (append lister-local-marker-list
+			    ;; nil value for marker-as-list will be
+			    ;; 'swallowed' by append:
+			    marker-as-list
+			    lister-temp-marker-stack)
+		    #'<))
+	(setq lister-temp-marker-stack nil)))))
 
 ;; FIXME currently unused, should be expanded to remove whole lists of markers
 (defun lister-remove-marker (lister-buf marker-or-pos)
@@ -1358,32 +1350,42 @@ The resulting list will be in display order."
 
 (defun lister-sensor-enter (buf &optional pos)
   "Call the sensor functions on entering POS or point.
-POS can be a buffer position or a marker."
+POS can be a buffer position or a marker.
+
+Do nothing if `lister-display-transaction-p' is t."
   (with-current-buffer buf
-    (when cursor-sensor-mode
-      (save-excursion
-	(setq pos (or pos (point)))
-	(when (get-text-property pos 'item)
-	  (goto-char pos)
-	  (setq lister-sensor-last-item (lister-pos-as-integer pos))
-	  (run-hooks 'lister-enter-item-hook))))))
+    (when (and (not lister-display-transaction-p)
+	       cursor-sensor-mode)
+      (let ((cursor-sensor-inhibit t))
+	(save-excursion
+	  (setq pos (or pos (point)))
+	  (when (get-text-property pos 'item)
+	    (goto-char pos)
+	    (setq lister-sensor-last-item (lister-pos-as-integer pos))
+	    (run-hooks 'lister-enter-item-hook)))))))
 
 (defun lister-sensor-leave (buf)
-  "Call the sensor functions on leaving last used item."
+  "Call the sensor functions on leaving the last visited item.
+
+Do nothing if `lister-display-transaction-p' is t."
   (with-current-buffer buf
-    (when (and cursor-sensor-mode
+    (when (and (not lister-display-transaction-p)
+	       cursor-sensor-mode
 	       lister-sensor-last-item)
       (save-excursion
-	(goto-char lister-sensor-last-item)
-	(run-hooks 'lister-leave-item-hook)
-	(setq lister-sensor-last-item nil)))))
+	(let ((cursor-sensor-inhibit t))
+	  (goto-char lister-sensor-last-item)
+	  (run-hooks 'lister-leave-item-hook)
+	  (setq lister-sensor-last-item nil))))))
 
 (defun lister-sensor-function (win previous-point direction)
   "Run hooks on entering or leaving a lister item.
 If `cursor-sensor-mode' is enabled, this function will be called
 on entering or leaving the cursor gap of an item. Use the
 arguments WIN, PREVIOUS-POINT and DIRECTION to determine what
-kind of event has been caused."
+kind of event has been caused.
+
+Do nothing if `lister-display-transaction-p' is t."
   (with-current-buffer (window-buffer win)
     (when (and (derived-mode-p 'lister-mode)
 	       (not lister-display-transaction-p))
@@ -1529,6 +1531,7 @@ Return BUF."
 	  lister-leave-item-hook nil)
     (setq buffer-undo-list t)
     (setq lister-sensor-last-item nil)
+    (setq lister-temp-marker-stack nil)
     (let ((cursor-sensor-inhibit t)
 	  (inhibit-read-only t))
       (erase-buffer))
