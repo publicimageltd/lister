@@ -388,7 +388,7 @@
 						:point))))
 	    (let (in-between-value)
 	      (lister-goto buf :first)
-	      (lister-display-transaction buf
+	      (lister-with-locked-cursor buf
 		(lister-goto buf :last)
 		(setq in-between-value value)
 		(lister-goto buf :first))

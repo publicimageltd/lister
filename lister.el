@@ -24,6 +24,14 @@
 ;;; Commentary:
 
 ;;; TODO
+;;   - Marker-stack muss wieder raus.
+;;   - ODER aber wir überschreiben "add-marker" in der Sequence mit
+;;   der eigenen Funktion, die eine Liste führt. Problem nur:
+;;   Vernestung von Sequenzen.
+;;    - Ich muss mich entscheiden: Will ich, dass auch
+;;    "insert.sequence" verschachtelt aufgerufen wird? Wenn nicht, ist
+;;   es einfacher, da dann am Ende der Sequence einfach nur die Marker
+;;					;    eingefügt werden, und Punkt.
 
 ;;; Code:
 
@@ -182,10 +190,14 @@ Throw an error if BUF is not a lister buffer."
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
 
-(defvar lister-display-transaction-p nil
-  "Inhibit taking care of user related display stuff.")
+(defvar lister-inhibit-cursor-action nil
+  "Bind this to inhibit updating the cursor while inserting items.")
 
-(defmacro lister-display-transaction (buf &rest body)
+(defvar lister-inhibit-marker-list nil
+  "Bind this to inhibit updating the marker list while inserting items.")
+
+
+(defmacro lister-with-locked-cursor (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
 Inhibit any sensor functions."
   (declare (indent 1) (debug (sexp body)))
@@ -193,14 +205,10 @@ Inhibit any sensor functions."
 	(temp-buf (make-symbol (format "buf%d" (random)))))
     `(let* ((,temp-buf ,buf)
 	    (,temp-pos (with-current-buffer ,temp-buf (point))))
-       (unless (lister-buffer-p ,buf)
-	 (error "Display transaction failed; expected lister buffer."))
        (lister-sensor-leave ,temp-buf)
-       (let ((lister-display-transaction-p t)
+       (let ((lister-inhibit-cursor-action t)
 	     (cursor-sensor-inhibit t))
 	 ,@body
-	 ;; Force application of the marker stack:
-	 (lister-add-marker lister-buf nil) 
 	 (lister-goto ,temp-buf
 		      (or (cl-find ,temp-pos (lister-visible-markers ,temp-buf) :key #'marker-position)
 			  :last)))
@@ -714,7 +722,8 @@ Return the list of newly inserted markers."
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
       (lister-sensor-leave lister-buf)
-      (let* ((lister-display-transaction-p t)
+      (let* ((lister-inhibit-cursor-action t)
+	     (lister-inhibit-marker-list t)
 	     (cursor-sensor-inhibit t)
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
@@ -877,7 +886,7 @@ Do nothing if the next item is not a sublist."
   "Remove all marked items from LISTER-BUF.
 If INCLUDE-SUBLISTS is set, also remove sublists belonging to
 marked items."
-  (lister-display-transaction lister-buf
+  (lister-with-locked-cursor lister-buf
     (seq-doseq (m (lister-marked-items lister-buf))
       (when (and include-sublists
 		 (lister-sublist-below-p lister-buf m))
@@ -894,7 +903,7 @@ POSITION can be either a buffer position or the symbols `:point',
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-replace (lister-buf (position integer) data)
   "Replace the item at POSITION with a new DATA item."
-  (lister-display-transaction lister-buf
+  (lister-with-locked-cursor lister-buf
     (let* ((level  (get-text-property position 'level lister-buf)))
       (lister-remove lister-buf position)
       (lister-insert lister-buf position data level))))
@@ -1236,30 +1245,20 @@ not on an item."
 MARKER-OR-POS can be a marker or a pos, or a list of markers or
 positions.
 
-Don't add marker when current action belongs to a
-transaction (that is, if `lister-display-transaction-p' is set to
-t). Instead push it on a stack which will be added the next time
-this function is called outside of the transaction.
-
-If MARKER-OR-POS is nil, apply the local marker stack."
-  (with-lister-buffer lister-buf
-    ;; marker-as-list can be nil if marker-or-pos is nil 
-    (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
-				   (if (listp marker-or-pos)
-				       marker-or-pos
-				     (list marker-or-pos)))))
-      (if lister-display-transaction-p
-	  ;; nil value for marker-as-list will be 'swallowed' by
-	  ;; append:
-	  (setq lister-temp-marker-stack (append marker-as-list lister-temp-marker-stack))
+Do nothing if `lister-inhibit-marker-list' is t."
+  (unless lister-inhibit-marker-list 
+    (with-lister-buffer lister-buf
+      ;; marker-as-list can be nil if marker-or-pos is nil 
+      (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
+				     (if (listp marker-or-pos)
+					 marker-or-pos
+				       (list marker-or-pos)))))
 	(setq lister-local-marker-list
 	      (sort (append lister-local-marker-list
 			    ;; nil value for marker-as-list will be
 			    ;; 'swallowed' by append:
-			    marker-as-list
-			    lister-temp-marker-stack)
-		    #'<))
-	(setq lister-temp-marker-stack nil)))))
+			    marker-as-list)
+		    #'<))))))
 
 ;; FIXME currently unused, should be expanded to remove whole lists of markers
 (defun lister-remove-marker (lister-buf marker-or-pos)
@@ -1352,9 +1351,9 @@ The resulting list will be in display order."
   "Call the sensor functions on entering POS or point.
 POS can be a buffer position or a marker.
 
-Do nothing if `lister-display-transaction-p' is t."
+Do nothing if `lister-inhibit-cursor-action' is t."
   (with-current-buffer buf
-    (when (and (not lister-display-transaction-p)
+    (when (and (not lister-inhibit-cursor-action)
 	       cursor-sensor-mode)
       (let ((cursor-sensor-inhibit t))
 	(save-excursion
@@ -1367,9 +1366,9 @@ Do nothing if `lister-display-transaction-p' is t."
 (defun lister-sensor-leave (buf)
   "Call the sensor functions on leaving the last visited item.
 
-Do nothing if `lister-display-transaction-p' is t."
+Do nothing if `lister-inhibit-cursor-action' is t."
   (with-current-buffer buf
-    (when (and (not lister-display-transaction-p)
+    (when (and (not lister-inhibit-cursor-action)
 	       cursor-sensor-mode
 	       lister-sensor-last-item)
       (save-excursion
@@ -1385,10 +1384,10 @@ on entering or leaving the cursor gap of an item. Use the
 arguments WIN, PREVIOUS-POINT and DIRECTION to determine what
 kind of event has been caused.
 
-Do nothing if `lister-display-transaction-p' is t."
+Do nothing if `lister-inhibit-cursor-action' is t."
   (with-current-buffer (window-buffer win)
     (when (and (derived-mode-p 'lister-mode)
-	       (not lister-display-transaction-p))
+	       (not lister-inhibit-cursor-action))
       (let ((cursor-sensor-inhibit t)
 	    (inhibit-read-only t))
 	(cond
