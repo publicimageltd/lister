@@ -746,9 +746,14 @@ Return the list of newly inserted markers."
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
   "Insert SEQ as an indented sublist below the item at POS-OR-MARKER."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker)))
-    (lister-sensor-leave lister-buf)
-    (let* ((current-level  (get-text-property pos-or-marker 'level lister-buf)))
+    (let* ((current-level  (get-text-property pos-or-marker 'level lister-buf))
+	   ;; we don't want the cursor to pop up at the end of the inserted
+	   ;; list, since it would call the sensor functions. So we handle
+	   ;; this on our own instead of letting lister-insert-sequence do
+	   ;; it
+	   (lister-inhibit-cursor-action t))
       (lister-insert-sequence lister-buf next-item seq (1+ current-level)))
+    ;; lister-goto also calls the sensor functions
     (lister-goto lister-buf pos-or-marker)))
 
 ;; Add
