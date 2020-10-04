@@ -753,7 +753,7 @@ Return the list of newly inserted markers."
 	   ;; it
 	   (lister-inhibit-cursor-action t))
       (lister-insert-sequence lister-buf next-item seq (1+ current-level)))
-    ;; lister-goto also calls the sensor functions
+    ;; lister-goto also calls sensor-leave and sensor-enter
     (lister-goto lister-buf pos-or-marker)))
 
 ;; Add
@@ -1398,6 +1398,8 @@ Do nothing if `lister-inhibit-cursor-action' is t."
 	(cond
 	 ((eq direction 'left)    (lister-sensor-leave (current-buffer)))
 	 ((eq direction 'entered) (lister-sensor-enter (current-buffer)))
+	 ;; special cases to avoid that the cursor stays on the footer
+	 ;; or header:
 	 ((eobp)                  (goto-char previous-point))
 	 ((not (get-text-property (point) 'item)) nil)
 	 (t nil))))))
