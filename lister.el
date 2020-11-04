@@ -68,6 +68,9 @@ Set this to nil if no top margin is wanted.")
   "Add this bottom margin when inserting an item.
 Set this to nil if no bottom margin is wanted.")
 
+(defvar lister-inhibit-cursor-action nil
+  "Bind this to inhibit updating the cursor while inserting items.")
+
 (defvar lister-mark-face-or-property
   '(:background "darkorange3"
 		:foreground "white")
@@ -179,9 +182,6 @@ Throw an error if BUF is not a lister buffer."
   (if (markerp marker-or-pos)
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
-
-(defvar lister-inhibit-cursor-action nil
-  "Bind this to inhibit updating the cursor while inserting items.")
 
 (defmacro lister-with-locked-cursor (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
