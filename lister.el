@@ -23,6 +23,17 @@
 
 ;;; Commentary:
 
+;; `Lister` is a library for creating interactive "lists" of any
+;; kind. In contrast to similar packages like `hierarchy.el` or
+;; `tablist.el`, it aims at *not* simply mapping a data structure to
+;; a navigatable list. Rather, it treats the list like emacs treats
+;; buffers: It is an empty space to which you can successively add
+;; stuff. So in emacs lingo, `lister` should be rather called
+;; `listed` - it is a library for *editing* lists, instead of
+;; displaying them.
+
+;; For more information, read the README.md shipped with that package.
+
 ;;; Code:
 
 
