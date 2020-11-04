@@ -656,9 +656,9 @@ Return the marker of the inserted item's cursor gap position.")
     (let* ((cursor-sensor-inhibit t))
       (lister-sensor-leave lister-buf)
       (let* ((marker         (lister-insert-lines lister-buf position
-						(lister-validate-lines
-						 (lister-strflat (funcall lister-local-mapper data)))
-						(lister-determine-level lister-buf position level))))
+						  (lister-validate-lines
+						   (lister-strflat (funcall lister-local-mapper data)))
+						  (lister-determine-level lister-buf position level))))
 	(lister-set-data lister-buf marker data)
 	(lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
 	(when lister-local-filter-active 
@@ -1124,15 +1124,15 @@ Example:
     (while walk
       (let* ((new-item  (car walk))
 	     (new-level (funcall level-fn new-item)))
-	  (if (> level new-level)
-	      (setq walk nil)
-	    (if (= level new-level)
-		(setq push-item (funcall map-fn new-item)
-		      walk (cdr walk))
-	      (setq push-item (lister-group-by-level walk level-fn map-fn)
-		    walk (seq-drop walk (length push-item))))
-	    ;; change this for vectors 
-	    (push push-item res))))
+	(if (> level new-level)
+	    (setq walk nil)
+	  (if (= level new-level)
+	      (setq push-item (funcall map-fn new-item)
+		    walk (cdr walk))
+	    (setq push-item (lister-group-by-level walk level-fn map-fn)
+		  walk (seq-drop walk (length push-item))))
+	  ;; change this for vectors 
+	  (push push-item res))))
     (reverse res)))
 
 
