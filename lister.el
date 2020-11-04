@@ -71,6 +71,9 @@ Set this to nil if no bottom margin is wanted.")
 (defvar lister-inhibit-cursor-action nil
   "Bind this to inhibit updating the cursor while inserting items.")
 
+(defvar lister-inhibit-marker-list nil
+  "Bind this to inhibit updating the marker list while inserting items.")
+
 (defvar lister-mark-face-or-property
   '(:background "darkorange3"
 		:foreground "white")
@@ -709,6 +712,7 @@ Return the list of newly inserted markers."
 	(error "Sequence must be a vector or a list."))
       (lister-sensor-leave lister-buf)
       (let* ((lister-inhibit-cursor-action t)
+	     (lister-inhibit-marker-list t)
 	     (cursor-sensor-inhibit t)
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
@@ -1226,6 +1230,25 @@ not on an item."
 ;; * Marker 
 ;; -----------------------------------------------------------
 
+(defun lister-add-marker (lister-buf marker-or-pos)
+  "Add MARKER-OR-POS to the local markerlist of LISTER-BUF.
+MARKER-OR-POS can be a marker or a pos, or a list of markers or
+positions.
+
+Do nothing if `lister-inhibit-marker-list' is t."
+  (unless lister-inhibit-marker-list
+    (with-lister-buffer lister-buf
+      ;; marker-as-list can be nil if marker-or-pos is nil
+      (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
+				     (if (listp marker-or-pos)
+					 marker-or-pos
+				       (list marker-or-pos)))))
+	(setq lister-local-marker-list
+	      (sort (append lister-local-marker-list
+			    ;; nil value for marker-as-list will be
+			    ;; 'swallowed' by append:
+			    marker-as-list)
+		    #'<))))))
 
 ;; FIXME currently unused, should be expanded to remove whole lists of markers
 (defun lister-remove-marker (lister-buf marker-or-pos)
