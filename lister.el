@@ -23,16 +23,6 @@
 
 ;;; Commentary:
 
-;;; TODO
-;;   - Marker-stack muss wieder raus.
-;;   - ODER aber wir überschreiben "add-marker" in der Sequence mit
-;;   der eigenen Funktion, die eine Liste führt. Problem nur:
-;;   Vernestung von Sequenzen.
-;;    - Ich muss mich entscheiden: Will ich, dass auch
-;;    "insert.sequence" verschachtelt aufgerufen wird? Wenn nicht, ist
-;;   es einfacher, da dann am Ende der Sequence einfach nur die Marker
-;;					;    eingefügt werden, und Punkt.
-
 ;;; Code:
 
 
@@ -192,10 +182,6 @@ Throw an error if BUF is not a lister buffer."
 
 (defvar lister-inhibit-cursor-action nil
   "Bind this to inhibit updating the cursor while inserting items.")
-
-(defvar lister-inhibit-marker-list nil
-  "Bind this to inhibit updating the marker list while inserting items.")
-
 
 (defmacro lister-with-locked-cursor (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
@@ -723,7 +709,6 @@ Return the list of newly inserted markers."
 	(error "Sequence must be a vector or a list."))
       (lister-sensor-leave lister-buf)
       (let* ((lister-inhibit-cursor-action t)
-	     (lister-inhibit-marker-list t)
 	     (cursor-sensor-inhibit t)
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
@@ -949,7 +934,6 @@ SEQ can be nested to insert hierarchies."
       (setq lister-sensor-last-item nil)
       (setq lister-local-marker-list nil))
     ;; insert new list:
-    (setq lister-temp-marker-stack nil)
     (lister-add-sequence lister-buf seq)))
 
 ;; -----------------------------------------------------------
@@ -1242,28 +1226,6 @@ not on an item."
 ;; * Marker 
 ;; -----------------------------------------------------------
 
-(defvar-local lister-temp-marker-stack nil
-  "List of markers to be added once a running transaction is finished.")
-
-(defun lister-add-marker (lister-buf marker-or-pos)
-  "Add MARKER-OR-POS to the local markerlist of LISTER-BUF.
-MARKER-OR-POS can be a marker or a pos, or a list of markers or
-positions.
-
-Do nothing if `lister-inhibit-marker-list' is t."
-  (unless lister-inhibit-marker-list 
-    (with-lister-buffer lister-buf
-      ;; marker-as-list can be nil if marker-or-pos is nil 
-      (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
-				     (if (listp marker-or-pos)
-					 marker-or-pos
-				       (list marker-or-pos)))))
-	(setq lister-local-marker-list
-	      (sort (append lister-local-marker-list
-			    ;; nil value for marker-as-list will be
-			    ;; 'swallowed' by append:
-			    marker-as-list)
-		    #'<))))))
 
 ;; FIXME currently unused, should be expanded to remove whole lists of markers
 (defun lister-remove-marker (lister-buf marker-or-pos)
@@ -1537,7 +1499,6 @@ Return BUF."
 	  lister-leave-item-hook nil)
     (setq buffer-undo-list t)
     (setq lister-sensor-last-item nil)
-    (setq lister-temp-marker-stack nil)
     (let ((cursor-sensor-inhibit t)
 	  (inhibit-read-only t))
       (erase-buffer))
