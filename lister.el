@@ -85,6 +85,9 @@ Set this to nil if no bottom margin is wanted.")
 (defvar lister-inhibit-marker-list nil
   "Bind this to inhibit updating the marker list while inserting items.")
 
+(defvar-local lister-sensor-last-item nil
+  "Last item on which the sensor function has been applied.")
+
 (defvar lister-mark-face-or-property
   '(:background "darkorange3"
 		:foreground "white")
@@ -1344,9 +1347,6 @@ The resulting list will be in display order."
     marker))
 
 ;; * Cursor Sensor Function
-
-(defvar-local lister-sensor-last-item nil
-  "Last item on which the sensor function have been applied.")
 
 (defun lister-sensor-enter (buf &optional pos)
   "Call the sensor functions on entering POS or point.
