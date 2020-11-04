@@ -20,7 +20,7 @@ navigate your `org-roam` Zettelkasten by following the links of each
 page. These links, however, do quickly become cyclic: One page links
 to another, and that one links back to the first one. With lister,
 these cycles are no problem. The user just inserts another sublist at
-point if hr or she wants to dive a bit deeper into the structure of a
+point if he or she wants to dive a bit deeper into the structure of a
 Zettelkasten page.
 
 ## Project still in progress
@@ -140,12 +140,12 @@ the documentation strings if you want to know more:
    - lister-remove-sublist-below
    - lister-replace
   - Navigation:
-   - lister-goto 
+	- lister-goto 
  - Accessing the data slot:
-  - lister-get-data
-  - lister-set-date
-  - lister-get-all-data
-  - lister-get-all-data-tree
+	-  lister-get-data
+	- lister-set-date
+	- lister-get-all-data
+	- lister-get-all-data-tree
   
   Further high-level functions are dealing with filtering, and there
   is also a basic facility to mark an item and to process these
@@ -156,7 +156,7 @@ the documentation strings if you want to know more:
 Apart from the more abstract plan to weed out all unused stuff which
 clutters the name space, I have the following plans:
 
- [ ] Write tests for marking items and working with marked items.
- [ ] Test the filtering
- [ ] Change the rather clumsy logic by which an "action" is triggered
- on an item.
+ - [ ] Write tests for marking items and working with marked items.
+ - [ ] Test the filtering
+ - [ ] Change the rather clumsy logic by which an "action" is
+ triggered on an item.
