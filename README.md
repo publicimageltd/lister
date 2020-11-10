@@ -145,6 +145,9 @@ to *not* turn on lister mode:
   (setq-local lister-local-action #'some-mode-action)) 
 ```
 
+Don't forget to add that specific option each time you call
+`lister-setup` in your own mode. 
+
 ### Functions and Variables
 
 A short list of the most important functions -- have a look at
