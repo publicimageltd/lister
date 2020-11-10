@@ -1283,37 +1283,17 @@ Throw an error if no marker is available."
        (cl-find (point) lister-local-marker-list :key #'marker-position))
      (error "No item at point"))))
 
-;; TODO This does not make sense, since any item will always begin
-;; with an 'item property, and thus point-min will always return an
-;; item, or the buffer is empty. Check this and remove this function.
-(defun lister-first-lines (buf)
-  "Return position of the first 'lines' element in BUF.
-A 'lines' element can be the header, a list item or the footer."
-  (with-current-buffer buf
-    (save-excursion
-      (goto-char (point-min))
-      (while (and (< (point) (point-max))
-		  (not (get-text-property (point) 'item)))
-	(goto-char (next-single-property-change (point) 'item nil (point-max))))
-      (when (get-text-property (point) 'item)
-	(point)))))
-
 (defun lister-lines-positions (buf)
   "Get the positions of all 'lines' elements in BUF.
 A 'lines' element can be the header, a list item or the footer.
-The resulting list is in display order."
-  ;; ???: (when-let ((pos (and (get-text-property (point-min) 'item) (point-min))))
-  (when-let* ((pos (lister-first-lines buf)))
-    (with-current-buffer buf
-      (save-excursion
-	(goto-char pos)
-	(let* ((result   (list pos))
-	       (next     nil))
-	  (while (setq next (get-text-property (point) 'nchars))
-	    (goto-char (setq pos (+ pos next)))
-	    (when (get-text-property (point) 'item)
-	      (push (point) result)))
-	  (reverse result))))))
+ The resulting list is in display order."
+  (with-current-buffer buf
+    (goto-char (point-min))
+    (let (result next)
+      (while (setq next (get-text-property (point) 'nchars))
+	(push (point) result)
+	(goto-char (+ (point) next)))
+      (reverse result))))
 
 (defun lister-marker-list (buf)
   "Create a list of markers for each 'lines' element in BUF.
