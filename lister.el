@@ -810,7 +810,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
   (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-current-marker lister-buf)))
+  (lister-remove lister-buf (lister-marker-at-point lister-buf)))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :last)))
   "Remove the last item."
@@ -919,7 +919,7 @@ POSITION can be either a buffer position or the symbols `:point',
 (cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
   "Replace the item at point with a new DATA item."
   (ignore position) ;; silence byte compiler
-  (lister-replace lister-buf (lister-current-marker lister-buf) data))
+  (lister-replace lister-buf (lister-marker-at-point lister-buf) data))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :last)) data)
   "Replace the item at point with a new DATA item."
@@ -970,7 +970,7 @@ SEQ can be nested to insert hierarchies."
 (cl-defmethod lister-get-mark-state (lister-buf (position (eql :point)))
   "In LISTER-BUF, check if the item at point is marked."
   (ignore position) ;; silence byte compiler
-  (lister-get-mark-state lister-buf (lister-current-marker lister-buf)))
+  (lister-get-mark-state lister-buf (lister-marker-at-point lister-buf)))
 
 
 (cl-defgeneric lister-mark-item (lister-buf position value)
@@ -988,7 +988,7 @@ SEQ can be nested to insert hierarchies."
 (cl-defmethod lister-mark-item (lister-buf (position (eql :point)) value)
     "In LISTER-BUF, set the item's mark at POSITION to VALUE."
   (ignore position) ;; silence byte compiler
-  (when-let* ((m (lister-current-marker lister-buf)))
+  (when-let* ((m (lister-marker-at-point lister-buf)))
     (lister-mark-item lister-buf m value)))
 
 (defun lister-mark-all-items (lister-buf value)
@@ -1070,7 +1070,7 @@ POSITION can be a buffer position or the symbol `:point'.")
 (cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
   "In LISTER-BUF, store DATA in the item at point."
   (ignore position) ;; silence byte compiler
-  (if-let* ((marker (lister-current-marker lister-buf)))
+  (if-let* ((marker (lister-marker-at-point lister-buf)))
       (lister-set-data lister-buf marker data)
     (error "lister-set-data: no item at point.")))
 
@@ -1099,7 +1099,7 @@ POSITION can be either a buffer position or the symbol `:point'.")
 (cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
   (ignore position) ;; silence byte compiler
-  (if-let* ((marker (lister-current-marker lister-buf)))
+  (if-let* ((marker (lister-marker-at-point lister-buf)))
       (lister-get-data lister-buf marker)
     (error "lister-get-data: no item at point")))
 
@@ -1245,7 +1245,7 @@ not on an item."
 ;; -----------------------------------------------------------
 
 (defun lister-add-marker (lister-buf marker-or-pos)
-  "Add MARKER-OR-POS to the local markerlist of LISTER-BUF.
+  "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
 MARKER-OR-POS can be a marker or a pos, or a list of markers or
 positions.
 
@@ -1264,10 +1264,10 @@ Do nothing if `lister-inhibit-marker-list' is t."
 			    marker-as-list)
 		    #'<))))))
 
-(defun lister-current-marker (lister-buf)
-  "Return MARKER of the item at point in LISTER-BUF.
-Only return a marker if point is on the beginning of ITEM.
-Throw an error if no marker is available."
+(defun lister-marker-at-point (lister-buf)
+  "Return the marker associated with the item at point in LISTER-BUF.
+Only return a marker if point is on the beginning of ITEM. Throw
+an error if no marker is available."
   (with-lister-buffer lister-buf
     (or
      (when (get-text-property (point) 'item)
