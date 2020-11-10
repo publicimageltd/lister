@@ -38,14 +38,14 @@ I don't think there will be too many people actually using this library.
 But since I use it myself for =delve=, it makes sense to document some
 of the features and some of the API.
 
-*** Design principles
+*** Design Principles
 
 - A "list" is a collection of printed items. The items do not have to be
   of the same size. The data associated with the item is stored as a
   text property.
-- Every item is printed by passing to a buffer local mapper function.
-  This function accepts the data and returns a list of printable lines.
-  It is possible to add a margin to each item.
+- Every item is printed by passing it to a buffer local mapper
+  function, which has to return a list of printable lines. It is
+  possible to add a margins to each item.
 - Each item has its own "indentation level", making it possible to print
   and operate on nested lists ("sublists").
 - Navigation is done using Emacs' regular navigation commands. Each
@@ -88,7 +88,7 @@ This little program yields:
     This is the end of the list
 #+END_EXAMPLE
 
-*** Doing something with an item
+*** Doing Something with an Item
 
 If you press on an item, the function =lister-local-action= is called
 with the associated data as its sole argument. So if you want something
@@ -104,7 +104,7 @@ example:
     (setq lister-local-action #'my-action))
 #+END_SRC
 
-*** lister mode
+*** Lister Mode
 
 Each lister buffer has the major mode =lister-mode=. It offers the
 following keybindings:
@@ -153,31 +153,53 @@ Don't forget to add that specific option each time you call
 A short list of the most important functions -- have a look at the
 documentation strings if you want to know more:
 
-- lister-setup : Initializes a buffer and turns on "lister-mode".
-- lister-set-list : Remove the current list or replace it with another
-  list.
-- Editing lists:
+**** Basic Setup
 
-  - lister-insert
-  - lister-insert-sequence
-  - lister-insert-sublist-below
-  - lister-add
-  - lister-add-sequence
-  - lister-remove
-  - lister-remove-this-level
-  - lister-remove-sublist-below
-  - lister-replace
+| Function        | Purpose                                                 |
+|-----------------+---------------------------------------------------------|
+| lister-setup    | Initialize a buffer and turns on "lister-mode"          |
+| lister-set-list | Replace current list with another (possibly empty) list |
+|-----------------+---------------------------------------------------------|
 
-- Navigation:
+***  Editing Lists
 
-  - lister-goto
+| Function                    | Purpose                                                          |
+|-----------------------------+------------------------------------------------------------------|
+| lister-insert               | Insert a single item                                             |
+| lister-insert-sequence      | Insert a sequence of items                                       |
+| lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
+| lister-add                  | Add a single item to the end of the list                         |
+| lister-add-sequence         | Add a sequence to the end of the list                            |
+| lister-remove               | Remove an item                                                   |
+| lister-remove-this-level    | Remove all items with the indentation level of an item           |
+| lister-remove-sublist-below | Remove all items below the current items with higher indentation |
+| lister-replace              | Replace an item with another one                                 |
+|-----------------------------+------------------------------------------------------------------|
 
-- Accessing the data slot:
 
-  - lister-get-data
-  - lister-set-date
-  - lister-get-all-data
-  - lister-get-all-data-tree
+*** Navigation:
+
+| Function    | Purpose         |
+|-------------+-----------------|
+| lister-goto | Goto a position |
+|-------------+-----------------|
+
+| Variable            | Purpose                                       |
+|---------------------+-----------------------------------------------|
+| lister-local-action | Call the fn stored here when pressing <ENTER> |
+|---------------------+-----------------------------------------------|
+
+
+Accessing the data slot:
+
+| Function                 | Purpose                                                |
+|--------------------------+--------------------------------------------------------|
+| lister-get-data          | Get the data of an item                                |
+| lister-set-data          | Change the data of an item                             |
+| lister-get-all-data      | Get all data (disregarding indentation) as a flat list |
+| lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
+|--------------------------+--------------------------------------------------------|
+
 
 Further high-level functions are dealing with filtering, and there is
 also a basic facility to mark an item and to process these selected
@@ -188,7 +210,7 @@ items. But this is not tested well.
 Apart from the more abstract plan to weed out all unused stuff which
 clutters the name space, I have the following plans:
 
-- ☐ Write tests for marking items and working with marked items.
-- ☐ Test the filtering
-- ☐ Change the rather clumsy logic by which an "action" is triggered on
+- [ ] Write tests for marking items and working with marked items.
+- [ ] Test the filtering
+- [ ] Change the rather clumsy logic by which an "action" is triggered on
   an item.
