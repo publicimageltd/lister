@@ -57,8 +57,14 @@ of the features and some of the API.
   you move a list item, the marker will be moved with it.
 - There are hooks defined for responding to the events of entering an
   item or leaving it. This is used for implementing a minor mode which
-  highlights the item at point and, of course, removes the highlihting
+  highlights the item at point and, of course, removes the highlighting
   on leaving it (=lister-highlight-mode=).
+
+*** Additional Features
+
+ - In =lister-mode=, using isearch works out of the box.
+
+** Using Lister Programmatically
 
 *** Example
 
