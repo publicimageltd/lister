@@ -161,49 +161,55 @@ documentation strings if you want to know more:
 | lister-set-list | Replace current list with another (possibly empty) list |
 |-----------------+---------------------------------------------------------|
 
-***  Editing Lists
+****  Editing Lists
 
-| Function                    | Purpose                                                          |
-|-----------------------------+------------------------------------------------------------------|
-| lister-insert               | Insert a single item                                             |
-| lister-insert-sequence      | Insert a sequence of items                                       |
-| lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
-| lister-add                  | Add a single item to the end of the list                         |
-| lister-add-sequence         | Add a sequence to the end of the list                            |
-| lister-remove               | Remove an item                                                   |
-| lister-remove-this-level    | Remove all items with the indentation level of an item           |
-| lister-remove-sublist-below | Remove all items below the current items with higher indentation |
-| lister-replace              | Replace an item with another one                                 |
-|-----------------------------+------------------------------------------------------------------|
-
-
-*** Navigation:
-
-| Function    | Purpose         |
-|-------------+-----------------|
-| lister-goto | Goto a position |
-|-------------+-----------------|
-
-| Variable            | Purpose                                       |
-|---------------------+-----------------------------------------------|
-| lister-local-action | Call the fn stored here when pressing <ENTER> |
-|---------------------+-----------------------------------------------|
+ | Function                    | Purpose                                                          |
+ |-----------------------------+------------------------------------------------------------------|
+ | lister-insert               | Insert a single item                                             |
+ | lister-insert-sequence      | Insert a sequence of items                                       |
+ | lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
+ | lister-add                  | Add a single item to the end of the list                         |
+ | lister-add-sequence         | Add a sequence to the end of the list                            |
+ | lister-remove               | Remove an item                                                   |
+ | lister-remove-this-level    | Remove all items with the indentation level of an item           |
+ | lister-remove-sublist-below | Remove all items below the current items with higher indentation |
+ | lister-replace              | Replace an item with another one                                 |
+ |-----------------------------+------------------------------------------------------------------|
 
 
-Accessing the data slot:
+**** Navigation
 
-| Function                 | Purpose                                                |
-|--------------------------+--------------------------------------------------------|
-| lister-get-data          | Get the data of an item                                |
-| lister-set-data          | Change the data of an item                             |
-| lister-get-all-data      | Get all data (disregarding indentation) as a flat list |
-| lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
-|--------------------------+--------------------------------------------------------|
+The usual navigation functions work, since all items are exposed to
+emacs using a cursor gap. =lister-goto= is mainly for positioning the
+cursor after operating on the list.
+
+ | Function                  | Purpose                                                    |
+ |---------------------------+------------------------------------------------------------|
+ | lister-goto               | Goto a position                                            |
+ | lister-with-locked-cursor | MACRO: Execute BODY and restore cursor position afterwards |
+ |---------------------------+------------------------------------------------------------|
+
+ | Variable            | Purpose                                       |
+ |---------------------+-----------------------------------------------|
+ | lister-local-action | Call the fn stored here when pressing <ENTER> |
+ |---------------------+-----------------------------------------------|
 
 
-Further high-level functions are dealing with filtering, and there is
-also a basic facility to mark an item and to process these selected
-items. But this is not tested well.
+**** Accessing the Data
+
+ | Function                 | Purpose                                                |
+ |--------------------------+--------------------------------------------------------|
+ | lister-get-data          | Get the data of an item                                |
+ | lister-set-data          | Change the data of an item                             |
+ | lister-get-all-data      | Get all data (disregarding indentation) as a flat list |
+ | lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
+ |--------------------------+--------------------------------------------------------|
+
+*** Other Stuff
+
+ Further high-level functions are dealing with filtering, and there is
+ also a basic facility to mark an item and to process these selected
+ items. But this is not tested well.
 
 * Plans for the future
 
