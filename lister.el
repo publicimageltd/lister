@@ -42,7 +42,10 @@
 (require 'subr-x)
 (require 'cursor-sensor)
 
+;; -----------------------------------------------------------
 ;; * Variables
+
+;; Local Variables:
 
 (defvar-local lister-local-mapper nil
   "Function which converts any DATA object to a list of strings.")
@@ -79,30 +82,6 @@ Set this to nil if no top margin is wanted.")
   "Add this bottom margin when inserting an item.
 Set this to nil if no bottom margin is wanted.")
 
-(defvar lister-inhibit-cursor-action nil
-  "Bind this to inhibit updating the cursor while inserting items.")
-
-(defvar lister-inhibit-marker-list nil
-  "Bind this to inhibit updating the marker list while inserting items.")
-
-(defvar-local lister-sensor-last-item nil
-  "Last item on which the sensor function has been applied.")
-
-(defvar lister-mark-face-or-property
-  '(:background "darkorange3"
-		:foreground "white")
-  "Additional text property highlighting marked items.
-Any marked item will be highlighted by adding these properties.
-Useful values are, for example, 
-
- (:background \"dark orange\") ;; sets a dark orange background
-
-or 
-
-  (:weight bold)
-
-Alternatively, the value can be the name of a face.")
-
 (defvar-local lister-enter-item-hook nil
   "List of functions to call when point enters an existing item.
 Use `lister-add-enter-callback' to add a function to this buffer
@@ -128,9 +107,37 @@ the execution of the callback functions.
 Use `lister-add-leave-callback' to add a function to this buffer
 local hook.")
 
+;; Global Variables:
+
+(defvar lister-inhibit-cursor-action nil
+  "Bind this to inhibit updating the cursor while inserting items.")
+
+(defvar lister-inhibit-marker-list nil
+  "Bind this to inhibit updating the marker list while inserting items.")
+
+(defvar-local lister-sensor-last-item nil
+  "Last item on which the sensor function has been applied.")
+
+;; Customizable Global Variables:
+
+;; TODO Change to defcustom
+(defvar lister-mark-face-or-property
+  '(:background "darkorange3"
+		:foreground "white")
+  "Additional text property highlighting marked items.
+Any marked item will be highlighted by adding these properties.
+Useful values are, for example, 
+
+ (:background \"dark orange\") ;; sets a dark orange background
+
+or 
+
+  (:weight bold)
+
+Alternatively, the value can be the name of a face.")
+
 ;; -----------------------------------------------------------
-;; * Useful stuff
-;; -----------------------------------------------------------
+;; * Useful stuff for working with text properties
 
 (defun lister-add-face-property (beg end value)
   "A wrapper around `add-face-text-property'."
@@ -160,8 +167,8 @@ This is a slightly modified copy of `font-lock--remove-face-from-text-property'.
 		      (put-text-property beg next 'face new))))))
       (setq beg (text-property-not-all next end 'face nil)))))
 
-
-;; * Helper functions to work with lister buffers
+;; -----------------------------------------------------------
+;; * Basic helper functions for working with lister buffers
 
 (defun lister-buffer-p (buf)
   "Return BUF if it is ready to be used for lister lists.
@@ -188,6 +195,8 @@ Throw an error if BUF is not a lister buffer."
   `(with-current-buffer (lister-buffer-p ,buf)
      ,@body))
 
+;; Turn markers into positions, and vice versa
+
 (defun lister-pos-as-integer (marker-or-pos)
   "Return the integer value of MARKER-OR-POS."
   (if (markerp marker-or-pos)
@@ -199,6 +208,28 @@ Throw an error if BUF is not a lister buffer."
   (if (markerp marker-or-pos)
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
+
+;; Find positions of items
+
+(defun lister-position-at (lister-buf position-or-symbol)
+  "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
+Only consider visible items. Return nil if no item is visible.
+
+If POSITION-OR-SYMBOL is one of the symbols `:first', `:last' or
+`:point', return the position of the first item, the last item or
+the item at point, respectively.  
+
+If POSITION-OR-SYMBOL is an integer, treat it as a buffer
+position and return a marker representing it."
+  (when-let* ((marker-list (lister-visible-markers lister-buf)))
+    (pcase position-or-symbol
+      (:first (first marker-list))
+      (:last  (car (last marker-list)))
+      (:point (lister-marker-at-point lister-buf))
+      ((and (pred integerp) pos) (lister-pos-as-marker lister-buf pos))
+      (_      (error "Unknown position or symbol: %s" position-or-symbol)))))
+
+;; Lock cursor during longer transactions:
 
 (defmacro lister-with-locked-cursor (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
@@ -789,42 +820,58 @@ Return the last inserted item marker."
 
 (cl-defgeneric lister-remove (lister-buf position)
   "Remove the item at POSITION from LISTER-BUF.
-POSITION can be either a buffer position or the symbol `:point'.")
+POSITION can be either a buffer position, a marker, or one of the
+symbols `:point', `:last' or `:first'.")
+
+;; TODO
+;; - lister-remove sollte eine cursorposition "hoch" schnellen, wenn
+;; die aktuelle position weg ist und nichts mehr nachrückt
+;; - Aktuell wird auf "item" geprüft in der Annahme, dass dies
+;; identisch sei mit "list item". Header und footer haben aber auch
+;; ein "item" markiert. Warum zum Teufel? Alle "item" Dinger mal in
+;; Ruhe durchgehen.
 
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (lister-buf (position marker))
   "Remove the item at POSITION."
-  (lister-sensor-leave lister-buf)  
-  (let (new-pos)
+  (let ((pos (lister-pos-as-integer position))
+	cursor-pos)
     (with-lister-buffer lister-buf
-      (setq new-pos (cl-position position lister-local-marker-list :test #'=))
-      (unless new-pos
-	(error "lister-remove: Invalid marker position %d" position))
+      (setq cursor-pos (point))
+      (when (= cursor-pos pos)
+	(lister-sensor-leave lister-buf))
+      (unless (get-text-property pos 'item)
+	(error "lister-remove: Invalid marker position %d" pos))
       (setq lister-local-marker-list
-	    (cl-remove position lister-local-marker-list :test #'=))
-      (setq new-pos (elt lister-local-marker-list (if (eq new-pos 0) 0 (1- new-pos)))))
+	    (cl-remove position lister-local-marker-list :test #'=)))
     (lister-remove-lines lister-buf position)
-    (lister-sensor-enter lister-buf new-pos)))
+    (when (= cursor-pos pos)
+      (when (get-text-property cursor-pos 'item)
+	  (lister-sensor-enter lister-buf cursor-pos)))))
 
+
+(cl-defmethod lister-remove (lister-buff (position null))
+  "Throw an error."
+  (error "No item at this position"))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
   "Remove the item at point."
   (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-marker-at-point lister-buf)))
+  (lister-remove lister-buf (lister-position-at lister-buf :point)))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :last)))
   "Remove the last item."
   (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-goto lister-buf :last)))
+  (lister-remove lister-buf (lister-position-at lister-buf :last)))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :first)))
-  "Remove the last item."
+  "Remove the first item."
   (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-goto lister-buf :first)))
+  (lister-remove lister-buf (lister-position-at lister-buf :first)))
 
 (cl-defmethod lister-remove (lister-buf (position integer))
   "Remove the item at POSITION from LISTER-BUF."
-  (lister-remove lister-buf (lister-pos-as-marker lister-buf position)))
+  (lister-remove lister-buf (lister-position-at lister-buf position)))
 
 ;; Remove sublists
 
@@ -1202,23 +1249,23 @@ Throw an error if item at POSITION is not visible."
 
 (cl-defmethod lister-goto (lister-buf (position integer))
   "Move point to POSITION."
-  (lister-goto lister-buf (lister-pos-as-marker lister-buf position)))
+  (lister-goto lister-buf (lister-position-at position)))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
   "Move point to the last visible item in LISTER-BUF.
 If there is no item, set point between header and footer.
 Return the position."
   (ignore position) ;; silence byte compiler
-  (let* ((last-marker (car (last (lister-visible-markers lister-buf)))))
-    (lister-goto lister-buf (or last-marker (lister-next-free-position lister-buf)))))
+  (lister-goto lister-buf (or (lister-position-at :last)
+			      (lister-next-free-position lister-buf))))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :first)))
   "Move point to the first visible item in LISTER-BUF.
 If there is no item, set point between header and footer.
 Return the position."
   (ignore position) ;; silence byte compiler
-  (let* ((first-marker (car (lister-visible-markers lister-buf))))
-    (lister-goto lister-buf (or first-marker (lister-next-free-position lister-buf)))))
+  (lister-goto lister-buf (or (lister-position-at lister-buf :first)
+			      (lister-next-free-position lister-buf))))
 
 ;; * Treat visible items as an indexed list
 
