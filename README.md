@@ -121,6 +121,30 @@ following keybindings:
     (define-key map (kbd "RET") #'lister-key-action)
 ```
 
+### Overriding lister mode
+
+If you want to derive your own major mode from lister mode, you might
+want to provide an initial list. Since `lister-setup` also turns on
+lister mode, you have to call it with an optional argument telling it
+to *not* turn on lister mode:
+
+``` emacs-lisp
+(define-derived-mode some-mode
+  lister-mode "something"
+  "Some description of your own major mode."
+  ;; Setup lister, but don't set the major mode:
+  (lister-setup	(current-buffer) 
+        #'some-mode--mapper-fn
+		nil
+		nil ;; header
+		nil ;; footer
+		nil ;; filter
+		t   ;; no major-mode <--- !!!
+		)
+  ;; Now add mode specific stuff:
+  (setq-local lister-local-action #'some-mode-action)) 
+```
+
 ### Functions and Variables
 
 A short list of the most important functions -- have a look at
