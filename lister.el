@@ -1299,7 +1299,7 @@ A 'lines' element can be the header, a list item or the footer."
 	(point)))))
 
 (defun lister-lines-positions (buf)
-  "Return all positions of 'lines' elements in BUF.
+  "Get the positions of all 'lines' elements in BUF.
 A 'lines' element can be the header, a list item or the footer.
 The resulting list is in display order."
   ;; ???: (when-let ((pos (and (get-text-property (point-min) 'item) (point-min))))
