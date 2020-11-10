@@ -1264,15 +1264,6 @@ Do nothing if `lister-inhibit-marker-list' is t."
 			    marker-as-list)
 		    #'<))))))
 
-;; FIXME currently unused, should be expanded to remove whole lists of markers
-(defun lister-remove-marker (lister-buf marker-or-pos)
-  "Remove MARKER-OR-POS from the local marker list of LISTER-BUF."
-  (with-lister-buffer lister-buf  
-    (let* ((the-marker (lister-pos-as-marker lister-buf marker-or-pos)))
-      (setq lister-local-marker-list
-    	    (thread-last (seq-remove (apply-partially #'equal the-marker) lister-local-marker-list)
-    	      (seq-sort #'<))))))
-
 (defun lister-current-marker (lister-buf)
   "Return MARKER of the item at point in LISTER-BUF.
 Only return a marker if point is on the beginning of ITEM.
