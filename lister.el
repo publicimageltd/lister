@@ -235,7 +235,7 @@ If POSITION-OR-SYMBOL is an integer, treat it as a buffer
 position and return a marker representing it."
   (when-let* ((marker-list (lister-visible-markers lister-buf)))
     (pcase position-or-symbol
-      (:first (first marker-list))
+      (:first (car marker-list))
       (:last  (car (last marker-list)))
       (:point (lister-marker-at-point lister-buf))
       ((and (pred integerp) pos) (lister-marker-at-pos lister-buf pos))
@@ -634,33 +634,43 @@ Use the boolean operator `and' or instead use OP, if specified."
 	(1- (marker-position lister-local-footer-marker))
       (point-max))))
 
-;; FIXME Don't know why we'd need to look at the NEXT item. Leaving
-;; this option just in case.
 (defun lister-looking-at-prop (lister-buf pos-or-marker prop direction)
-  "Return the value of PROP, looking at either the previous or next item.
-DIRECTION can be the symbol `previous' or the symbol `next'. 
+  "Return position of PROP either at the previous or next item.
+If there is no property, return nil.
+
+DIRECTION can be the symbol `previous' or the symbol `next'.
 
 This function assumes that POS-OR-MARKER is pointing to the
 cursor gap of an item."
   (let (pos)
     (if (eq direction 'previous)
-	;; looking up:
-	(progn
-	  (setq pos (previous-single-property-change pos-or-marker
-						     prop
-						     lister-buf
-						     (lister-item-min lister-buf)))
-	  (setq pos (and pos (max 1 (1- pos)))))
-      ;; looking down:
-      (setq pos (next-single-property-change pos-or-marker
-					     prop
-					     lister-buf
-					     (lister-item-max lister-buf)))
-      (setq pos (and pos (next-single-property-change pos
-						      prop
-						      lister-buf
-						      (lister-item-max lister-buf)))))
-    (when pos (get-text-property pos prop lister-buf))))
+	;; looking back:
+	(let* ((limit (lister-item-min lister-buf)))
+	  (if (= limit pos-or-marker)
+	      (setq pos nil)
+	    (setq pos (previous-single-property-change
+		       pos-or-marker
+		       prop
+		       lister-buf
+		       limit))
+	    (setq pos (and pos (max 1 (1- pos))))))
+      ;; looking towards the end:
+      (let* ((limit (lister-item-max lister-buf)))
+	(if (= limit pos-or-marker)
+	    (setq pos nil)
+	  (setq pos (next-single-property-change
+		     pos-or-marker
+		     prop
+		     lister-buf
+		     limit))
+	  (setq pos (and pos
+			 (next-single-property-change
+			  pos
+			  prop
+			  lister-buf
+			  limit))))))
+    ;;
+    pos))
 
 (defun lister-determine-level (lister-buf pos-or-marker level)
   "Determine the indentation level for new items at POS-OR-MARKER.
@@ -682,7 +692,8 @@ item.
 If LEVEL is the symbol `:current', return the level of the item
 at point or 0 if there is no such item."
   (let* ((item-level (get-text-property pos-or-marker 'level lister-buf))
-	 (prev-level (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous)))
+	 (prev-pos   (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous))
+	 (prev-level (and prev-pos (get-text-property prev-pos 'level lister-buf))))
     (cond
      ((null prev-level)      0) ;; there's no previous level, thus no indentation
      ((null level)           prev-level)
@@ -836,36 +847,33 @@ Return the last inserted item marker."
 POSITION can be either a buffer position, a marker, or one of the
 symbols `:point', `:last' or `:first'.")
 
-;; TODO
-;; - lister-remove sollte eine cursorposition "hoch" schnellen, wenn
-;; die aktuelle position weg ist und nichts mehr nachrückt
-;; - Aktuell wird auf "item" geprüft in der Annahme, dass dies
-;; identisch sei mit "list item". Header und footer haben aber auch
-;; ein "item" markiert. Warum zum Teufel? Alle "item" Dinger mal in
-;; Ruhe durchgehen.
-
 ;; This is the real function, all other variants are just wrappers:
 (cl-defmethod lister-remove (lister-buf (position marker))
   "Remove the item at POSITION."
-  (let ((pos (lister-pos-as-integer position))
-	cursor-pos)
-    (with-lister-buffer lister-buf
-      (setq cursor-pos (point))
+  (with-lister-buffer lister-buf
+    (let* ((pos                (lister-pos-as-integer position))
+	   (cursor-pos         (point))
+	   (prev-pos           (lister-looking-at-prop (current-buffer)
+						       pos
+						       'item
+						       'previous)))
       (when (= cursor-pos pos)
-	(lister-sensor-leave lister-buf))
-      (unless (get-text-property pos 'item)
-	(error "lister-remove: Invalid marker position %d" pos))
+	(lister-sensor-leave (current-buffer)))
       (setq lister-local-marker-list
-	    (cl-remove position lister-local-marker-list :test #'=)))
-    (lister-remove-lines lister-buf position)
-    (when (= cursor-pos pos)
-      ;; TODO Change this to: if item, enter, else move one up.
-      (when (get-text-property cursor-pos 'item)
-	  (lister-sensor-enter lister-buf cursor-pos)))))
-
-
-(cl-defmethod lister-remove (lister-buff (position null))
+	    (cl-remove pos lister-local-marker-list :test #'=))
+      ;; remove the item 
+      (lister-remove-lines (current-buffer) pos)
+      ;; move point if it is not on an item anymore:
+      (when (and prev-pos
+		 (not (get-text-property pos 'item)))
+	(goto-char prev-pos))
+      ;; if we left the sensor, let's turn it on again:
+      (when (= cursor-pos pos)
+	(lister-sensor-enter (current-buffer) pos)))))
+  
+(cl-defmethod lister-remove (lister-buf (position null))
   "Throw an error."
+  (ignore position lister-buf) ;; silence byte compiler
   (error "No item at this position"))
 
 (cl-defmethod lister-remove (lister-buf (position (eql :point)))
@@ -990,12 +998,14 @@ POSITION can be either a marker, a buffer position or the symbols
 
 (cl-defmethod lister-replace (lister-buf (position (eql :last)) data)
   "Replace the last item with a new DATA item."
+  (ignore position) ;; silence byte compiler  
   (lister-replace lister-buf (lister-marker-at lister-buf :last)
 		  data))
 
 (cl-defmethod lister-replace (lister-buf (position (eql :first)) data)
   "Replace the first item with a new DATA item."
-  (lister-replace lister-buf (lister-position-at-at lister-buf :first)
+  (ignore position) ;; silence byte compiler  
+  (lister-replace lister-buf (lister-marker-at lister-buf :first)
 		  data))
 
 ;; Replace the whole buffer list (set list)
@@ -1164,9 +1174,17 @@ POSITION can be either a buffer position or the symbol `:point'.")
 (cl-defmethod lister-get-data (lister-buf (position (eql :point)))
   "Retrieve the data of the item at point."
   (ignore position) ;; silence byte compiler
-  (if-let* ((marker (lister-marker-at lister-buf :point)))
-      (lister-get-data lister-buf marker)
-    (error "lister-get-data: no item at point")))
+  (lister-get-data lister-buf (lister-marker-at lister-buf :point)))
+
+(cl-defmethod lister-get-data (lister-buf (position (eql :first)))
+  "Retrieve the data of the first item."
+  (ignore position) ;; silence byte compiler  
+  (lister-get-data lister-buf (lister-marker-at lister-buf :first)))
+
+(cl-defmethod lister-get-data (lister-buf (position (eql :last)))
+  "Retrieve the data of the last item."
+  (ignore position) ;; silence byte compiler  
+  (lister-get-data lister-buf (lister-marker-at lister-buf :last)))
 
 ;; Get lists of data:
 
@@ -1267,14 +1285,14 @@ Throw an error if item at POSITION is not visible."
 
 (cl-defmethod lister-goto (lister-buf (position integer))
   "Move point to POSITION."
-  (lister-goto lister-buf (lister-marker-at position)))
+  (lister-goto lister-buf (lister-marker-at lister-buf position)))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :last)))
   "Move point to the last visible item in LISTER-BUF.
 If there is no item, set point between header and footer.
 Return the position."
   (ignore position) ;; silence byte compiler
-  (lister-goto lister-buf (or (lister-marker-at :last)
+  (lister-goto lister-buf (or (lister-marker-at lister-buf :last)
 			      (lister-next-free-position lister-buf))))
 
 (cl-defmethod lister-goto (lister-buf (position (eql :first)))

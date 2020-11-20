@@ -44,7 +44,10 @@
   (with-current-buffer buf
     (line-number-at-pos)))
 
-(describe "Core functions:"
+;; -----------------------------------------------------------
+;; The tests.
+
+(describe "lister-insert-lines:"
   :var (buf marker test-item)
   (before-each
     (with-current-buffer (setq buf (test-new-buffer))
@@ -54,6 +57,8 @@
       (setq marker (make-marker))
       (set-marker marker (point-max)))
     (setq test-item '("1" "2")))
+  (after-each
+    (kill-buffer buf))
   ;;
   (it "Flatten an item list."
     (expect (lister-strflat "test")         :to-equal '("test"))
@@ -86,6 +91,57 @@
     (lister-insert-lines buf (marker-position marker) test-item 3)
     (expect (test-buffer-content buf)  :to-equal "   1\n   2\n")))
 
+(describe "Some low-level item work:"
+  :var (buf)
+  (before-each
+    (setq buf (lister-setup (test-new-buffer)
+			    #'list))
+    (with-current-buffer buf
+            (setq lister-local-left-margin 0
+		  lister-local-top-margin 0
+		  lister-local-bottom-margin 0)))
+  (after-each
+    (kill-buffer buf))
+  (it "item-min/item-max returns correct position:"
+    (expect (lister-item-min buf) :to-be 1)
+    (expect (lister-item-max buf) :to-be 1)
+    (lister-add buf "A")
+    (expect (lister-item-min buf) :to-be 1)
+    (expect (lister-item-max buf) :to-be 3)
+    (lister-add buf "A")
+    (expect (lister-item-max buf) :to-be 5))
+  (it "looking-at-prop returns correct positions:"
+    (lister-add buf "A")
+    (lister-add buf "A")
+    (expect (lister-looking-at-prop buf 3 'item 'previous)
+	    :to-be 1)
+    (expect (lister-looking-at-prop buf 1 'item 'next)
+	    :to-be 3)))
+  
+  
+
+(describe "Access items using lister-marker-at:"
+  :var (buf)
+  (before-each
+    (setq buf (lister-setup (test-new-buffer)
+			    #'list
+			    '("A" "B" "C" "D" "E"))))
+  (after-each
+    (kill-buffer buf))
+  (it "Get the first item:"
+    (let ((m (lister-marker-at buf :first)))
+      (expect (lister-get-data buf m) :to-equal "A")))
+  (it "Get the last item:"
+    (let ((m (lister-marker-at buf :last)))
+      (expect (lister-get-data buf m) :to-equal "E")))
+  (it "Access value at point:"
+    (lister-goto buf :first)
+    (with-current-buffer buf
+      (forward-line))
+    (let ((m (lister-marker-at buf :point)))
+      (expect (lister-get-data buf m) :to-equal "B"))))
+
+  
 (describe "Inserting header, footer and items:"
   :var (buf header footer data)
   (before-each
@@ -98,6 +154,8 @@
       (setq lister-local-left-margin 0
 	    lister-local-top-margin 0
 	    lister-local-bottom-margin 0)))
+  (after-each
+    (kill-buffer buf))
   ;;
   (it "Fail calling 'insert' with a non-lister buffer."
     (with-temp-buffer
@@ -221,6 +279,8 @@
     (setq second-item (nth 1 lister-local-marker-list))
     (setq third-item  (nth 2 lister-local-marker-list))
     (setq fourth-item (nth 3 lister-local-marker-list)))
+  (after-each
+    (kill-buffer buf))
   (it "Hide item."
     (lister-hide-item buf first-item)		      
     (expect (invisible-p first-item)  :to-be   t)
@@ -236,7 +296,11 @@
     (expect (invisible-p first-item) :to-be nil)
     (expect (invisible-p second-item) :to-be nil)
     (expect (invisible-p third-item) :to-be nil)
-    (expect (invisible-p fourth-item) :to-be nil)))
+    (expect (invisible-p fourth-item) :to-be nil))
+  (it "Return correct list of visible item markers."
+    (lister-hide-item buf first-item)
+    (expect (lister-get-visible-data buf)
+	    :to-equal '("B" "C" "D"))))
 
 (describe "Moving to items:"
   :var (buf header)
@@ -246,6 +310,8 @@
     (lister-add buf "1")
     (lister-add buf "2")
     (lister-add buf "3"))	  
+  (after-each
+    (kill-buffer buf))
   (it "Move to the first item with :first."
     (lister-goto buf :first)
     (expect (test-line buf) :to-be 1))
