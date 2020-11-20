@@ -1264,44 +1264,20 @@ END is nil, use the position of the first or last item."
 
 ;; Go to an item
 
-(cl-defgeneric lister-goto (lister-buf position)
-  "In LISTER-BUF, move point to POSITION.
-POSITION is a buffer position or one of the symbols `:last' or
-`:first'. Return the position.")
-
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-goto (lister-buf (position marker))
-  "Move point to the marker POSITION.
-Throw an error if item at POSITION is not visible."
-  (unless position
-    (error "lister-goto: expected marker, called with `nil'"))
+(defun lister-goto (lister-buf position-or-symbol)
+  "In LISTER-BUF, move point to POSITION-OR-SYMBOL.
+POSITION-OR-SYMBOL is a marke, a buffer position or one of the
+symbols `:last' or `:first'. Return the position.
+Throw an error if the item is not visible."
+(let* ((m (or (lister-marker-at lister-buf position-or-symbol)
+	      (lister-next-free-position lister-buf))))
   (with-lister-buffer lister-buf
-    (if (invisible-p position)
+    (if (invisible-p m)
 	(error "lister-goto: item not visible.")
-      (goto-char position)
+      (goto-char m)
       (lister-sensor-leave lister-buf)
       (lister-sensor-enter lister-buf)
-      position)))
-
-(cl-defmethod lister-goto (lister-buf (position integer))
-  "Move point to POSITION."
-  (lister-goto lister-buf (lister-marker-at lister-buf position)))
-
-(cl-defmethod lister-goto (lister-buf (position (eql :last)))
-  "Move point to the last visible item in LISTER-BUF.
-If there is no item, set point between header and footer.
-Return the position."
-  (ignore position) ;; silence byte compiler
-  (lister-goto lister-buf (or (lister-marker-at lister-buf :last)
-			      (lister-next-free-position lister-buf))))
-
-(cl-defmethod lister-goto (lister-buf (position (eql :first)))
-  "Move point to the first visible item in LISTER-BUF.
-If there is no item, set point between header and footer.
-Return the position."
-  (ignore position) ;; silence byte compiler
-  (lister-goto lister-buf (or (lister-marker-at lister-buf :first)
-			      (lister-next-free-position lister-buf))))
+      m))))
 
 ;; * Treat visible items as an indexed list
 
