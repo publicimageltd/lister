@@ -32,10 +32,9 @@
 ;; `listed` - it is a library for *editing* lists, instead of
 ;; displaying them.
 
-;; For more information, read the README.md shipped with that package.
+;; For more information, read the README.org shipped with that package.
 
 ;;; Code:
-
 
 (require 'cl-lib)
 (require 'seq)
