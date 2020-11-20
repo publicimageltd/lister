@@ -1,7 +1,5 @@
 * Lister - Yet Another List Printer for Emacs
 
-** What is it for?
-
 =Lister= is a library for creating interactive "lists" of any kind. In
 contrast to similar packages like =hierarchy.el= or =tablist.el=, it
 aims at /not/ simply mapping a data structure to a navigatable list.
@@ -15,15 +13,41 @@ the structure of your data. You just "insert" a new slice on the fly
 when you need it.
 
 Lister is currently only used for =delve.el=, another project of mine.
-=Delve= is a good usecase for working with lists the lister-style: You
+=Delve= is a good usecase for working with lists lister-style: You
 navigate your =org-roam= Zettelkasten by following the links of each
-page. These links, however, do quickly become cyclic: One page links to
-another, and that one links back to the first one. With lister, these
-cycles are no problem. The user just inserts another sublist at point if
-he or she wants to dive a bit deeper into the structure of a
+page. These links, however, do quickly become cyclic: One page links
+to another, and that one links back to the first one. With lister,
+these cycles are no problem. The user just inserts another sublist at
+point if he or she wants to dive a bit deeper into the structure of a
 Zettelkasten page.
 
-** Project still in progress
+* Contents                                                         :noexport:
+:PROPERTIES:
+ :TOC:      :include siblings
+:END:
+
+:CONTENTS:
+- [[#project-still-in-progress][Project still in progress]]
+- [[#some-basic-facts][Some basic facts]]
+  - [[#design-principles][Design Principles]]
+  - [[#additional-features][Additional Features]]
+- [[#using-lister-programmatically][Using Lister Programmatically]]
+  - [[#example][Example]]
+  - [[#doing-something-with-an-item][Doing Something with an Item]]
+  - [[#lister-mode][Lister Mode]]
+  - [[#overriding-lister-mode][Overriding lister mode]]
+  - [[#functions-and-variables][Functions and Variables]]
+    - [[#basic-setup][Basic Setup]]
+    - [[#editing-lists][Editing Lists]]
+    - [[#navigation][Navigation]]
+    - [[#accessing-the-data][Accessing the Data]]
+  - [[#other-stuff][Other Stuff]]
+- [[#changelog][Changelog]]
+  - [[#changes-to-the-current-version-no-new-release][Changes to the current version (no new release)]]
+:END:
+
+
+* Project still in progress
 
 =Lister= does work. I use it every day. Yet at the beginning, I had
 implemented quite some features which I did not debug anymore, and which
@@ -32,13 +56,13 @@ am planning, of couse, to weed out all that stuff in some closer future.
 But since I have next to no time at all for this kind of work, it will
 take some time.
 
-** Some basic facts
+* Design and Basic Features
 
 I don't think there will be too many people actually using this library.
 But since I use it myself for =delve=, it makes sense to document some
 of the features and some of the API.
 
-*** Design Principles
+** Design Principles
 
 - A "list" is a collection of printed items. The items do not have to be
   of the same size. The data associated with the item is stored as a
@@ -60,13 +84,12 @@ of the features and some of the API.
   highlights the item at point and, of course, removes the highlighting
   on leaving it (=lister-highlight-mode=).
 
-*** Additional Features
+** Additional Features
 
- - In =lister-mode=, using isearch works out of the box.
+- In =lister-mode=, using isearch works out of the box.
 
-** Using Lister Programmatically
-
-*** Example
+* Using Lister Programmatically
+** Example
 
 #+BEGIN_SRC emacs-lisp
   (let* ((buf (generate-new-buffer "*LISTER*")))
@@ -94,7 +117,7 @@ This little program yields:
     This is the end of the list
 #+END_EXAMPLE
 
-*** Doing Something with an Item
+** Doing Something with an Item
 
 If you press on an item, the function =lister-local-action= is called
 with the associated data as its sole argument. So if you want something
@@ -110,7 +133,7 @@ example:
     (setq lister-local-action #'my-action))
 #+END_SRC
 
-*** Lister Mode
+** Lister Mode
 
 Each lister buffer has the major mode =lister-mode=. It offers the
 following keybindings:
@@ -127,7 +150,7 @@ following keybindings:
       (define-key map (kbd "RET") #'lister-key-action)
 #+END_SRC
 
-*** Overriding lister mode
+** Overriding lister mode
 
 If you want to derive your own major mode from lister mode, you might
 want to provide an initial list. Since =lister-setup= also turns on
@@ -154,12 +177,12 @@ lister mode, you have to call it with an optional argument telling it to
 Don't forget to add that specific option each time you call
 =lister-setup= in your own mode.
 
-*** Functions and Variables
+** Functions and Variables
 
 A short list of the most important functions -- have a look at the
 documentation strings if you want to know more:
 
-**** Basic Setup
+*** Basic Setup
 
 | Function        | Purpose                                                 |
 |-----------------+---------------------------------------------------------|
@@ -167,23 +190,23 @@ documentation strings if you want to know more:
 | lister-set-list | Replace current list with another (possibly empty) list |
 |-----------------+---------------------------------------------------------|
 
-****  Editing Lists
+***  Editing Lists
 
- | Function                    | Purpose                                                          |
- |-----------------------------+------------------------------------------------------------------|
- | lister-insert               | Insert a single item                                             |
- | lister-insert-sequence      | Insert a sequence of items                                       |
- | lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
- | lister-add                  | Add a single item to the end of the list                         |
- | lister-add-sequence         | Add a sequence to the end of the list                            |
- | lister-remove               | Remove an item                                                   |
- | lister-remove-this-level    | Remove all items with the indentation level of an item           |
- | lister-remove-sublist-below | Remove all items below the current items with higher indentation |
- | lister-replace              | Replace an item with another one                                 |
- |-----------------------------+------------------------------------------------------------------|
+| Function                    | Purpose                                                          |
+|-----------------------------+------------------------------------------------------------------|
+| lister-insert               | Insert a single item                                             |
+| lister-insert-sequence      | Insert a sequence of items                                       |
+| lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
+| lister-add                  | Add a single item to the end of the list                         |
+| lister-add-sequence         | Add a sequence to the end of the list                            |
+| lister-remove               | Remove an item                                                   |
+| lister-remove-this-level    | Remove all items with the indentation level of an item           |
+| lister-remove-sublist-below | Remove all items below the current items with higher indentation |
+| lister-replace              | Replace an item with another one                                 |
+|-----------------------------+------------------------------------------------------------------|
 
 
-**** Navigation
+*** Navigation
 
 The usual navigation functions work, since all items are exposed to
 emacs using a cursor gap. =lister-goto= is mainly for positioning the
@@ -201,28 +224,30 @@ cursor after operating on the list.
  |---------------------+-----------------------------------------------|
 
 
-**** Accessing the Data
+*** Accessing the Data
 
- | Function                 | Purpose                                                |
- |--------------------------+--------------------------------------------------------|
- | lister-get-data          | Get the data of an item                                |
- | lister-set-data          | Change the data of an item                             |
- | lister-get-all-data      | Get all data (disregarding indentation) as a flat list |
- | lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
- |--------------------------+--------------------------------------------------------|
+| Function                 | Purpose                                                |
+|--------------------------+--------------------------------------------------------|
+| lister-get-data          | Get the data of an item                                |
+| lister-set-data          | Change the data of an item                             |
+| lister-get-all-data      | Get all data (disregarding indentation) as a flat list |
+| lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
+|--------------------------+--------------------------------------------------------|
 
-*** Other Stuff
+** Other Stuff
 
  Further high-level functions are dealing with filtering, and there is
  also a basic facility to mark an item and to process these selected
  items. But this is not tested well.
 
-* Plans for the future
+* Changelog
+** Changes to the current version (no new release)
+ + Use =org-make-toc= for the README.org
 
-Apart from the more abstract plan to weed out all unused stuff which
-clutters the name space, I have the following plans:
 
-- [ ] Write tests for marking items and working with marked items.
-- [ ] Test the filtering
-- [ ] Change the rather clumsy logic by which an "action" is triggered on
-  an item.
+# Local Variables:
+# eval: (require 'org-make-toc)
+# before-save-hook: org-make-toc
+# org-export-with-properties: ()
+# org-export-with-title: t
+# End:
