@@ -224,17 +224,22 @@ If there is no item, return nil."
 
 (defun lister-marker-at (lister-buf position-or-symbol) 
   "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
-Only consider visible items. Return nil if there is no item at
-the desired position.
+Return nil if there is no item at the desired position.
 
 If POSITION-OR-SYMBOL is one of the symbols `:first', `:last' or
 `:point', return the position of the first item, the last item or
 the item at point, respectively.  
 
+If POSITION-OR-SYMBOL is a marker, return it unchanged iff it
+represents a valid position.
+
 If POSITION-OR-SYMBOL is an integer, treat it as a buffer
 position and return a marker representing it."
-  (when-let* ((marker-list (lister-visible-markers lister-buf)))
+  (when-let* ((marker-list (buffer-local-value 'lister-local-marker-list lister-buf)))
     (pcase position-or-symbol
+      ((and (pred markerp) marker) (and (marker-buffer marker)
+					(get-text-property marker 'item lister-buf)
+					marker))
       (:first (car marker-list))
       (:last  (car (last marker-list)))
       (:point (lister-marker-at-point lister-buf))
@@ -1155,36 +1160,12 @@ POSITION can be a buffer position or the symbol `:point'.")
 
 ;; Get data
 
-(cl-defgeneric lister-get-data (lister-buf position)
-  "Return the data stored at POSITION in LISTER-BUF.
-POSITION can be either a buffer position or the symbol `:point'.")
-
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-get-data (lister-buf (position marker))
-  "Return the data stored at marker POSITION in LISTER-BUF."
-  (lister-get-prop lister-buf position 'data))
-
-(cl-defmethod lister-get-data (lister-buf (position integer))
-  "Return the data stored at POSITION in LISTER-BUF."
-  ;; creating a marker on the fly seems too much, since
-  ;; `get-text-property' also accepts markers. Yet this way,
-  ;; we also catch type errors.
-  (lister-get-data lister-buf (lister-pos-as-marker lister-buf position)))
-
-(cl-defmethod lister-get-data (lister-buf (position (eql :point)))
-  "Retrieve the data of the item at point."
-  (ignore position) ;; silence byte compiler
-  (lister-get-data lister-buf (lister-marker-at lister-buf :point)))
-
-(cl-defmethod lister-get-data (lister-buf (position (eql :first)))
-  "Retrieve the data of the first item."
-  (ignore position) ;; silence byte compiler  
-  (lister-get-data lister-buf (lister-marker-at lister-buf :first)))
-
-(cl-defmethod lister-get-data (lister-buf (position (eql :last)))
-  "Retrieve the data of the last item."
-  (ignore position) ;; silence byte compiler  
-  (lister-get-data lister-buf (lister-marker-at lister-buf :last)))
+(defun lister-get-data (lister-buf position-or-symbol)
+  "Return the data stored at POSITION-OR-SYMBOL in LISTER-BUF.
+POSITION-OR-SYMBOL can be either a buffer position, a marker, or
+ one of the symbols `:point', `:last' or `:first' ."
+  (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
+    (lister-get-prop lister-buf m 'data)))
 
 ;; Get lists of data:
 
@@ -1267,7 +1248,7 @@ END is nil, use the position of the first or last item."
 (defun lister-goto (lister-buf position-or-symbol)
   "In LISTER-BUF, move point to POSITION-OR-SYMBOL.
 POSITION-OR-SYMBOL is a marke, a buffer position or one of the
-symbols `:last' or `:first'. Return the position.
+symbols `:last', `:point' or `:first'. Return the position.
 Throw an error if the item is not visible."
 (let* ((m (or (lister-marker-at lister-buf position-or-symbol)
 	      (lister-next-free-position lister-buf))))
