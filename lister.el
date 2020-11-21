@@ -214,12 +214,6 @@ If there is no item, return nil."
   (when (get-text-property pos 'item lister-buf)
     (lister-make-marker lister-buf pos)))
 
-;; FIXME rename to show different meaning w/ respect to marker-at
-(defun lister-marker-at-point (lister-buf)
-  "Return the marker associated with the item at point in LISTER-BUF."
-  (lister-marker-for-pos lister-buf
-			(with-current-buffer lister-buf (point))))
-
 (defun lister-marker-at (lister-buf position-or-symbol) 
   "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
 Return nil if there is no item at the desired position.
