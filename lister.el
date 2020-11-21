@@ -951,6 +951,8 @@ optional argument INHIBIT-CURSOR-MOVEMENT to a non-nil value."
 
 ;; Remove sublists
 
+;; FIXME Isn't using "elt" for index the best alternative to
+;; lister-index-position? Check this!
 (defun lister-level-at-item-index (lister-buf n)
   "Return the level of the nth item."
   (with-current-buffer lister-buf
@@ -961,10 +963,11 @@ optional argument INHIBIT-CURSOR-MOVEMENT to a non-nil value."
 Return a list with a marker pointing to the first item of the
 sublist, a second marker pointing to the last item of the
 sublist, and the integer positions of the index positions
-corresponding to these two items on `lister-local-marker-list'.
+corresponding to these two items.
 
 Example:
-  (#<marker ....> #<marker ...> 0 3) ;; the first four items"
+  ;; these are the boundaries of the first four items:
+  (#<marker ....> #<marker ...> 0 3)"
   (with-lister-buffer lister-buf
     (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
 	   (n       (seq-position lister-local-marker-list marker #'equal))
@@ -1026,41 +1029,16 @@ marked items."
 
 ;; Replace items
 
-(cl-defgeneric lister-replace (lister-buf position data)
-  "Replace the item at POSITION with one representing DATA.
-POSITION can be either a marker, a buffer position or the symbols
-`:point', `:first' or `:last'. Preserve the indentation level.")
-
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-replace (lister-buf (position marker) data)
-  "Replace the item at marker POSITION with a new DATA item."
+(defun lister-replace (lister-buf position-or-symbol data)
+  "Replace the item at POSITION-OR-SYMBOL with one representing DATA.
+POSITION-OR-SYMBOL can be either a marker, a buffer position or
+the symbols `:point', `:first' or `:last'. Preserve the
+indentation level."
   (lister-with-locked-cursor lister-buf
-    (let* ((level  (get-text-property position 'level lister-buf)))
-      (lister-remove lister-buf position)
+    (let* ((pos-marker (lister-marker-at lister-buf position-or-symbol))
+	   (level  (get-text-property (marker-position pos-marker) 'level lister-buf)))
+      (lister-remove lister-buf position t)
       (lister-insert lister-buf position data level))))
-
-(cl-defmethod lister-replace (lister-buf (position integer) data)
-  "Replace the item at integer POSITION with a new DATA item."
-  (lister-replace lister-buf (lister-marker-at lister-buf position)
-		  data))
-
-(cl-defmethod lister-replace (lister-buf (position (eql :point)) data)
-  "Replace the item at point with a new DATA item."
-  (ignore position) ;; silence byte compiler
-  (lister-replace lister-buf (lister-marker-at lister-buf :point)
-		  data))
-
-(cl-defmethod lister-replace (lister-buf (position (eql :last)) data)
-  "Replace the last item with a new DATA item."
-  (ignore position) ;; silence byte compiler  
-  (lister-replace lister-buf (lister-marker-at lister-buf :last)
-		  data))
-
-(cl-defmethod lister-replace (lister-buf (position (eql :first)) data)
-  "Replace the first item with a new DATA item."
-  (ignore position) ;; silence byte compiler  
-  (lister-replace lister-buf (lister-marker-at lister-buf :first)
-		  data))
 
 ;; Replace the whole buffer list (set list)
 
