@@ -208,20 +208,16 @@ Throw an error if BUF is not a lister buffer."
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
 
-;; FIXME rename to show different meaning w/ respect to marker-at
-(defun lister-marker-at-pos (lister-buf pos)
-  "Return the marker of the item at POS.
+(defun lister-marker-for-pos (lister-buf pos)
+  "Return a marker for the item at POS.
 If there is no item, return nil."
-  (with-lister-buffer lister-buf
-    (when (get-text-property pos 'item)
-      (cl-find pos
-	       lister-local-marker-list
-	       :key #'marker-position))))
+  (when (get-text-property pos 'item lister-buf)
+    (lister-make-marker lister-buf pos)))
 
 ;; FIXME rename to show different meaning w/ respect to marker-at
 (defun lister-marker-at-point (lister-buf)
   "Return the marker associated with the item at point in LISTER-BUF."
-  (lister-marker-at-pos lister-buf
+  (lister-marker-for-pos lister-buf
 			(with-current-buffer lister-buf (point))))
 
 (defun lister-marker-at (lister-buf position-or-symbol) 
