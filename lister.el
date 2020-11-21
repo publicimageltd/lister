@@ -1140,25 +1140,12 @@ FN has to accept a marker object as its sole argument."
 
 ;; Set data
 
-(cl-defgeneric lister-set-data (lister-buf position data)
-  "Store the lisp object DATA at POSITION in LISTER-BUF.
-POSITION can be a buffer position or the symbol `:point'.")
-
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-set-data (lister-buf (position integer) data)
-  "Store DATA at POSITION in LISTER-BUF."
-  (lister-set-prop lister-buf position 'data data))
-
-(cl-defmethod lister-set-data (lister-buf (position (eql :point)) data)
-  "In LISTER-BUF, store DATA in the item at point."
-  (ignore position) ;; silence byte compiler
-  (if-let* ((marker (lister-marker-at lister-buf :point)))
-      (lister-set-data lister-buf marker data)
-    (error "lister-set-data: no item at point.")))
-
-(cl-defmethod lister-set-data (lister-buf (position marker) data)
-  "Insert DATA at POSITION in LISTER-BUF."
-  (lister-set-data lister-buf (lister-pos-as-integer position) data))
+(defun lister-set-data (lister-buf position-or-symbol data)
+  "Store the lisp object DATA at POSITION-OR-SYMBOL in LISTER-BUF.
+POSITION-OR-SYMBOL can be either a buffer position, a marker, or
+ one of the symbols `:point', `:last' or `:first'."
+  (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
+    (lister-set-prop lister-buf m 'data data)))
 
 ;; Get data
 
