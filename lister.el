@@ -785,7 +785,6 @@ at point or 0 if there is no such item."
 
 ;; -----------------------------------------------------------
 ;; * Insert, add, remove or replace list items
-;; -----------------------------------------------------------
 
 ;; Insert Single Items
 
@@ -809,6 +808,7 @@ add an item to the end of the list, you should `lister-add'."
     (lister-sensor-leave lister-buf)
     (let* ((marker-or-pos
 	    (lister-eval-pos-or-symbol lister-buf position-or-symbol))
+	   ;;
 	   (mapper (buffer-local-value 'lister-local-mapper
 				       lister-buf))
 	   ;;
@@ -920,58 +920,34 @@ Return the last inserted item marker."
 
 ;; Remove items
 
-(cl-defgeneric lister-remove (lister-buf position)
-  "Remove the item at POSITION from LISTER-BUF.
+(defun lister-remove (lister-buf position-or-symbol)
+  "Remove the item at POSITION-OR-SYMBOL from LISTER-BUF.
 POSITION can be either a buffer position, a marker, or one of the
-symbols `:point', `:last' or `:first'.")
+symbols `:point', `:last' or `:first'. Do nothing if the position
+does not indicate an item.
 
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-remove (lister-buf (position marker))
-  "Remove the item at POSITION."
-  (with-lister-buffer lister-buf
-    (let* ((pos                (lister-pos-as-integer position))
-	   (cursor-pos         (point))
-	   (prev-pos           (lister-looking-at-prop (current-buffer)
-						       pos
-						       'item
-						       'previous)))
+If removing the item leaves point on a non-item place, move point
+one item 'up'.
+"
+  (when-let* ((pos-marker (lister-marker-at lister-buf position-or-symbol)))
+    (let* ((cursor-pos         (with-current-buffer lister-buf (point)))
+	   (pos                (marker-position pos-marker)))
       (when (= cursor-pos pos)
-	(lister-sensor-leave (current-buffer)))
-      (setq lister-local-marker-list
-	    (cl-remove pos lister-local-marker-list :test #'=))
+	(lister-sensor-leave lister-buf))
       ;; remove the item 
-      (lister-remove-lines (current-buffer) pos)
+      (with-current-buffer lister-buf
+	(setq lister-local-marker-list
+	      (cl-remove pos lister-local-marker-list :test #'=)))
+      (lister-remove-lines lister-buf pos)
       ;; move point if it is not on an item anymore:
-      (when (and prev-pos
-		 (not (get-text-property pos 'item)))
-	(goto-char prev-pos))
+      (when-let* ((not-on-item-p (not (get-text-property pos 'item lister-buf)))
+		  (prev-pos (lister-looking-at-prop lister-buf
+						    pos 'item 'previous)))
+	(with-current-buffer lister-buf
+	  (goto-char prev-pos)))
       ;; if we left the sensor, let's turn it on again:
       (when (= cursor-pos pos)
-	(lister-sensor-enter (current-buffer) pos)))))
-  
-(cl-defmethod lister-remove (lister-buf (position null))
-  "Throw an error."
-  (ignore position lister-buf) ;; silence byte compiler
-  (error "No item at this position"))
-
-(cl-defmethod lister-remove (lister-buf (position (eql :point)))
-  "Remove the item at point."
-  (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-marker-at lister-buf :point)))
-
-(cl-defmethod lister-remove (lister-buf (position (eql :last)))
-  "Remove the last item."
-  (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-marker-at lister-buf :last)))
-
-(cl-defmethod lister-remove (lister-buf (position (eql :first)))
-  "Remove the first item."
-  (ignore position) ;; silence byte compiler
-  (lister-remove lister-buf (lister-marker-at lister-buf :first)))
-
-(cl-defmethod lister-remove (lister-buf (position integer))
-  "Remove the item at POSITION from LISTER-BUF."
-  (lister-remove lister-buf (lister-marker-at lister-buf position)))
+	(lister-sensor-enter lister-buf pos)))))
 
 ;; Remove sublists
 
