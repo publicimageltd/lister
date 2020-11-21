@@ -197,13 +197,13 @@ Throw an error if BUF is not a lister buffer."
 ;; Turn markers into positions, and vice versa
 
 (defun lister-pos-as-integer (marker-or-pos)
-  "Return the integer value of MARKER-OR-POS."
+  "Get the integer value from MARKER-OR-POS."
   (if (markerp marker-or-pos)
       (marker-position marker-or-pos)
     marker-or-pos))
 
 (defun lister-pos-as-marker (lister-buf marker-or-pos)
-  "Return a marker pointing to MARKER-OR-POS."
+  "Return the marker MARKER-OR-POS or build one."
   (if (markerp marker-or-pos)
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
@@ -222,29 +222,48 @@ If there is no item, return nil."
   (lister-marker-at-pos lister-buf
 			(with-current-buffer lister-buf (point))))
 
+
+(defun lister-first-pos-low-level (lister-buf)
+  "Get first position without using the marker list.
+LISTER-BUF is a lister buffer."
+  (let* ((pos (lister-item-min lister-buf)))
+    (and (get-text-property pos 'item lister-buf)
+	 (lister-pos-as-marker lister-buf pos))))
+
+(defun lister-last-pos-low-level (lister-buf)
+  "Return the last available item position without using the marker list.")
+
 (defun lister-marker-at (lister-buf position-or-symbol) 
   "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
 Return nil if there is no item at the desired position.
 
 If POSITION-OR-SYMBOL is one of the symbols `:first', `:last' or
 `:point', return the position of the first item, the last item or
-the item at point, respectively.  
+the item at point, respectively.
 
 If POSITION-OR-SYMBOL is a marker, return it unchanged iff it
 represents a valid position.
 
 If POSITION-OR-SYMBOL is an integer, treat it as a buffer
-position and return a marker representing it."
-  (when-let* ((marker-list (buffer-local-value 'lister-local-marker-list lister-buf)))
-    (pcase position-or-symbol
-      ((and (pred markerp) marker) (and (marker-buffer marker)
-					(get-text-property marker 'item lister-buf)
-					marker))
-      (:first (car marker-list))
-      (:last  (car (last marker-list)))
-      (:point (lister-marker-at-point lister-buf))
-      ((and (pred integerp) pos) (lister-marker-at-pos lister-buf pos))
-      (_      (error "Unknown position or symbol: %s" position-or-symbol)))))
+position and return a marker representing it iff it represents a
+valid position."
+  ;; we can't always use the marker list, since we might be in the
+  ;; process of building it!
+  ;; FIXME ggf. Option einbauen, auch "invalid positions" zu akzeptieren
+  (let* ((pos
+	  (pcase position-or-symbol
+	    ((or (pred markerp) (pred integerp)) position-or-symbol)
+	    (:first   (lister-item-min lister-buf))
+	    (:last    (when-let* ((last-pos (lister-item-max lister-buf))
+				  (last-pos (previous-single-property-change last-pos
+									     'item
+									     lister-buf
+									     (lister-item-min lister-buf))))
+			(1- last-pos)))
+	    (:point   (with-current-buffer lister-buf (point))))))
+    (and pos
+	 (get-text-property pos 'item lister-buf)
+	 (lister-pos-as-marker lister-buf pos))))
 
 ;; Lock cursor during longer transactions:
 
@@ -711,7 +730,7 @@ at point or 0 if there is no such item."
 ;; * Insert, add, remove or replace list items
 ;; -----------------------------------------------------------
 
-;; Insert
+;; Insert Single Items
 
 (cl-defgeneric lister-insert (lister-buf position data &optional level)
   "Insert DATA as item at POSITION in LISTER-BUF.
@@ -760,12 +779,7 @@ Return the marker of the inserted item's cursor gap position.")
 		    (lister-next-free-position lister-buf)))))
     (lister-insert lister-buf pos data level)))
 
-(cl-defmethod lister-insert (lister-buf (position (eql :next)) data &optional level)
-  "Insert DATA after current item in LISTER-BUF."
-  (ignore position) ;; silence byte compiler warning
-  (let* ((pos  (with-current-buffer lister-buf (point)))
-	 (next (lister-end-of-lines lister-buf pos t)))
-    (lister-insert lister-buf (or next pos) data level)))
+;; * Insert Sequences of Items
 
 (defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
