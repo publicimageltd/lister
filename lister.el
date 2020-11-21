@@ -194,7 +194,15 @@ Throw an error if BUF is not a lister buffer."
   `(with-current-buffer (lister-buffer-p ,buf)
      ,@body))
 
-;; Turn markers into positions, and vice versa
+;; -----------------------------------------------------------
+;; * Marker and Positions
+
+(defun lister-make-marker (buf pos)
+  "Create a suitable marker for POS in lister buffer BUF."
+  (let ((marker (make-marker)))
+    (set-marker marker pos buf)
+    (set-marker-insertion-type marker t)
+    marker))
 
 (defun lister-pos-as-integer (marker-or-pos)
   "Get the integer value from MARKER-OR-POS."
@@ -203,7 +211,7 @@ Throw an error if BUF is not a lister buffer."
     marker-or-pos))
 
 (defun lister-pos-as-marker (lister-buf marker-or-pos)
-  "Return the marker MARKER-OR-POS or build one."
+  "Return the marker MARKER-OR-POS or create one."
   (if (markerp marker-or-pos)
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
@@ -247,7 +255,75 @@ valid position."
 			    lister-buf)
 	 (lister-pos-as-marker lister-buf pos))))
 
-;; Lock cursor during longer transactions:
+(defun lister-add-marker (lister-buf marker-or-pos)
+  "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
+MARKER-OR-POS can be a marker or a pos, or a list of markers or
+positions.
+
+Do nothing if `lister-inhibit-marker-list' is t."
+  (unless lister-inhibit-marker-list
+    (with-lister-buffer lister-buf
+      ;; marker-as-list can be nil if marker-or-pos is nil
+      (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
+				     (if (listp marker-or-pos)
+					 marker-or-pos
+				       (list marker-or-pos)))))
+	(setq lister-local-marker-list
+	      (sort (append lister-local-marker-list
+			    ;; nil value for marker-as-list will be
+			    ;; 'swallowed' by append:
+			    marker-as-list)
+		    #'<))))))
+
+(defun lister-item-min (lister-buf)
+  "Return the first allowed position for an item"
+  (with-lister-buffer lister-buf
+    (if lister-local-header-marker
+	(lister-end-of-lines lister-buf lister-local-header-marker)
+      (point-min))))
+
+(defun lister-item-max (lister-buf)
+  "Return the position of the last char of the last item."
+  (with-lister-buffer lister-buf
+    (if lister-local-footer-marker
+	(1- (marker-position lister-local-footer-marker))
+      (point-max))))
+
+(defun lister-next-free-position (lister-buf) 
+  "Return the next free position for a new list item in LISTER-BUF."
+  (with-lister-buffer lister-buf
+    (let* ((ml     lister-local-marker-list))
+      (cond
+       ;; if there are any items, return the last item position:
+       ;; (this is independent of an existing footer)
+       (ml (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
+       ;; now is there a footer? return its position to insert next item there: 
+       (lister-local-footer-marker (marker-position lister-local-footer-marker))
+       ;; no footer, so insert after header, which is the end of the buffer:
+       (lister-local-header-marker (point-max))
+       ;; nothing there, just go to the beginning:
+       (t (point-min))))))
+
+(defun lister-index-position (lister-buf marker-or-pos
+					 &optional include-invisible)
+  "Return the index position of MARKER-OR-POS.
+The index only refers to visible items, unless INCLUDE-INVISIBLE
+is t. Returns nil if no items are visible, or if MARKER-OR-POS is
+not on an item."
+  (with-lister-buffer lister-buf
+    (when-let* ((mlist (if include-invisible lister-local-marker-list
+			 (lister-visible-markers lister-buf))))
+      (seq-position mlist
+		    (lister-pos-as-marker lister-buf marker-or-pos)
+		    #'equal))))
+
+(defun lister-index-marker (lister-buf index-position)
+  "Return the marker of INDEX-POSITION, if available."
+  (with-lister-buffer lister-buf
+    (seq-elt (lister-visible-markers lister-buf) index-position)))
+
+;; -----------------------------------------------------------
+;; * MACRO Lock cursor during longer transactions:
 
 (defmacro lister-with-locked-cursor (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
@@ -269,7 +345,6 @@ Inhibit any sensor functions."
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
-;; -----------------------------------------------------------
 
 ;; These are the core primitives. The following functions either
 ;; insert, remove or replace lines of text, usually passed to these
@@ -407,6 +482,7 @@ the item."
       (error "Did not find text property 'nchars at buffer position %d"
 	     (lister-pos-as-integer marker-or-pos)))))
 
+;; -----------------------------------------------------------
 ;; * Set header or footer of the list
 
 ;; Headers or footers are just ordinary lists inserted by
@@ -457,9 +533,9 @@ Setting LINES to `nil' effectively deletes the item."
   "Insert or replace FOOTER after the last item of LISTER-BUF."
   (lister-set-header-or-footer lister-buf footer 'footer))
 
+
 ;; -----------------------------------------------------------
 ;; * Filtering
-;; -----------------------------------------------------------
 
 ;; Showing and hiding items
 
@@ -625,20 +701,6 @@ Use the boolean operator `and' or instead use OP, if specified."
   (lister-activate-filter lister-buf))
 
 ;; * Finding properties in other items
-
-(defun lister-item-min (lister-buf)
-  "Return the first allowed position for an item"
-  (with-lister-buffer lister-buf
-    (if lister-local-header-marker
-	(lister-end-of-lines lister-buf lister-local-header-marker)
-      (point-min))))
-
-(defun lister-item-max (lister-buf)
-  "Return the position of the last char of the last item."
-  (with-lister-buffer lister-buf
-    (if lister-local-footer-marker
-	(1- (marker-position lister-local-footer-marker))
-      (point-max))))
 
 (defun lister-looking-at-prop (lister-buf pos-or-marker prop direction)
   "Return position of PROP either at the previous or next item.
@@ -1244,73 +1306,10 @@ Throw an error if the item is not visible."
       (lister-sensor-enter lister-buf)
       m))))
 
-;; * Treat visible items as an indexed list
-
-(defun lister-index-position (lister-buf marker-or-pos
-					 &optional include-invisible)
-  "Return the index position of MARKER-OR-POS.
-The index only refers to visible items, unless INCLUDE-INVISIBLE
-is t. Returns nil if no items are visible, or if MARKER-OR-POS is
-not on an item."
-  (with-lister-buffer lister-buf
-    (when-let* ((mlist (if include-invisible lister-local-marker-list
-			 (lister-visible-markers lister-buf))))
-      (seq-position mlist
-		    (lister-pos-as-marker lister-buf marker-or-pos)
-		    #'equal))))
-
-(defun lister-index-marker (lister-buf index-position)
-  "Return the marker of INDEX-POSITION, if available."
-  (with-lister-buffer lister-buf
-    (seq-elt (lister-visible-markers lister-buf) index-position)))
 
 ;; -----------------------------------------------------------
 ;; * Marker 
 ;; -----------------------------------------------------------
-
-(defun lister-add-marker (lister-buf marker-or-pos)
-  "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
-MARKER-OR-POS can be a marker or a pos, or a list of markers or
-positions.
-
-Do nothing if `lister-inhibit-marker-list' is t."
-  (unless lister-inhibit-marker-list
-    (with-lister-buffer lister-buf
-      ;; marker-as-list can be nil if marker-or-pos is nil
-      (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
-				     (if (listp marker-or-pos)
-					 marker-or-pos
-				       (list marker-or-pos)))))
-	(setq lister-local-marker-list
-	      (sort (append lister-local-marker-list
-			    ;; nil value for marker-as-list will be
-			    ;; 'swallowed' by append:
-			    marker-as-list)
-		    #'<))))))
-
-(defun lister-next-free-position (lister-buf) 
-  "Return the next free position for a new list item in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (let* ((ml     lister-local-marker-list))
-      (cond
-       ;; if there are any items, return the last item position:
-       ;; (this is independent of an existing footer)
-       (ml (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
-       ;; now is there a footer? return its position to insert next item there: 
-       (lister-local-footer-marker (marker-position lister-local-footer-marker))
-       ;; no footer, so insert after header, which is the end of the buffer:
-       (lister-local-header-marker (point-max))
-       ;; nothing there, just go to the beginning:
-       (t (point-min))))))
-
-;; * Creating Markers
-
-(defun lister-make-marker (buf pos)
-  "Return a suitable marker for POS in BUF."
-  (let ((marker (make-marker)))
-    (set-marker marker pos buf)
-    (set-marker-insertion-type marker t)
-    marker))
 
 ;; * Cursor Sensor Function
 
