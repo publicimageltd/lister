@@ -208,12 +208,6 @@ Throw an error if BUF is not a lister buffer."
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
 
-(defun lister-marker-for-pos (lister-buf pos)
-  "Return a marker for the item at POS.
-If there is no item, return nil."
-  (when (get-text-property pos 'item lister-buf)
-    (lister-make-marker lister-buf pos)))
-
 (defun lister-marker-at (lister-buf position-or-symbol) 
   "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
 Return nil if there is no item at the desired position.
