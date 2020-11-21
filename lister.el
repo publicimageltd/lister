@@ -222,22 +222,29 @@ represents a valid position.
 If POSITION-OR-SYMBOL is an integer, treat it as a buffer
 position and return a marker representing it iff it represents a
 valid position."
-  ;; we can't always use the marker list, since we might be in the
-  ;; process of building it!
-  ;; FIXME ggf. Option einbauen, auch "invalid positions" zu akzeptieren
+  ;; we can't use the marker list, since we might be in the process of
+  ;; building it!
   (let* ((pos
-	  (pcase position-or-symbol
-	    ((or (pred markerp) (pred integerp)) position-or-symbol)
-	    (:first   (lister-item-min lister-buf))
-	    (:last    (when-let* ((last-pos (lister-item-max lister-buf))
-				  (last-pos (previous-single-property-change last-pos
-									     'item
-									     lister-buf
-									     (lister-item-min lister-buf))))
-			(1- last-pos)))
-	    (:point   (with-current-buffer lister-buf (point))))))
+	  (cond
+	   ;; the two most likely use cases first:
+	   ((markerp position-or-symbol)    position-or-symbol)
+	   ((integerp position-or-symbol)   position-or-symbol)
+	   ;; now the keyword cases:
+	   ((eq position-or-symbol :first)  (lister-item-min lister-buf))
+	   ((eq position-or-symbol :point)  (with-current-buffer lister-buf (point)))
+	   ((eq position-or-symbol :last)   (when-let*
+						((last-pos (lister-item-max lister-buf))
+						 (last-pos (previous-single-property-change last-pos
+											    'item
+											    lister-buf
+											    (lister-item-min lister-buf))))
+					      (1- last-pos)))
+	   (t (error "unknown value for PROPERTY-OR-SYMBOL: %s" property-or-symbol)))))
+    ;;
     (and pos
-	 (get-text-property pos 'item lister-buf)
+	 (get-text-property (lister-pos-as-integer pos)
+			    'item
+			    lister-buf)
 	 (lister-pos-as-marker lister-buf pos))))
 
 ;; Lock cursor during longer transactions:
