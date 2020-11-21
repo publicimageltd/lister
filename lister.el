@@ -1125,12 +1125,14 @@ FN has to accept a marker object as its sole argument."
 (defun lister-set-prop (buf gap-pos prop value)
   "At GAP-POS, store VALUE in text property PROP."
   (with-current-buffer buf
-    (let ((inhibit-read-only t))
-      (put-text-property gap-pos (1+ gap-pos) prop value))))
+    (let* ((inhibit-read-only t)
+	   (pos (lister-pos-as-integer gap-pos)))
+      (put-text-property pos (1+ pos) prop value))))
 
 (defun lister-get-prop (buf gap-pos prop)
   "Get VALUE from GAP-POS."
-  (get-text-property gap-pos prop buf))
+  (let* ((pos (lister-pos-as-integer gap-pos)))
+    (get-text-property pos prop buf)))
 
 (defun lister-get-props-at (buf pos &rest props)
   "Return the values of all PROPS at POS in BUF."
