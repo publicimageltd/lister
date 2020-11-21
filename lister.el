@@ -1037,8 +1037,8 @@ indentation level."
   (lister-with-locked-cursor lister-buf
     (let* ((pos-marker (lister-marker-at lister-buf position-or-symbol))
 	   (level  (get-text-property (marker-position pos-marker) 'level lister-buf)))
-      (lister-remove lister-buf position t)
-      (lister-insert lister-buf position data level))))
+      (lister-remove lister-buf pos-marker t)
+      (lister-insert lister-buf pos-marker data level))))
 
 ;; Replace the whole buffer list (set list)
 
