@@ -173,12 +173,6 @@
   (after-each
     (kill-buffer buf))
   ;;
-  (it "Fail calling 'insert' with a non-lister buffer."
-    (with-temp-buffer
-      (expect  (lister-insert (current-buffer) (point-min) '("TEST" "TEST"))
-	       :to-throw
-	       'error)))
-  ;;
   (it "Insert a single header."
     (lister-set-header buf header)
     (expect (test-buffer-content buf)
