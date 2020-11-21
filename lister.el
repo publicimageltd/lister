@@ -920,15 +920,15 @@ Return the last inserted item marker."
 
 ;; Remove items
 
-(defun lister-remove (lister-buf position-or-symbol)
+(defun lister-remove (lister-buf position-or-symbol &optional inhibit-cursor-movement)
   "Remove the item at POSITION-OR-SYMBOL from LISTER-BUF.
 POSITION can be either a buffer position, a marker, or one of the
 symbols `:point', `:last' or `:first'. Do nothing if the position
 does not indicate an item.
 
 If removing the item leaves point on a non-item place, move point
-one item 'up'.
-"
+one item 'up'. This behavior can be turned off by setting the
+optional argument INHIBIT-CURSOR-MOVEMENT to a non-nil value."
   (when-let* ((pos-marker (lister-marker-at lister-buf position-or-symbol)))
     (let* ((cursor-pos         (with-current-buffer lister-buf (point)))
 	   (pos                (marker-position pos-marker)))
@@ -940,11 +940,11 @@ one item 'up'.
 	      (cl-remove pos lister-local-marker-list :test #'=)))
       (lister-remove-lines lister-buf pos)
       ;; move point if it is not on an item anymore:
-      (when-let* ((not-on-item-p (not (get-text-property pos 'item lister-buf)))
-		  (prev-pos (lister-looking-at-prop lister-buf
-						    pos 'item 'previous)))
-	(with-current-buffer lister-buf
-	  (goto-char prev-pos)))
+      (unless (or inhibit-cursor-movement
+		  (get-text-property pos 'item lister-buf))
+	(when-let* ((prev-pos (lister-looking-at-prop lister-buf  pos 'item 'previous)))
+	  (with-current-buffer lister-buf
+	    (goto-char prev-pos))))
       ;; if we left the sensor, let's turn it on again:
       (when (= cursor-pos pos)
 	(lister-sensor-enter lister-buf pos)))))
