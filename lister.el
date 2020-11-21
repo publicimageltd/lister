@@ -106,6 +106,9 @@ the execution of the callback functions.
 Use `lister-add-leave-callback' to add a function to this buffer
 local hook.")
 
+(defvar-local lister-sensor-last-item nil
+  "Last item on which the sensor function has been applied.")
+
 ;; Global Variables:
 
 (defvar lister-inhibit-cursor-action nil
@@ -114,8 +117,9 @@ local hook.")
 (defvar lister-inhibit-marker-list nil
   "Bind this to inhibit updating the marker list while inserting items.")
 
-(defvar-local lister-sensor-last-item nil
-  "Last item on which the sensor function has been applied.")
+(defvar lister-lock-cursor nil
+  "This is bound by the macro `lister-with-locked-cursor' to
+  avoid duplicate calls.")
 
 ;; Customizable Global Variables:
 
@@ -340,21 +344,22 @@ not on an item."
 
 (defmacro lister-with-locked-cursor (buf &rest body)
   "Treat BODY as a single change and update the cursor position afterwards.
-Inhibit any sensor functions."
+Inhibit any sensor functions. 
+
+This macro can be nested without loss of performance."
   (declare (indent 1) (debug (sexp body)))
-  (let ((temp-pos (make-symbol (format "pos%d" (random))))
-	(temp-buf (make-symbol (format "buf%d" (random)))))
-    `(let* ((,temp-buf ,buf)
-	    (,temp-pos (with-current-buffer ,temp-buf (point))))
-       (lister-sensor-leave ,temp-buf)
-       (let ((lister-inhibit-cursor-action t)
-	     (cursor-sensor-inhibit t))
-	 ,@body
-	 (lister-goto ,temp-buf
-		      (or (cl-find ,temp-pos (lister-visible-markers ,temp-buf) :key #'marker-position)
-			  :last)))
-       (lister-sensor-enter ,temp-buf
-			    (with-current-buffer ,temp-buf (point))))))
+  ;; don't nest:
+  `(unless lister-with-locked-cursor       
+     (lister-sensor-leave ,buf)
+     (let* ((lister-inhibit-cursor-action t)
+	    (cursor-sensor-inhibit t)
+	    (lister-with-locked-cursor t)
+	    (cursor-pos (with-current-buffer ,buf (point))))
+       ,@body
+       (unless (get-text-property cursor-pos 'item ,buf)
+	 (lister-goto ,buf :last))
+       (lister-sensor-enter ,buf
+			    (with-current-buffer ,buf (point))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
@@ -1009,6 +1014,9 @@ Example:
 	      (next-level     (get-text-property next-item 'level lister-buf)))
     (> next-level current-level)))
 
+;; FIXME Wrap this in a locked cursor? To do this, the macro
+;; "lister-with-locked-cursor" should be made nestable without
+;; perfomance loss.
 (defun lister-remove-sublist-below (lister-buf pos-or-marker)
   "Remove the sublist below the item at POS-OR-MARKER.
 Do nothing if the next item is not a sublist."
