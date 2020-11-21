@@ -124,8 +124,17 @@
   :var (buf)
   (before-each
     (setq buf (lister-setup (test-new-buffer)
-			    #'list
-			    '("A" "B" "C" "D" "E"))))
+			    #'list))
+    (with-current-buffer buf
+      (setq lister-local-left-margin 0
+	    lister-local-top-margin 0
+	    lister-local-bottom-margin 0))
+      (lister-add buf "A") ;; 1
+      (lister-add buf "B") ;; 3
+      (lister-add buf "C") ;; 5
+      (lister-add buf "D") ;; 7
+      (lister-add buf "E") ;; 9
+      )
   (after-each
     (kill-buffer buf))
   (it "Get the first item:"
@@ -139,8 +148,15 @@
     (with-current-buffer buf
       (forward-line))
     (let ((m (lister-marker-at buf :point)))
-      (expect (lister-get-data buf m) :to-equal "B"))))
-
+      (expect (lister-get-data buf m) :to-equal "B")))
+  (it "Call it with a marker:"
+    (let* ((m1 (lister-make-marker buf 9))
+	   (m2 (lister-marker-at buf m1)))
+      (expect m1 :to-equal m2)))
+  (it "Call it with a position:"
+    (let* ((p1 9)
+	   (m1 (lister-marker-at buf p1)))
+      (expect (marker-position m1) :to-equal p1))))
   
 (describe "Inserting header, footer and items:"
   :var (buf header footer data)
