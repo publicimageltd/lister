@@ -208,6 +208,7 @@ Throw an error if BUF is not a lister buffer."
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
 
+;; FIXME rename to show different meaning w/ respect to marker-at
 (defun lister-marker-at-pos (lister-buf pos)
   "Return the marker of the item at POS.
 If there is no item, return nil."
@@ -217,21 +218,11 @@ If there is no item, return nil."
 	       lister-local-marker-list
 	       :key #'marker-position))))
 
+;; FIXME rename to show different meaning w/ respect to marker-at
 (defun lister-marker-at-point (lister-buf)
   "Return the marker associated with the item at point in LISTER-BUF."
   (lister-marker-at-pos lister-buf
 			(with-current-buffer lister-buf (point))))
-
-
-(defun lister-first-pos-low-level (lister-buf)
-  "Get first position without using the marker list.
-LISTER-BUF is a lister buffer."
-  (let* ((pos (lister-item-min lister-buf)))
-    (and (get-text-property pos 'item lister-buf)
-	 (lister-pos-as-marker lister-buf pos))))
-
-(defun lister-last-pos-low-level (lister-buf)
-  "Return the last available item position without using the marker list.")
 
 (defun lister-marker-at (lister-buf position-or-symbol) 
   "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
@@ -732,52 +723,51 @@ at point or 0 if there is no such item."
 
 ;; Insert Single Items
 
-(cl-defgeneric lister-insert (lister-buf position data &optional level)
-  "Insert DATA as item at POSITION in LISTER-BUF.
-POSITION can be a buffer position , the symbol `:point', `:first'
-or the symbol `:next'.
+;; FIXME Optimize for speed.
+;; - We don't need to create a marker for finding the position
+;;   For this, we would have to factor out "finding the position"
+;;   from lister-marker-at
+;; - We might even not need to wrap it in `with-lister-buffer'
+
+(defun lister-insert (lister-buf position-or-symbol data &optional level)
+    "Insert DATA as item at POSITION-OR-SYMBOL in LISTER-BUF.
+POSITION-OR-SYMBOL can be a buffer position, a marker, or the
+symbols `:point', `:first' or `:last'. 
+
+Note that to insert a new item at a position means to move any
+existing items at this position further down. Thus, `:last'
+effectively inserts an item before the last item. If you want to
+add an item to the end of the list, use `lister-add'.
 
 Insert DATA at the indentation level LEVEL. For the possible
 values of LEVEL, see `lister-determine-level'.
 
-Return the marker of the inserted item's cursor gap position.")
-
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-insert (lister-buf (position integer) data &optional level)
-  "Insert DATA at buffer position POS in LISTER-BUF."
+Return the marker of the inserted item's cursor gap position."
+  "Insert DATA at buffer position-or-symbol POS in LISTER-BUF."
   (with-lister-buffer lister-buf
     (let* ((cursor-sensor-inhibit t))
       (lister-sensor-leave lister-buf)
-      (let* ((marker         (lister-insert-lines lister-buf position
-						  (lister-validate-lines
-						   (lister-strflat (funcall lister-local-mapper data)))
-						  (lister-determine-level lister-buf position level))))
+      (let* ((marker
+	      ;; we can't always use lister-marker-at, since it only
+	      ;; returns positions with a valid item. We, however,
+	      ;; might proceed to unknown terrain in this function:
+	      (pcase position-or-symbol
+		((or (pred integerp) (pred markerp)) (lister-pos-as-marker lister-buf position-or-symbol))
+		(_ (lister-marker-at lister-buf position-or-symbol)))))
+	(unless marker
+	  (error "lister-insert: could not determine position %s" position-or-symbol))
+	(setq marker (lister-insert-lines lister-buf marker
+					  (lister-validate-lines
+					   (lister-strflat (funcall lister-local-mapper data)))
+					  (lister-determine-level lister-buf position-or-symbol level)))
 	(lister-set-data lister-buf marker data)
 	(lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
-	(when lister-local-filter-active 
+	(when lister-local-filter-active
 	  (lister-possibly-hide-item lister-buf marker data))
 	(lister-add-marker lister-buf marker)
 	(goto-char marker)
 	(lister-sensor-enter lister-buf)
 	marker))))
-
-(cl-defmethod lister-insert (lister-buf (position marker) data &optional level)
-    "Insert DATA at MARKER in LISTER-BUF."
-    (lister-insert lister-buf (marker-position position) data level))
-
-(cl-defmethod lister-insert (lister-buf (position (eql :point)) data &optional level)
-  "Insert DATA at point in LISTER-BUF."
-  (ignore position) ;; silence byte compiler warning
-  (let* ((pos (with-current-buffer lister-buf (point))))
-    (lister-insert lister-buf pos data level)))
-
-(cl-defmethod lister-insert (lister-buf (position (eql :first)) data &optional level)
-  "Insert DATA as first item in LISTER-BUF."
-  (ignore position) ;; silence byte compiler warning
-  (let* ((pos (with-current-buffer lister-buf
-		(or (car lister-local-marker-list)
-		    (lister-next-free-position lister-buf)))))
-    (lister-insert lister-buf pos data level)))
 
 ;; * Insert Sequences of Items
 
