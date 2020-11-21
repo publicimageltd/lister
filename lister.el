@@ -216,6 +216,37 @@ Throw an error if BUF is not a lister buffer."
       marker-or-pos
     (lister-make-marker lister-buf marker-or-pos)))
 
+(defun lister-eval-pos-or-symbol (lister-buf position-or-symbol)
+  "Return a marker position evaluating POSITION-OR-SYMBOL.
+POSITION-OR-SYMBOL can itself be a marker, or an integer, or the
+symbols `:first', `:last' or `:point'.
+
+LISTER-BUF must be a set up lister buffer.
+
+Note that this function only interpretes POSITION-OR-SYMBOL. It
+does not check whether the position found is valid."
+  (let* ((pos
+	  (cond
+	   ;; the two most likely use cases first:
+	   ((markerp position-or-symbol)    position-or-symbol)
+	   ((integerp position-or-symbol)   position-or-symbol)
+	   ;; now the keyword cases:
+	   ((eq position-or-symbol :first)  (lister-item-min lister-buf))
+	   ((eq position-or-symbol :point)  (with-current-buffer lister-buf (point)))
+	   ((eq position-or-symbol :last)
+	    (when-let*
+		((last-pos (lister-item-max lister-buf))
+		 (last-pos (previous-single-property-change last-pos
+						    'item
+						    lister-buf
+						    (lister-item-min lister-buf))))
+	      (1- last-pos)))
+	   (t
+	    (error "unknown value for PROPERTY-OR-SYMBOL: %s"
+		   property-or-symbol)))))
+    (and pos
+	 (lister-pos-as-marker lister-buf pos))))
+
 (defun lister-marker-at (lister-buf position-or-symbol) 
   "In LISTER-BUF, return marker according to POSITION-OR-SYMBOL.
 Return nil if there is no item at the desired position.
@@ -230,30 +261,12 @@ represents a valid position.
 If POSITION-OR-SYMBOL is an integer, treat it as a buffer
 position and return a marker representing it iff it represents a
 valid position."
-  ;; we can't use the marker list, since we might be in the process of
-  ;; building it!
-  (let* ((pos
-	  (cond
-	   ;; the two most likely use cases first:
-	   ((markerp position-or-symbol)    position-or-symbol)
-	   ((integerp position-or-symbol)   position-or-symbol)
-	   ;; now the keyword cases:
-	   ((eq position-or-symbol :first)  (lister-item-min lister-buf))
-	   ((eq position-or-symbol :point)  (with-current-buffer lister-buf (point)))
-	   ((eq position-or-symbol :last)   (when-let*
-						((last-pos (lister-item-max lister-buf))
-						 (last-pos (previous-single-property-change last-pos
-											    'item
-											    lister-buf
-											    (lister-item-min lister-buf))))
-					      (1- last-pos)))
-	   (t (error "unknown value for PROPERTY-OR-SYMBOL: %s" property-or-symbol)))))
-    ;;
-    (and pos
-	 (get-text-property (lister-pos-as-integer pos)
+  (when-let* ((m (lister-eval-pos-or-symbol lister-buf
+					    position-or-symbol)))
+    (and (get-text-property (lister-pos-as-integer m)
 			    'item
 			    lister-buf)
-	 (lister-pos-as-marker lister-buf pos))))
+	 m)))
 
 (defun lister-add-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
@@ -776,51 +789,54 @@ at point or 0 if there is no such item."
 
 ;; Insert Single Items
 
-;; FIXME Optimize for speed.
-;; - We don't need to create a marker for finding the position
-;;   For this, we would have to factor out "finding the position"
-;;   from lister-marker-at
-;; - We might even not need to wrap it in `with-lister-buffer'
-
 (defun lister-insert (lister-buf position-or-symbol data &optional level)
     "Insert DATA as item at POSITION-OR-SYMBOL in LISTER-BUF.
-POSITION-OR-SYMBOL can be a buffer position, a marker, or the
-symbols `:point', `:first' or `:last'. 
-
-Note that to insert a new item at a position means to move any
-existing items at this position further down. Thus, `:last'
-effectively inserts an item before the last item. If you want to
-add an item to the end of the list, use `lister-add'.
+POSITION-OR-SYMBOL must be a buffer position, a marker, or the
+symbols `:point', `:first' or `:last'. The indicated position
+will not be checked for validity.
 
 Insert DATA at the indentation level LEVEL. For the possible
 values of LEVEL, see `lister-determine-level'.
 
-Return the marker of the inserted item's cursor gap position."
-  "Insert DATA at buffer position-or-symbol POS in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (let* ((cursor-sensor-inhibit t))
-      (lister-sensor-leave lister-buf)
-      (let* ((marker
-	      ;; we can't always use lister-marker-at, since it only
-	      ;; returns positions with a valid item. We, however,
-	      ;; might proceed to unknown terrain in this function:
-	      (pcase position-or-symbol
-		((or (pred integerp) (pred markerp)) (lister-pos-as-marker lister-buf position-or-symbol))
-		(_ (lister-marker-at lister-buf position-or-symbol)))))
-	(unless marker
-	  (error "lister-insert: could not determine position %s" position-or-symbol))
-	(setq marker (lister-insert-lines lister-buf marker
-					  (lister-validate-lines
-					   (lister-strflat (funcall lister-local-mapper data)))
-					  (lister-determine-level lister-buf position-or-symbol level)))
-	(lister-set-data lister-buf marker data)
-	(lister-set-prop lister-buf marker 'cursor-sensor-functions '(lister-sensor-function))
-	(when lister-local-filter-active
-	  (lister-possibly-hide-item lister-buf marker data))
-	(lister-add-marker lister-buf marker)
-	(goto-char marker)
-	(lister-sensor-enter lister-buf)
-	marker))))
+Return the marker of the inserted item's front cursor gap
+position (the position 'of' the inserted item itself).
+
+Note that to insert a new item at a position means to move any
+existing items at this position further down. Thus, `:last'
+effectively inserts an item before the last item. If you want to
+add an item to the end of the list, you should `lister-add'."
+  (let* ((cursor-sensor-inhibit t))
+    (lister-sensor-leave lister-buf)
+    (let* ((marker-or-pos
+	    (lister-eval-pos-or-symbol lister-buf position-or-symbol))
+	   (mapper (buffer-local-value 'lister-local-mapper
+				       lister-buf))
+	   ;;
+	   (lines
+	    (lister-validate-lines
+	     (lister-strflat (funcall mapper data))))
+	   ;;
+	   (level
+	    (lister-determine-level  lister-buf
+				     marker-or-pos
+				     level))
+	   ;;
+	   (marker  (lister-insert-lines lister-buf
+					 marker-or-pos
+					 lines
+					 level)))
+      ;;
+      (lister-set-data lister-buf marker data)
+      (lister-set-prop lister-buf marker
+		       'cursor-sensor-functions
+		       '(lister-sensor-function))
+      (when (buffer-local-value 'lister-local-filter-active lister-buf)
+	(lister-possibly-hide-item lister-buf marker data))
+      (lister-add-marker lister-buf marker)
+      (with-current-buffer lister-buf
+	(goto-char marker))
+      (lister-sensor-enter lister-buf)
+      marker)))
 
 ;; * Insert Sequences of Items
 
