@@ -904,13 +904,6 @@ Return the list of newly inserted markers."
       (lister-sensor-enter lister-buf (car (reverse new-marker)))
       new-marker)))
 
-(defun lister-insert-sublist (lister-buf pos-or-marker seq)
-  "In LISTER-BUF at POS-OR-MARKER, insert SEQ with indentation.
-The inserted sublist is intended one level more than the item
-currently at POS-OR-MARKER."
-  (let* ((current-level (or (get-text-property pos-or-marker 'level lister-buf) 0)))
-    (lister-insert-sequence lister-buf pos-or-marker seq (1+ current-level))))
-
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
   "Insert SEQ as an indented sublist below the item at POS-OR-MARKER."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker)))
