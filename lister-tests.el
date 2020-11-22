@@ -22,6 +22,7 @@
 
 (require 'lister "lister.el")
 (require 'buttercup)
+(require 'seq)
 
 (message "Running tests on Emacs %s" emacs-version)
 
@@ -277,6 +278,28 @@
 	    :to-equal
 	    '("1" "2" "3"))))
 
+(describe "Inserting sequences:"
+  (before-each
+    (setq buf (lister-setup (test-new-buffer)
+			    #'list)))
+  (after-each
+    (kill-buffer buf))
+  ;;
+  (it "Insert list in the right order:"
+    (let ((the-sequence '("A" "B" "C" "D")))
+      (lister-insert-sequence buf (lister-marker-at buf :first) the-sequence)
+      (expect (lister-get-all-data buf) :to-equal the-sequence)))
+  (it "Insert vector in the right order:"
+    (let ((the-sequence ["A" "B" "C" "D"]))
+      (lister-insert-sequence buf (lister-marker-at buf :first) the-sequence)
+      (expect (lister-get-all-data buf) :to-equal (seq-into the-sequence 'list))))
+  (it "Insert two sequences using lister-add-sequence:"
+    (let ((the-sequence '("A" "B" "C" "D")))
+      (lister-add-sequence buf the-sequence)
+      (lister-add-sequence buf the-sequence)
+      (expect (lister-get-all-data buf) :to-equal (append the-sequence the-sequence)))))
+
+
 (describe "Hiding items:"
   :var (buf first-item second-item
 	    third-item fourth-item)
@@ -456,12 +479,11 @@
     (lister-goto buf :first)
     (expect value :to-equal "D"))
   (it "Do not call callback while wrapped in transaction"
-    (lister-add-enter-callback buf
-			       (lambda ()
-				 (setq value
-				       (lister-get-data
-					buf
-					:point))))
+    (lister-add-enter-callback buf  (lambda ()
+				      (setq value
+					    (lister-get-data
+					     buf
+					     :point))))
     (let (in-between-value)
       (lister-goto buf :first)
       (lister-with-locked-cursor buf
