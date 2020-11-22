@@ -117,7 +117,7 @@ local hook.")
 (defvar lister-inhibit-marker-list nil
   "Bind this to inhibit updating the marker list while inserting items.")
 
-(defvar lister-lock-cursor nil
+(defvar lister-cursor-locked nil
   "This is bound by the macro `lister-with-locked-cursor' to
   avoid duplicate calls.")
 
@@ -349,7 +349,7 @@ Inhibit any sensor functions.
 This macro can be nested without loss of performance."
   (declare (indent 1) (debug (sexp body)))
   ;; don't nest:
-  `(unless lister-with-locked-cursor       
+  `(unless lister-cursor-locked
      (lister-sensor-leave ,buf)
      (let* ((lister-inhibit-cursor-action t)
 	    (cursor-sensor-inhibit t)
