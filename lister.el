@@ -983,6 +983,15 @@ optional argument INHIBIT-CURSOR-MOVEMENT to a non-nil value."
   (with-current-buffer lister-buf
     (get-text-property (elt lister-local-marker-list n) 'level)))
 
+
+(defun lister-level-at (lister-buf position-or-symbol)
+  "Get current indentation level of item at POSITION-OR-SYMBOL.
+LISTER-BUF is a lister buffer.
+
+Return nil is there is no valid item at the position indicated."
+  (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
+    (get-text-property (marker-position m) 'level lister-buffer)))
+
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)
   "Return the inner boundaries of the sublist containing MARKER-OR-POS.
 Return a list with a marker pointing to the first item of the
