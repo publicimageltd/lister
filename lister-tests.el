@@ -98,9 +98,9 @@
     (setq buf (lister-setup (test-new-buffer)
 			    #'list))
     (with-current-buffer buf
-            (setq lister-local-left-margin 0
-		  lister-local-top-margin 0
-		  lister-local-bottom-margin 0)))
+      (setq lister-local-left-margin 0
+	    lister-local-top-margin 0
+	    lister-local-bottom-margin 0)))
   (after-each
     (kill-buffer buf))
   (it "item-min/item-max returns correct position:"
@@ -279,6 +279,7 @@
 	    '("1" "2" "3"))))
 
 (describe "Inserting sequences:"
+  :var (buf)
   (before-each
     (setq buf (lister-setup (test-new-buffer)
 			    #'list)))
