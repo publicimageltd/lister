@@ -839,7 +839,7 @@ position (the position 'of' the inserted item itself).
 Note that to insert a new item at a position means to move any
 existing items at this position further down. Thus, `:last'
 effectively inserts an item before the last item. If you want to
-add an item to the end of the list, you should `lister-add'."
+add an item to the end of the list, use `lister-add'."
   (let* ((cursor-sensor-inhibit t))
     (lister-sensor-leave lister-buf)
     (let* ((marker-or-pos
