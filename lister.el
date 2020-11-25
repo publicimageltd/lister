@@ -1043,14 +1043,14 @@ Example:
 	      (next-level     (get-text-property next-item 'level lister-buf)))
     (> next-level current-level)))
 
-;; FIXME Wrap this in a locked cursor? To do this, the macro
-;; "lister-with-locked-cursor" should be made nestable without
-;; perfomance loss.
 (defun lister-remove-sublist-below (lister-buf pos-or-marker)
   "Remove the sublist below the item at POS-OR-MARKER.
 Do nothing if the next item is not a sublist."
   (when (lister-sublist-below-p lister-buf pos-or-marker)
-    (lister-remove-this-level lister-buf (lister-end-of-lines lister-buf pos-or-marker))))
+    ;; don't call sensor function is removed items are below point:
+    (let* ((lister-inhibit-cursor-action (= (with-current-buffer lister-buf (point))
+					    pos-or-marker)))
+      (lister-remove-this-level lister-buf (lister-end-of-lines lister-buf pos-or-marker)))))
 
 ;; Remove marked items
 (defun lister-remove-marked-items (lister-buf
