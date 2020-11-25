@@ -951,9 +951,9 @@ POSITION can be either a buffer position, a marker, or one of the
 symbols `:point', `:last' or `:first'. Do nothing if the position
 does not indicate an item.
 
-If removing the item leaves point on a non-item place, move point
-one item 'up'. This behavior can be turned off by setting the
-optional argument INHIBIT-CURSOR-MOVEMENT to a non-nil value."
+If the removed item was on point, move cursor to the visible last
+item available. This behaviour can be turned off with setting
+INHIBIT-CURSOR-MOVEMENT."
   (when-let* ((pos-marker (lister-marker-at lister-buf position-or-symbol)))
     (let* ((cursor-pos         (with-current-buffer lister-buf (point)))
 	   (pos                (marker-position pos-marker)))
@@ -967,9 +967,9 @@ optional argument INHIBIT-CURSOR-MOVEMENT to a non-nil value."
       ;; move point if it is not on an item anymore:
       (unless (or inhibit-cursor-movement
 		  (get-text-property pos 'item lister-buf))
-	(when-let* ((prev-pos (lister-looking-at-prop lister-buf  pos 'item 'previous)))
-	  (with-current-buffer lister-buf
-	    (goto-char prev-pos))))
+	(with-current-buffer lister-buf
+	  (goto-char (or (lister-marker-at lister-buf :last)
+			 (lister-item-max lister-buf))))
       ;; if we left the sensor, let's turn it on again:
       (when (= cursor-pos pos)
 	(lister-sensor-enter lister-buf pos)))))
