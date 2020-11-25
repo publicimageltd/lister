@@ -28,7 +28,7 @@ Zettelkasten page.
 
 :CONTENTS:
 - [[#project-still-in-progress][Project still in progress]]
-- [[#some-basic-facts][Some basic facts]]
+- [[#design-and-basic-features][Design and Basic Features]]
   - [[#design-principles][Design Principles]]
   - [[#additional-features][Additional Features]]
 - [[#using-lister-programmatically][Using Lister Programmatically]]
@@ -242,6 +242,8 @@ cursor after operating on the list.
 
 * Changelog
 ** Changes to the current version (no new release)
+
+ + Quite some internal cleanup of the code base.
  + Use =org-make-toc= for the README.org
 
 
