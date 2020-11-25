@@ -506,8 +506,12 @@ If NEW-LINES is nil, simply delete the entry at MARKER-OR-POS."
 (defun lister-end-of-lines (buf marker-or-pos &optional no-error)
   "Get the end position of the 'lines' element at MARKER-OR-POS in BUF.
 A 'lines' element can be the header, a list item or the footer.
-Use the text property symbol `nchars' to determine the size of
-the item."
+
+Effectively, the value returned is the position of the cursor gap
+of the next item (if there is any).
+
+Internall, the text property symbol `nchars' is used to determine
+the size of the item."
   (if-let* ((nchars (lister-get-prop buf marker-or-pos 'nchars)))
       (+ marker-or-pos nchars)
     (if no-error
