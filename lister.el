@@ -511,7 +511,9 @@ Effectively, the value returned is the position of the cursor gap
 of the next item (if there is any).
 
 Internall, the text property symbol `nchars' is used to determine
-the size of the item."
+the size of the item. An error will be thrown if this text
+property is not avaible. You can turn that off by setting
+NO-ERROR."
   (if-let* ((nchars (lister-get-prop buf marker-or-pos 'nchars)))
       (+ marker-or-pos nchars)
     (if no-error
