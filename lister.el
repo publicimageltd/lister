@@ -371,9 +371,9 @@ BUF is a lister buffer."
 	    (cursor-pos (with-current-buffer ,buf (point))))
        ,@body
        (unless (get-text-property cursor-pos 'item ,buf)
-	 (lister-goto ,buf :last))
-       (lister-sensor-enter ,buf
-			    (with-current-buffer ,buf (point))))))
+	 (lister-goto ,buf :last)))
+     (lister-sensor-enter ,buf
+			  (with-current-buffer ,buf (point)))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
