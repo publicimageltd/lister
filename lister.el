@@ -975,10 +975,10 @@ INHIBIT-CURSOR-MOVEMENT."
 		  (get-text-property pos 'item lister-buf))
 	(with-current-buffer lister-buf
 	  (goto-char (or (lister-marker-at lister-buf :last)
-			 (lister-item-max lister-buf))))
+			 (lister-item-max lister-buf)))))
       ;; if we left the sensor, let's turn it on again:
       (when (= cursor-pos pos)
-	(lister-sensor-enter lister-buf pos))))))
+	(lister-sensor-enter lister-buf pos)))))
 
 ;; Remove sublists
 
