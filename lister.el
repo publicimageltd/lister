@@ -972,7 +972,7 @@ INHIBIT-CURSOR-MOVEMENT."
 			 (lister-item-max lister-buf))))
       ;; if we left the sensor, let's turn it on again:
       (when (= cursor-pos pos)
-	(lister-sensor-enter lister-buf pos)))))
+	(lister-sensor-enter lister-buf pos))))))
 
 ;; Remove sublists
 
