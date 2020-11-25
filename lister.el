@@ -1043,7 +1043,7 @@ Example:
 	(delete-region beg end)))))
 
 (defun lister-sublist-below-p (lister-buf pos-or-marker)
-  "Check if the next item is a sublist with respect to POS-OR-MARKER."
+  "Check if the next item is indented with respect to POS-OR-MARKER."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
 	      (current-level  (get-text-property pos-or-marker 'level lister-buf))
 	      (next-level     (get-text-property next-item 'level lister-buf)))
