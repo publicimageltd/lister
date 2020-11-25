@@ -990,7 +990,7 @@ LISTER-BUF is a lister buffer.
 
 Return nil is there is no valid item at the position indicated."
   (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
-    (get-text-property (marker-position m) 'level lister-buffer)))
+    (get-text-property (marker-position m) 'level lister-buf)))
 
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)
   "Return the inner boundaries of the sublist containing MARKER-OR-POS.

@@ -415,7 +415,7 @@
 	    :to-equal
 	    '("AA" "BA" "BB"))))
 
-(describe "Use hierarchies:"
+(describe "Use hierarchies and indentation:"
   :var (buf datalist)
   (before-each
     (setq buf (lister-setup (test-new-buffer)
@@ -423,12 +423,21 @@
     (setq datalist '("Item1" "Item2"
 		     ("Subitem1" "Subitem2")
 		     "Item3")))
+  (after-each
+    (kill-buffer buf))
   ;;
   (it "Add hierarchical list and get data tree:"
     (lister-add-sequence buf datalist)
     (expect (lister-get-all-data-tree buf)
 	    :to-equal datalist))
-  (it "Insert items programmatically and get data tree:"
+  (it "Return the indentation level"
+    (let* ((m1  (lister-add buf "Item1"))
+	   (m2  (lister-add buf "Item2" 1))
+	   (m3  (lister-add buf "Item3" 2)))
+      (expect (lister-level-at buf m1) :to-be 0)
+      (expect (lister-level-at buf m2) :to-be 1)
+      (expect (lister-level-at buf m3) :to-be 2)))
+  (it "Return data tree:"
     (lister-add buf "Item1")
     (lister-add buf "Item2")
     (lister-add buf "Subitem1" 1)
