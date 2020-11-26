@@ -1128,29 +1128,34 @@ SEQ can be nested to insert hierarchies."
   (lister-get-mark-state lister-buf (lister-marker-at lister-buf :point)))
 
 
-(cl-defgeneric lister-mark-item (lister-buf position value)
-  "In LISTER-BUF, set the item's mark at POSITION to VALUE.")
+;; Mark one single item
 
-;; This is the real function, all other variants are just wrappers:
-(cl-defmethod lister-mark-item (lister-buf (position marker) value)
-  "In LISTER-BUF, set the item's mark at POSITION to VALUE."
-  (lister-set-prop lister-buf position 'mark value)
-  (lister-display-mark-state lister-buf position)
-  (when-let* ((next-item (lister-end-of-lines lister-buf position)))
-    (unless (invisible-p next-item)
-      (lister-goto lister-buf next-item))))
+(defun lister-mark-item (lister-buf position-or-symbol value)
+  "Set the item's mark at POSITION-OR-SYMBOL to a boolean VALUE.
+POSITION-OR-SYMBOL can be a marker, a buffer position, or one of
+the symbols `:point', `:first' or `:last'.
 
-(cl-defmethod lister-mark-item (lister-buf (position (eql :point)) value)
-    "In LISTER-BUF, set the item's mark at POSITION to VALUE."
-  (ignore position) ;; silence byte compiler
-  (when-let* ((m (lister-marker-at lister-buf :point)))
-    (lister-mark-item lister-buf m value)))
+Move point forward one line after marking, if possible.
+
+ LISTER-BUF is a lister buffer."
+  (let* ((m (lister-marker-at lister-buf position-or-symbol)))
+    (lister-set-prop lister-buf m 'mark value)
+    (lister-display-mark-state lister-buf m)
+    ;; move forward one line after marking:
+    (when-let* ((next-item (lister-end-of-lines lister-buf m)))
+      (unless (invisible-p next-item)
+	(lister-goto lister-buf next-item)))))
+
+
+;; Mark several items
+
 
 (defun lister-mark-all-items (lister-buf value)
   "Set all items to the marking state VALUE in LISTER-BUF."
   (with-lister-buffer lister-buf
     (save-excursion
-      (seq-do (lambda (m) (lister-mark-item lister-buf m value)) lister-local-marker-list))))
+      (seq-do (lambda (m) (lister-mark-item lister-buf m value))
+	      lister-local-marker-list))))
 
 (defun lister-mark-some-items (lister-buf marked-data value)
   "In LISTER-BUF, mark items which are members of MARKED-DATA.
