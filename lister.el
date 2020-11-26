@@ -1073,14 +1073,15 @@ marked items."
 
 ;; Replace items
 
-(defun lister-replace (lister-buf position-or-symbol data)
+(defun lister-replace (lister-buf position-or-symbol data &optional new-level)
   "Replace the item at POSITION-OR-SYMBOL with one representing DATA.
 POSITION-OR-SYMBOL can be either a marker, a buffer position or
-the symbols `:point', `:first' or `:last'. Preserve the
-indentation level."
+the symbols `:point', `:first' or `:last'. 
+
+Preserve the indentation level or use NEW-LEVEL."
   (lister-with-locked-cursor lister-buf
     (let* ((pos-marker (lister-marker-at lister-buf position-or-symbol))
-	   (level  (get-text-property (marker-position pos-marker) 'level lister-buf)))
+	   (level  (or new-level (get-text-property (marker-position pos-marker) 'level lister-buf))))
       (lister-remove lister-buf pos-marker t)
       (lister-insert lister-buf pos-marker data level))))
 
