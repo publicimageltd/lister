@@ -63,7 +63,6 @@
   (message "Nothing implemented to do."))
 
 
-
 (defun lister-interactive-change-level (lister-buf position-or-symbol delta)
   "Change level of item at POS-OR-MARKER by adding DELTA."
   (let* ((new-level (+ delta (lister-level-at lister-buf position-or-symbol))))
