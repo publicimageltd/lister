@@ -80,9 +80,6 @@
   (interactive (list (current-buffer) :point))
   (lister-interactive-change-level lister-buf position-or-symbol -1))
 
-
-
-
 ;;;###autoload
 (defun lister-interactive-test (&optional new)
   "Open interactive test buffer for the lister major mode."

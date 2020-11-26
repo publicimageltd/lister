@@ -1135,15 +1135,12 @@ SEQ can be nested to insert hierarchies."
 POSITION-OR-SYMBOL can be a marker, a buffer position, or one of
 the symbols `:point', `:first' or `:last'.
 
-Move point forward one line after marking, if possible.
-
  LISTER-BUF is a lister buffer."
   (let* ((m (lister-marker-at lister-buf position-or-symbol)))
     (lister-set-prop lister-buf m 'mark value)
     (lister-display-mark-state lister-buf m)))
 
 ;; Mark several items
-
 
 (defun lister-mark-all-items (lister-buf value)
   "Set all items to the marking state VALUE in LISTER-BUF."
@@ -1434,7 +1431,6 @@ Do nothing if `lister-inhibit-cursor-action' is t."
     (when-let* ((next-item (lister-end-of-lines buf m)))
       (unless (invisible-p next-item)
 	(lister-goto buf next-item)))))
-
 
 (defun lister-key-mark-all-items ()
   "Mark all items of the current list."
