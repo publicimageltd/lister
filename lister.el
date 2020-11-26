@@ -1140,12 +1140,7 @@ Move point forward one line after marking, if possible.
  LISTER-BUF is a lister buffer."
   (let* ((m (lister-marker-at lister-buf position-or-symbol)))
     (lister-set-prop lister-buf m 'mark value)
-    (lister-display-mark-state lister-buf m)
-    ;; move forward one line after marking:
-    (when-let* ((next-item (lister-end-of-lines lister-buf m)))
-      (unless (invisible-p next-item)
-	(lister-goto lister-buf next-item)))))
-
+    (lister-display-mark-state lister-buf m)))
 
 ;; Mark several items
 
@@ -1431,8 +1426,15 @@ Do nothing if `lister-inhibit-cursor-action' is t."
 (defun lister-key-toggle-mark ()
   "Toggle mark of item at point."
   (interactive)
-  (let* ((current-state (lister-get-mark-state (current-buffer) :point)))
-    (lister-mark-item (current-buffer) :point (not current-state))))
+  (when-let* ((buf (current-buffer))
+	      (m (lister-marker-at buf :point)))
+    (lister-mark-item buf m
+		      (not (lister-get-mark-state buf m)))
+    ;; move forward one line after marking:
+    (when-let* ((next-item (lister-end-of-lines buf m)))
+      (unless (invisible-p next-item)
+	(lister-goto buf next-item)))))
+
 
 (defun lister-key-mark-all-items ()
   "Mark all items of the current list."
