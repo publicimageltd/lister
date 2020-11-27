@@ -1414,21 +1414,21 @@ Do nothing if `lister-inhibit-cursor-action' is t."
 
 ;; Handle isearch properly
 
-(defvar lister-isearch-opoint nil
+(defvar lister-local-isearch-opoint nil
   "Buffer local variable storing starting point during isearch.")
 
 (defun lister-before-isearch ()
   "Prepare lister buffer for using isearch."
   (cursor-intangible-mode 0)
-  (setq-local lister-isearch-opoint (point)))
+  (setq-local lister-local-isearch-opoint (point)))
 
 (defun lister-after-isearch ()
   "Make sure point will end on an item after isearch."
-  (when (/= (point) lister-isearch-opoint)
+  (when (/= (point) lister-local-isearch-opoint)
     (beginning-of-line))
   (cursor-intangible-mode 1)
   (when (not (get-text-property (point) 'item))
-    (goto-char lister-isearch-opoint)))
+    (goto-char lister-local-isearch-opoint)))
 
 ;; Keys
 (defun lister-key-toggle-mark ()
