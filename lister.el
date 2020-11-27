@@ -43,6 +43,7 @@
 
 ;; -----------------------------------------------------------
 ;; * Variables
+;; -----------------------------------------------------------
 
 ;; Local Variables:
 
@@ -142,6 +143,7 @@ Alternatively, the value can be the name of a face.")
 
 ;; -----------------------------------------------------------
 ;; * Useful stuff for working with text properties
+;; -----------------------------------------------------------
 
 (defun lister-add-face-property (beg end value)
   "Add VALUE to the face property between BEG and END."
@@ -173,6 +175,7 @@ This is a slightly modified copy of `font-lock--remove-face-from-text-property'.
 
 ;; -----------------------------------------------------------
 ;; * Basic helper functions for working with lister buffers
+;; -----------------------------------------------------------
 
 (defun lister-buffer-p (buf)
   "Return BUF if it is ready to be used for lister lists.
@@ -201,6 +204,7 @@ Throw an error if BUF is not a lister buffer."
 
 ;; -----------------------------------------------------------
 ;; * Marker and Positions
+;; -----------------------------------------------------------
 
 (defun lister-make-marker (buf pos)
   "Create a suitable marker for POS in lister buffer BUF."
@@ -348,6 +352,7 @@ Return nil if no such position is available."
 
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
+;; -----------------------------------------------------------
 
 (defmacro lister-with-locked-cursor (buf &rest body)
   "Keep cursor at same position after executing BODY.
@@ -377,6 +382,7 @@ BUF is a lister buffer."
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
+;; -----------------------------------------------------------
 
 ;; These are the core primitives. The following functions either
 ;; insert, remove or replace lines of text, usually passed to these
@@ -523,6 +529,7 @@ NO-ERROR."
 
 ;; -----------------------------------------------------------
 ;; * Set header or footer of the list
+;; -----------------------------------------------------------
 
 ;; Headers or footers are just ordinary lists inserted by
 ;; `lister-insert-lines'; usually lists of strings. Unlike list items,
@@ -575,6 +582,7 @@ Setting LINES to nil effectively deletes the item."
 
 ;; -----------------------------------------------------------
 ;; * Filtering
+;; -----------------------------------------------------------
 
 ;; Showing and hiding items
 
@@ -824,6 +832,7 @@ LISTER-BUF is a lister buffer."
 
 ;; -----------------------------------------------------------
 ;; * Insert, add, remove or replace list items
+;; -----------------------------------------------------------
 
 ;; Insert Single Items
 
@@ -1399,7 +1408,9 @@ Do nothing if `lister-inhibit-cursor-action' is t."
   (with-current-buffer lister-buf
     (add-hook 'lister-leave-item-hook callback-fn nil t)))
 
+;; -----------------------------------------------------------
 ;; * Lister Major Mode
+;; -----------------------------------------------------------
 
 ;; Handle isearch properly
 
