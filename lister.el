@@ -899,9 +899,11 @@ LEVEL determines the level of hierarchical indentation. See
 SEQ must be either a vector or a list. Nested sequences will be
 inserted with added indentation.
 
-Return a list of newly inserted markers."
+Return an incrementally sorted list of the newly inserted
+markers."
   (when seq
     (let* ((new-marker     nil)
+	   (last-pos       nil)
 	   (seq-type     (type-of seq)))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list."))
