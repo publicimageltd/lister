@@ -145,9 +145,9 @@ Alternatively, the value can be the name of a face.")
 ;; * Useful stuff for working with text properties
 ;; -----------------------------------------------------------
 
-(defun lister-add-face-property (beg end value)
+(defun lister-add-face-property (beg end value &optional append)
   "Add VALUE to the face property between BEG and END."
-  (add-face-text-property beg end value))
+  (add-face-text-property beg end value append))
 
 (defun lister-remove-face-property (beg end value)
   "Remove VALUE from the face property from BEG to END.

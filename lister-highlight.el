@@ -46,9 +46,9 @@ property list with face attributes.")
 	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
     (when (/= pos end)
-      (add-face-text-property pos end
-			      lister-highlight-face-or-property
-			      t))))
+      (lister-add-face-property  pos end
+				 lister-highlight-face-or-property
+				 t))))
 
 (defun lister-unhighlight-item ()
   "Remove the highlighting of the item at point."
