@@ -300,6 +300,41 @@
       (lister-add-sequence buf the-sequence)
       (expect (lister-get-all-data buf) :to-equal (append the-sequence the-sequence)))))
 
+(describe "Inserting looong sequences:"
+  :var (buf data)
+  (before-each
+    (setq buf (lister-setup (test-new-buffer)
+			    #'list)))
+  (after-each
+    (kill-buffer buf))
+  ;;
+  (it "Add list with 1.000 items:"
+    (lister-add-sequence buf
+			 (make-list 1000 "Item")))
+  (it "Add list with 2.000 items:"
+    (lister-add-sequence buf
+			 (make-list 2000 "I am an item")))
+    (it "Add list with 5.000 items:"
+    (lister-add-sequence buf
+			 (make-list 5000 "I am an item")))
+  (it "Add vector with 1.000 items:"
+    (lister-add-sequence buf
+			 (make-vector 1000 "Item")))
+  (it "Add vector with 2.000 items:"
+    (lister-add-sequence buf
+			 (make-vector 2000 "I am an item")))
+  (it "Add vector with 5.000 items:"
+    (lister-add-sequence buf
+			 (make-vector 5000 "I am an item")))
+  (it "Add and remove list with 1.000 items:"
+    (lister-add-sequence buf  (make-list 1000 "Item"))
+    (lister-remove-this-level buf (lister-item-min buf)))
+  (it "Add and remove list with 2.000 items:"
+    (lister-add-sequence buf (make-list 2000 "Item"))
+    (lister-remove-this-level buf (lister-item-min buf)))
+  (it "Add and remove list with 5.000 items:"
+    (lister-add-sequence buf (make-list 5000 "Item"))
+    (lister-remove-this-level buf (lister-item-min buf))))
 
 (describe "Hiding items:"
   :var (buf first-item second-item
