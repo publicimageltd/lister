@@ -289,27 +289,32 @@ valid position."
 
 (defun lister-add-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
-MARKER-OR-POS can be a marker or a pos, or a sorted list of
-markers or positions. Do nothing if `lister-inhibit-marker-list'
-is t.
+MARKER-OR-POS can be a marker or a pos, or a sorted homogenous
+list of only markers or only positions.
+
+Do nothing if `lister-inhibit-marker-list' is t.
 
 Some special assumptions apply for reasons of speed: (1.) Both
 the buffer local marker list and MARKER-OR-POS are already sorted
 incrementally. (2.) There is no overlapping item in both lists,
 that is, all markers are different from each other. This way, the
 two lists can be simply merged, and it not necessary to sort the
-resulting list.
+resulting list (even though using 'sort' actually is not that
+much slower).
 
 Since markers move when some new text is inserted before them,
 condition (2.) is always true when adding markers representing
 the new text."
-  (unless lister-inhibit-marker-list
-    (with-lister-buffer lister-buf
-      ;; marker-as-list can be nil if marker-or-pos is nil
-      (let* ((marker-as-list (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
-				     (if (listp marker-or-pos)
-					 marker-or-pos
-				       (list marker-or-pos)))))
+  (unless (or lister-inhibit-marker-list
+	      (not marker-or-pos))
+    (let* ((m-o-p-list    (if (listp marker-or-pos)
+			      marker-or-pos
+			    (list marker-or-pos)))
+	   (marker-as-list (if (markerp (car m-o-p-list))
+			       m-o-p-list
+			     (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
+				     m-o-p-list))))
+      (with-current-buffer lister-buf
 	(setq lister-local-marker-list
 	      (lister-merge lister-local-marker-list marker-as-list))))))
 
@@ -323,7 +328,7 @@ This is intended to be similar to `point-min'."
 
 (defun lister-item-max (lister-buf)
   "Return the end of the last item in LISTER-BUF.
-This is intendet to be similar to `point-max'."
+This is intended to be similar to `point-max'."
   (with-lister-buffer lister-buf
     (if lister-local-footer-marker
 	(1- (marker-position lister-local-footer-marker))
