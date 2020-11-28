@@ -287,7 +287,6 @@ valid position."
 	      (seq-subseq target target-pos))
     (append target new)))
 
-
 (defun lister-add-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
 MARKER-OR-POS can be a marker or a pos, or a sorted list of
@@ -311,18 +310,8 @@ the new text."
 				     (if (listp marker-or-pos)
 					 marker-or-pos
 				       (list marker-or-pos)))))
-	;; (message "Append: Old: %s\n         New: %s"
-	;; 	 (mapcar #'marker-position lister-local-marker-list)
-	;; 	 (mapcar #'marker-position  marker-as-list))       
 	(setq lister-local-marker-list
-	      ;; FIXME Actually all three ways to insert the new
-	      ;; marker list take roughly equally long.
-	      ;; There MUST be a quicker way! :-)
-	      ;; (sort (append lister-local-marker-list
-	      ;; 		    marker-as-list)
-	      ;; 	    #'<))))))
-;;	      (lister-merge lister-local-marker-list marker-as-list))))))
-	      (cl-merge 'list lister-local-marker-list marker-as-list #'<))))))
+	      (lister-merge lister-local-marker-list marker-as-list))))))
 
 (defun lister-item-min (lister-buf)
   "Return the first position for a list item in LISTER-BUF.
