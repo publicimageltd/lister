@@ -41,14 +41,17 @@ property list with face attributes.")
 ;; * Callbacks which do the highlighting
 
 (defun lister-highlight-item ()
-  "Highlight the item at point."
+  "Highlight the item at point.
+If the item is marked, add the highlighting face to the
+background, letting the mark stand out. Else, add it to the
+front, letting the highlighting stand out."
   (let* ((inhibit-read-only t)
 	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
     (when (/= pos end)
       (lister-add-face-property  pos end
 				 lister-highlight-face-or-property
-				 t))))
+				 (get-text-property pos 'mark)))))
 
 (defun lister-unhighlight-item ()
   "Remove the highlighting of the item at point."

@@ -1203,10 +1203,11 @@ position."
   (with-lister-buffer lister-buf
     (let* ((inhibit-read-only t)
 	   (state    (lister-get-mark-state lister-buf marker))
-	   (face-fun (if state 'lister-add-face-property 'lister-remove-face-property))
 	   (beg      marker)
 	   (end      (lister-end-of-lines lister-buf beg)))
-      (funcall face-fun beg end lister-mark-face-or-property))))
+      (if state
+	  (lister-add-face-property beg end lister-mark-face-or-property)
+	(lister-remove-face-property beg end lister-mark-face-or-property)))))
 
 ;; * Collecting marked items
 
