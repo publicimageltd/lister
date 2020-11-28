@@ -278,12 +278,32 @@ valid position."
 			    lister-buf)
 	 m)))
 
+
+(defun lister-merge (target new)
+  "Merge incrementally sorted marker list NEW into TARGET."
+  (if-let ((target-pos (cl-position (car new) target :test #'<)))
+      (append (seq-subseq target 0 target-pos)
+	      new
+	      (seq-subseq target target-pos))
+    (append target new)))
+
+
 (defun lister-add-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
-MARKER-OR-POS can be a marker or a pos, or a list of markers or
-positions.
+MARKER-OR-POS can be a marker or a pos, or a sorted list of
+markers or positions. Do nothing if `lister-inhibit-marker-list'
+is t.
 
-Do nothing if `lister-inhibit-marker-list' is t."
+Some special assumptions apply for reasons of speed: (1.) Both
+the buffer local marker list and MARKER-OR-POS are already sorted
+incrementally. (2.) There is no overlapping item in both lists,
+that is, all markers are different from each other. This way, the
+two lists can be simply merged, and it not necessary to sort the
+resulting list.
+
+Since markers move when some new text is inserted before them,
+condition (2.) is always true when adding markers representing
+the new text."
   (unless lister-inhibit-marker-list
     (with-lister-buffer lister-buf
       ;; marker-as-list can be nil if marker-or-pos is nil
@@ -291,12 +311,18 @@ Do nothing if `lister-inhibit-marker-list' is t."
 				     (if (listp marker-or-pos)
 					 marker-or-pos
 				       (list marker-or-pos)))))
+	;; (message "Append: Old: %s\n         New: %s"
+	;; 	 (mapcar #'marker-position lister-local-marker-list)
+	;; 	 (mapcar #'marker-position  marker-as-list))       
 	(setq lister-local-marker-list
-	      (sort (append lister-local-marker-list
-			    ;; nil value for marker-as-list will be
-			    ;; 'swallowed' by append:
-			    marker-as-list)
-		    #'<))))))
+	      ;; FIXME Actually all three ways to insert the new
+	      ;; marker list take roughly equally long.
+	      ;; There MUST be a quicker way! :-)
+	      ;; (sort (append lister-local-marker-list
+	      ;; 		    marker-as-list)
+	      ;; 	    #'<))))))
+;;	      (lister-merge lister-local-marker-list marker-as-list))))))
+	      (cl-merge 'list lister-local-marker-list marker-as-list #'<))))))
 
 (defun lister-item-min (lister-buf)
   "Return the first position for a list item in LISTER-BUF.
@@ -914,14 +940,20 @@ markers."
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
 	(seq-doseq (item seq)
+	  ;; For reasons of speed, we build the new marker list in the
+	  ;; 'wrong' decremental order and reverse it afterwards.
+	  ;; Accessing the last inserted marker via (car) is muuuuch
+	  ;; faster than using (car (last)), since the latter has to
+	  ;; traverse the whole list.
 	  (setq new-marker (append
-			    (if (eq (type-of item) seq-type)
-				(lister-insert-sequence lister-buf pos item (1+ new-level))
-			      (list (lister-insert lister-buf pos item new-level)))
+			     (if (eq (type-of item) seq-type)
+				 (reverse (lister-insert-sequence lister-buf pos item (1+ new-level)))
+			       (list (lister-insert lister-buf pos item new-level)))
 			    new-marker))
-	  (setq pos (lister-end-of-lines lister-buf (car new-marker)))))
+	  (setq pos (lister-end-of-lines lister-buf (setq last-pos (car new-marker))))))
+      (setq new-marker (reverse new-marker))
       (lister-add-marker lister-buf new-marker)
-      (lister-sensor-enter lister-buf (car (reverse new-marker)))
+      (lister-sensor-enter lister-buf last-pos)
       new-marker)))
 
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
