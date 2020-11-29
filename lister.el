@@ -40,6 +40,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'cursor-sensor)
+(require 'text-property-search)
 
 ;; -----------------------------------------------------------
 ;; * Variables
@@ -307,6 +308,10 @@ condition (2.) is always true when adding markers representing
 the new text."
   (unless (or lister-inhibit-marker-list
 	      (not marker-or-pos))
+    ;; NOTE Actually the whole stuff below might seem totally useless.
+    ;; Simply updating the marker list by setting its value to the
+    ;; result of `lister-all-markers` works as well and does not take
+    ;; more time (!). 
     (let* ((m-o-p-list    (if (listp marker-or-pos)
 			      marker-or-pos
 			    (list marker-or-pos)))
@@ -369,6 +374,18 @@ on an item."
 Return nil if no such position is available."
   (with-lister-buffer lister-buf
     (seq-elt (lister-visible-markers lister-buf) index-position)))
+
+(defun lister-all-markers (lister-buf)
+  "Get a freshly build list of all item markers in LISTER-BUF."
+  (with-current-buffer lister-buf
+    (save-excursion
+      (goto-char (point-min))
+      (let (res)
+	(when (get-text-property (point) 'item)
+	  (push (lister-make-marker lister-buf (point)) res))
+	(while (text-property-search-forward 'item t nil)
+	  (push (lister-make-marker lister-buf (point)) res))
+	(reverse (cdr res))))))
 
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
@@ -1069,6 +1086,10 @@ Example:
   (let* ((beg-end (lister-sublist-boundaries lister-buf pos-or-marker)))
     (with-current-buffer lister-buf
       ;; split and recombine marker list:
+      ;;
+      ;; FIXME Is this necessary? Deleting the region deletes the
+      ;; markers. So it might be faster to just rebuild the marker
+      ;; list, or to weed out all invalid markers.
       (setq lister-local-marker-list
 	    (append (seq-subseq lister-local-marker-list
 				0 (cl-third beg-end))

@@ -138,6 +138,11 @@
       )
   (after-each
     (kill-buffer buf))
+  (it "Local marker list equals collected markers:"
+    (let* ((llm (with-current-buffer buf
+		  lister-local-marker-list)))
+      (expect llm :to-equal
+	    (lister-all-markers buf))))
   (it "Get the first item:"
     (let ((m (lister-marker-at buf :first)))
       (expect (lister-get-data buf m) :to-equal "A")))
