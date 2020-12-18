@@ -274,14 +274,35 @@
     (expect (test-buffer-content buf)
 	    :to-equal
 	    ""))
-  (it "Replace items:"
+  (it "Check return values when adding items:"
+    (let* ((m1 (lister-add buf "1"))
+	   (m2 (lister-add buf "2"))
+	   (m3 (lister-add buf "3")))
+      (expect (list m1 m2 m3)
+	      :to-equal
+	      (with-current-buffer buf
+		lister-local-marker-list))))
+  (it "Replace last item:"
     (lister-add buf "1")
     (lister-add buf "2")
     (lister-add buf "nana")
     (lister-replace buf :last "3")
     (expect (lister-get-all-data buf)
 	    :to-equal
-	    '("1" "2" "3"))))
+	    '("1" "2" "3")))
+  (it "Replace last and second item:"
+    (let* ((m1 (lister-add buf "1"))
+	   (m2 (lister-add buf "old-2"))
+	   (m3 (lister-add buf "old-3"))
+	   (lister-inhibit-cursor-action t))
+      ;; Calling the two replacement actions the other way around
+      ;; kills the marker m2, since inserting the new data also moves
+      ;; the original marker one further down.
+       (lister-replace buf m2 "2")
+       (lister-replace buf m3 "3")
+      (expect (lister-get-all-data buf)
+	      :to-equal
+	      '("1" "2" "3")))))
 
 (describe "Inserting sequences:"
   :var (buf)
