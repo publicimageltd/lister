@@ -1008,34 +1008,41 @@ Return a list of newly inserted markers."
 
 ;; Remove items
 
-(defun lister-remove (lister-buf position-or-symbol &optional inhibit-cursor-movement)
+(defun lister-remove (lister-buf position-or-symbol)
   "Remove the item at POSITION-OR-SYMBOL from LISTER-BUF.
 POSITION can be either a buffer position, a marker, or one of the
 symbols `:point', `:last' or `:first'. Do nothing if the position
 does not indicate an item.
 
-If the removed item was on point, move cursor to the visible last
-item available. This behaviour can be turned off with setting
-INHIBIT-CURSOR-MOVEMENT."
+Also call the sensor functions before and after removing the
+item; update the buffer local marker list and move point if the
+removed item if it was the last. 
+
+The automatic correction of point is turned off when
+`lister-inhibit-cursor-action' is set to t."
   (when-let* ((pos-marker (lister-marker-at lister-buf position-or-symbol)))
     (let* ((cursor-pos         (with-current-buffer lister-buf (point)))
 	   (pos                (marker-position pos-marker)))
-      (when (= cursor-pos pos)
-	(lister-sensor-leave lister-buf))
-      ;; remove the item
+      ;; call sensor functions for leaving the item at point:
+      (unless lister-inhibit-cursor-action 
+	(when (= cursor-pos pos)
+	  (lister-sensor-leave lister-buf)))
+      ;; update the local marker list
       (with-current-buffer lister-buf
-	(setq lister-local-marker-list
-	      (cl-remove pos lister-local-marker-list :test #'=)))
+	  (setq lister-local-marker-list
+		(cl-remove pos lister-local-marker-list :test #'=)))
+      ;; remove the item 
       (lister-remove-lines lister-buf pos)
       ;; move point if it is not on an item anymore:
-      (unless (or inhibit-cursor-movement
+      (unless (or lister-inhibit-cursor-action
 		  (get-text-property pos 'item lister-buf))
 	(with-current-buffer lister-buf
 	  (goto-char (or (lister-marker-at lister-buf :last)
 			 (lister-item-max lister-buf)))))
       ;; if we left the sensor, let's turn it on again:
-      (when (= cursor-pos pos)
-	(lister-sensor-enter lister-buf pos)))))
+      (unless lister-inhibit-cursor-action
+	(when (= cursor-pos pos)
+	  (lister-sensor-enter lister-buf pos))))))
 
 ;; Remove sublists
 
@@ -1140,7 +1147,7 @@ Preserve the indentation level or use NEW-LEVEL."
   (lister-with-locked-cursor lister-buf
     (let* ((pos-marker (lister-marker-at lister-buf position-or-symbol))
 	   (level  (or new-level (get-text-property (marker-position pos-marker) 'level lister-buf))))
-      (lister-remove lister-buf pos-marker t)
+      (lister-remove lister-buf pos-marker)
       (lister-insert lister-buf pos-marker data level))))
 
 ;; Replace the whole buffer list (set list)
