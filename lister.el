@@ -354,26 +354,17 @@ This is intended to be similar to `point-max'."
        ;; nothing there, just go to the beginning:
        (t (point-min))))))
 
-(defun lister-index-position (lister-buf marker-or-pos
-					 &optional include-invisible)
-  "Get the index of the (visible) item at MARKER-OR-POS in LISTER-BUF.
+;; TODO Write a test for this function 
+(defun lister-index-position (lister-buf marker-or-pos)
+  "Get the index position of the item at MARKER-OR-POS in LISTER-BUF.
+Return nil if MARKER-OR-POS is not on an item."
+  (cl-position marker-or-pos (buffer-local-value 'lister-local-marker-list lister-buf)  #'=))
 
-Use INCLUDE-INVISIBLE to also count invisible items to the index.
-
-Returns nil if no items are visible, or if MARKER-OR-POS is not
-on an item."
-  (with-lister-buffer lister-buf
-    (when-let* ((mlist (if include-invisible lister-local-marker-list
-			 (lister-visible-markers lister-buf))))
-      (seq-position mlist
-		    (lister-pos-as-marker lister-buf marker-or-pos)
-		    #'equal))))
-
+;; TODO Write a test for this function 
 (defun lister-index-marker (lister-buf index-position)
   "Get the marker for INDEX-POSITION in LISTER-BUF.
 Return nil if no such position is available."
-  (with-lister-buffer lister-buf
-    (seq-elt (lister-visible-markers lister-buf) index-position)))
+  (elt (buffer-local-value 'lister-local-marker-list lister-buf) index-position))
 
 (defun lister-all-markers (lister-buf)
   "Get a freshly build list of all item markers in LISTER-BUF."
@@ -432,6 +423,9 @@ BUF is a lister buffer."
     ((pred listp)       lines)
     (_                  '("NOT A LIST ITEM"))))
 
+;; FIXME Too many unused features and too complex. Rather reduce it to
+;; the basic functions? Yet some feautres (like calling f()s) can be
+;; useful for headers and footers. Maybe add a way to fresh them?
 (defun lister-strflat (l)
   "Recursively stringify all items in L, flattening any sublists.
 If L is a string, just wrap it in a list. Else, flatten L and
@@ -465,9 +459,15 @@ Examples:
 		   ((eq e 'quote)    acc)
 		   ((eq e 'closure)  acc)
 		   ;; flatten lists
-		   ((and (listp e) (not (functionp e))) (append acc (lister-strflat e)))
+		   ((and (listp e) (not (functionp e)))
+		    (append acc (lister-strflat e)))
 		   ;; actual work:
-		   (t (append acc (list (if (functionp e) (funcall e) e))))))
+		   (t (append acc (list
+				   (if (functionp e)
+				       (funcall e)
+				     (if (stringp e)
+					 e
+				       (format "%s" e))))))))
 		l '())))
 
 (defun lister-indent-line (str n &optional offset)
@@ -1039,20 +1039,17 @@ INHIBIT-CURSOR-MOVEMENT."
 
 ;; Remove sublists
 
-;; FIXME Isn't using "elt" for index the best alternative to
-;; lister-index-position? Check this!
 (defun lister-level-at-item-index (lister-buf n)
-  "Return the level of the nth item."
-  (with-current-buffer lister-buf
-    (get-text-property (elt lister-local-marker-list n) 'level)))
-
+  "Return the level of the Nth item in LISTER-BUF."
+  (when-let ((m (lister-index-marker lister-buf n)))
+    (get-text-property (marker-position m) 'level lister-buf)))
 
 (defun lister-level-at (lister-buf position-or-symbol)
   "Get current indentation level of item at POSITION-OR-SYMBOL.
 LISTER-BUF is a lister buffer.
 
 Return nil is there is no valid item at the position indicated."
-  (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
+  (when-let ((m (lister-marker-at lister-buf position-or-symbol)))
     (get-text-property (marker-position m) 'level lister-buf)))
 
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)

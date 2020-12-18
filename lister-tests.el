@@ -408,6 +408,12 @@
     (lister-goto buf :last)
     (expect (test-line buf) :to-be 3)))
 
+;; TODO Add test for indexfunctions
+;; (describe "Indexed lists:"
+;;   (before-each
+;;     (setq buf (lister-setup (test-new-buffer) #'list
+;; 			    '(1 2 3 4 5 6 7)))
+
 (describe "Using predicates:"
   :var (buf datalist)
   (before-each
