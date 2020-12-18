@@ -1335,9 +1335,10 @@ Example:
 
 
 (defun lister-marker-sublist (lister-buf beg end)
-  "Return LISTER-BUF's marker list from BEG to and including END.
-If either BEG or END is nil, use the position of the first or
-last item, respectively."
+  "Get all marker from index pos BEG to and including END.
+LISTER-BUF must be a lister buffer; BEG and END are index
+positions starting with 0. If either BEG or END is nil, use the
+position of the first or last item, respectively."
   (when-let* ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
     (if (and (null beg) (null end))
 	mlist
