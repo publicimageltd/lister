@@ -416,13 +416,6 @@ BUF is a lister buffer."
 ;; insert, remove or replace lines of text, usually passed to these
 ;; functions as a list of strings.
 
-(defun lister-validate-lines (lines)
-  "Pass LINES if it is a valid item or replace it with a warning string."
-  (pcase lines
-    ((pred null)        '("NULL ITEM"))
-    ((pred listp)       lines)
-    (_                  '("NOT A LIST ITEM"))))
-
 (cl-defun lister-strflat (l &optional (format-string "%s"))
   "Recursively stringify all items in L, flattening any sublists.
 If L is not a list item, wrap it into a list. Every non-nil item
