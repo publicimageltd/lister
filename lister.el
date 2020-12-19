@@ -974,7 +974,7 @@ The automatic correction of point is turned off when
 
 ;;; Remove sublists
 
-(defun lister-level-at-item-index (lister-buf n)
+(defun lister-item-level-at-index (lister-buf n)
   "Return the level of the Nth item in LISTER-BUF."
   (when-let ((m (lister-index-marker lister-buf n)))
     (get-text-property (marker-position m) 'level lister-buf)))
@@ -1004,10 +1004,10 @@ Example:
 	   (level   (get-text-property marker 'level))
 	   (beg-n   (cl-loop for i downfrom n to 0
 			     ;; to determine ONLY the same level, use =
-			     while (<= level (lister-level-at-item-index lister-buf i))
+			     while (<= level (lister-item-level-at-index lister-buf i))
 			     finally return (1+ i)))
 	   (end-n   (cl-loop for i upfrom n to last-n
-			     while (<= level (lister-level-at-item-index lister-buf i))
+			     while (<= level (lister-item-level-at-index lister-buf i))
 			     finally return (1- i)))
 	   (beg     (elt lister-local-marker-list beg-n))
 	   (end     (elt lister-local-marker-list end-n)))
