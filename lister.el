@@ -491,7 +491,11 @@ A 'lines' element can be the header, a list item or the footer."
 (defun lister-replace-lines (buf marker-or-pos new-lines)
   "In BUF, Replace the 'lines' element at MARKER-OR-POS with NEW-LINES.
 A 'lines' element can be the header, a list item or the footer.
-If NEW-LINES is nil, simply delete the entry at MARKER-OR-POS."
+
+If NEW-LINES is nil, delete the entry at MARKER-OR-POS.
+
+Return the marker of the new item or nil if no item has been
+inserted."
   (let ((level (get-text-property marker-or-pos 'level buf)))
     (lister-remove-lines buf marker-or-pos)
     (lister-insert-lines buf marker-or-pos new-lines level)))
