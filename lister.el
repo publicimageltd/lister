@@ -830,12 +830,10 @@ add an item to the end of the list, use `lister-add'."
   (let* ((cursor-sensor-inhibit t))
     (lister-sensor-leave lister-buf)
     (let* ((marker-or-pos (lister-eval-pos-or-symbol lister-buf position-or-symbol))
-	   (mapper        (buffer-local-value 'lister-local-mapper lister-buf))
-	   (level         (lister-determine-level lister-buf marker-or-pos level))
 	   (marker        (lister-insert-lines lister-buf
 					       marker-or-pos
-					       (funcall mapper data)
-					       level)))
+					       (funcall (buffer-local-value 'lister-local-mapper lister-buf) data)
+					       (lister-determine-level lister-buf marker-or-pos (or level 0)))))
       ;;
       (lister-set-data lister-buf marker data)
       (lister-set-prop lister-buf marker
