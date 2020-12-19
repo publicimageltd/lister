@@ -465,10 +465,6 @@
 	      :to-be
 	      i))))
 
-
-    
-    
-
 (describe "Using predicates:"
   :var (buf datalist)
   (before-each
@@ -558,6 +554,11 @@
     (with-current-buffer buf
       (lister-goto buf (elt lister-local-marker-list 2))
       (lister-remove-this-level buf (point)))
+    (expect (lister-get-all-data-tree buf)
+	    :to-equal '("Item1" "Item2" "Item3")))
+  (it "Delete a subtree below an item:"
+    (lister-add-sequence buf datalist)
+    (lister-remove-sublist-below buf (lister-index-marker buf 1))
     (expect (lister-get-all-data-tree buf)
 	    :to-equal '("Item1" "Item2" "Item3"))))
 
