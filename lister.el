@@ -994,7 +994,7 @@ Example:
   (#<marker ....> #<marker ...> 0 3)"
   (with-lister-buffer lister-buf
     (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
-	   (n       (seq-position lister-local-marker-list marker #'equal))
+	   (n       (cl-position marker lister-local-marker-list :test #'=))
 	   (last-n  (1- (length lister-local-marker-list)))
 	   (level   (get-text-property marker 'level))
 	   (beg-n   (cl-loop for i downfrom n to 0
