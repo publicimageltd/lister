@@ -901,7 +901,7 @@ markers."
 	   ;; it
 	   (lister-inhibit-cursor-action t))
       (lister-insert-sequence lister-buf next-item seq (1+ current-level)))
-    ;; lister-goto also calls sensor-leave and sensor-enter
+    ;; lister-goto calls both sensor-leave and sensor-enter
     (lister-goto lister-buf pos-or-marker)))
 
 ;; Add
