@@ -433,31 +433,19 @@ FORMAT-STRING, which defaults to \"%s\"."
     (mapcar (apply-partially #'format format-string)
 	    (flatten-tree l))))
 
-(defun lister-indent-line (str n &optional offset)
-  "Indent STR by adding N+OFFSET spaces.
-N and OFFSET must an integer or nil."
-  (concat (and n (make-string n ? ))
-	  (and offset (make-string offset ? ))
-	  str))
-
-(defun lister-indent-lines (strings n &optional offset)
-  "Indent all STRINGS by adding N+OFFSET spaces.
-N and OFFSET must be an integer or nil"
-  (mapcar (lambda (s) (lister-indent-line s n offset)) strings))
-
 (defun lister-add-vertical-margins (lister-buf strings)
   "Pad a list of STRINGS vertically by adding empty strings.
 Margins are taken from `lister-local-top-margin' and
 `lister-local-bottom-margin', buffer variables local to
 LISTER-BUF."
   (with-current-buffer lister-buf
-    (append
-     (and lister-local-top-margin
-	  (make-list lister-local-top-margin ""))
-     strings
-     (and lister-local-bottom-margin
-	  (make-list lister-local-bottom-margin "")))))
-
+      (append
+       (and lister-local-top-margin
+	    (make-list lister-local-top-margin ""))
+       strings
+       (and lister-local-bottom-margin
+	    (make-list lister-local-bottom-margin "")))))
+  
 (cl-defun lister-insert-lines (buf marker-or-pos lines level)
   "Insert list LINES with padding at POS in BUF.
 MARKER-OR-POS can be either a marker object or a buffer position.
@@ -472,7 +460,8 @@ text.
 Return the marker pointing to the gap position."
   (when lines
     (with-current-buffer buf
-      (let* ((padded-item-list  (lister-indent-lines lines lister-local-left-margin level))
+      (let* ((left-padding      (make-string (+ (or lister-local-left-margin 0)  (or level 0)) ? ))
+	     (padded-item-list  (mapcar (apply-partially #'concat left-padding) lines))
 	     (item-list         (lister-add-vertical-margins buf padded-item-list))
 	     (beg               (lister-pos-as-integer marker-or-pos))
 	     (inhibit-read-only t))
