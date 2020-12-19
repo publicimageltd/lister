@@ -425,13 +425,10 @@ BUF is a lister buffer."
 
 (cl-defun lister-strflat (l &optional (format-string "%s"))
   "Recursively stringify all items in L, flattening any sublists.
-If L is a string, just wrap it in a list. Else, flatten L and
-remove any empty lists. Every non-nil item will be passed to
-FORMAT-STRING, which defaults to \"%s\"."
-  (if (stringp l)
-      (list l)
-    (mapcar (apply-partially #'format format-string)
-	    (flatten-tree l))))
+If L is not a list item, wrap it into a list. Every non-nil item
+will be passed to FORMAT-STRING, which defaults to \"%s\"."
+  (mapcar (apply-partially #'format format-string)
+	  (flatten-tree l)))
 
 (defun lister-add-vertical-margins (lister-buf strings)
   "Pad a list of STRINGS vertically by adding empty strings.
@@ -447,10 +444,12 @@ LISTER-BUF."
 	    (make-list lister-local-bottom-margin "")))))
   
 (cl-defun lister-insert-lines (buf marker-or-pos lines level)
-  "Insert list LINES with padding at POS in BUF.
+  "Insert flattened list LINES with padding LEVEL at POS in BUF.
 MARKER-OR-POS can be either a marker object or a buffer position.
 LINES must be a list. LEVEL, an integer, adds extra padding to
 the item (e.g. to mark it as a subitem).
+
+If LINES is nil, do nothing.
 
 Mark the inserted text as `intangible', but leave a gap for the
 cursor to access the item. Store some important values at the
@@ -460,9 +459,8 @@ text.
 Return the marker pointing to the gap position."
   (when lines
     (with-current-buffer buf
-      (let* ((left-padding      (make-string (+ (or lister-local-left-margin 0)  (or level 0)) ? ))
-	     (padded-item-list  (mapcar (apply-partially #'concat left-padding) lines))
-	     (item-list         (lister-add-vertical-margins buf padded-item-list))
+      (let* ((padding           (make-string (+ (or lister-local-left-margin 0) (or level 0)) ? ))
+	     (item-list         (lister-add-vertical-margins buf (lister-strflat lines (concat padding "%s"))))
 	     (beg               (lister-pos-as-integer marker-or-pos))
 	     (inhibit-read-only t))
 	(goto-char beg)
@@ -478,7 +476,7 @@ Return the marker pointing to the gap position."
 	;; which is also its "marker position" used to reference the
 	;; item:
 	(put-text-property beg (1+ beg) 'item t)
-	(put-text-property beg (1+ beg) 'level level)
+	(put-text-property beg (1+ beg) 'level (or level 0))
 	(put-text-property beg (1+ beg) 'nchars (- (point) beg))
 	(lister-make-marker buf beg)))))
 
@@ -529,44 +527,34 @@ NO-ERROR."
 ;; `item', while the former is marked with the property
 ;; `header-or-footer'.
 
-(defun lister-set-header-or-footer (lister-buf lines type)
-  "Insert LINES as a header or footer in LISTER-BUF, depending on TYPE.
-TYPE must be either the symbol 'header or 'footer.
-Setting LINES to nil effectively deletes the item."
-  (with-lister-buffer lister-buf
-    (let (marker-var
-	  default-pos
-	  (item (lister-strflat lines)))
-      (pcase type
-	('header (setq marker-var   'lister-local-header-marker
-		       default-pos  'point-min))
-	('footer (setq marker-var   'lister-local-footer-marker
-		       default-pos  'point-max))
-	(_       (error "unknown type %s, expected 'header or 'footer." type)))
-      (set marker-var
-	   (if (symbol-value marker-var)
-	       (lister-replace-lines lister-buf
-				     (symbol-value  marker-var)
-				     item)
-	     (lister-insert-lines lister-buf
-				  (funcall default-pos)
-				  item
-				  0)))
-      ;; close the cursor gap and mark this item as a header or footer:
-      (when-let* ((m (symbol-value marker-var))
-		  (inhibit-read-only t))
-	(put-text-property m (1+ m)  'item nil)
-	(put-text-property m (1+ m)  'header-or-footer t)
-	(put-text-property m (1+ m)  'cursor-intangible t)
-	(put-text-property m (1+ m)  'front-sticky t)))))
+(defun lister-propertize-header-or-footer (lister-buf marker-or-pos)
+  "Mark the item at MARKER-OR-POS to be a header or footer."
+  (with-current-buffer lister-buf
+    (let* ((inhibit-read-only t))
+      (put-text-property marker-or-pos (1+ marker-or-pos)  'item nil)
+      (put-text-property marker-or-pos (1+ marker-or-pos)  'header-or-footer t)
+      (put-text-property marker-or-pos (1+ marker-or-pos)  'cursor-intangible t)
+      (put-text-property marker-or-pos (1+ marker-or-pos)  'front-sticky t))))
 
 (defun lister-set-header (lister-buf header)
   "Insert or replace HEADER before the first item in LISTER-BUF."
-  (lister-set-header-or-footer lister-buf header 'header))
+  (with-current-buffer lister-buf
+    (setq lister-local-header-marker
+	  (if lister-local-header-marker
+	      (lister-replace-lines lister-buf lister-local-header-marker header)
+	    (lister-insert-lines lister-buf (point-min) header 0)))
+    (when lister-local-header-marker
+      (lister-propertize-header-or-footer lister-buf lister-local-header-marker))))
 
 (defun lister-set-footer (lister-buf footer)
   "Insert or replace FOOTER after the last item of LISTER-BUF."
-  (lister-set-header-or-footer lister-buf footer 'footer))
+  (with-current-buffer lister-buf
+    (setq lister-local-footer-marker
+	  (if lister-local-footer-marker
+	      (lister-replace-lines lister-buf lister-local-footer-marker footer)
+	    (lister-insert-lines lister-buf (point-max) footer 0)))
+    (when lister-local-footer-marker
+      (lister-propertize-header-or-footer lister-buf lister-local-footer-marker))))
 
 
 ;; -----------------------------------------------------------
@@ -843,25 +831,13 @@ effectively inserts an item before the last item. If you want to
 add an item to the end of the list, use `lister-add'."
   (let* ((cursor-sensor-inhibit t))
     (lister-sensor-leave lister-buf)
-    (let* ((marker-or-pos
-	    (lister-eval-pos-or-symbol lister-buf position-or-symbol))
-	   ;;
-	   (mapper (buffer-local-value 'lister-local-mapper
-				       lister-buf))
-	   ;;
-	   (lines
-	    (lister-validate-lines
-	     (lister-strflat (funcall mapper data))))
-	   ;;
-	   (level
-	    (lister-determine-level  lister-buf
-				     marker-or-pos
-				     level))
-	   ;;
-	   (marker  (lister-insert-lines lister-buf
-					 marker-or-pos
-					 lines
-					 level)))
+    (let* ((marker-or-pos (lister-eval-pos-or-symbol lister-buf position-or-symbol))
+	   (mapper        (buffer-local-value 'lister-local-mapper lister-buf))
+	   (level         (lister-determine-level lister-buf marker-or-pos level))
+	   (marker        (lister-insert-lines lister-buf
+					       marker-or-pos
+					       (funcall mapper data)
+					       level)))
       ;;
       (lister-set-data lister-buf marker data)
       (lister-set-prop lister-buf marker
