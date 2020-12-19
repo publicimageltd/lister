@@ -456,7 +456,8 @@ cursor to access the item. Store some important values at the
 position of the gap. Move point to the end of the newly inserted
 text.
 
-Return the marker pointing to the gap position."
+If an item has been inserted, return the marker pointing to its
+gap position."
   (when lines
     (with-current-buffer buf
       (let* ((padding           (make-string (+ (or lister-local-left-margin 0) (or level 0)) ? ))
