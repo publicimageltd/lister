@@ -423,52 +423,15 @@ BUF is a lister buffer."
     ((pred listp)       lines)
     (_                  '("NOT A LIST ITEM"))))
 
-;; FIXME Too many unused features and too complex. Rather reduce it to
-;; the basic functions? Yet some feautres (like calling f()s) can be
-;; useful for headers and footers. Maybe add a way to fresh them?
-(defun lister-strflat (l)
+(cl-defun lister-strflat (l &optional (format-string "%s"))
   "Recursively stringify all items in L, flattening any sublists.
 If L is a string, just wrap it in a list. Else, flatten L and
-remove any empty lists, quoting cars such as (quote xy) or (function
-z), and nil values. Replace function names with the result of
-calling these functions with no args.
-
-NOTE: The function has to be defined with defun, since it is
-recognized via `functionp'.
-
-Examples:
-
- \"string\" -> (\"string\")
-
-\(\"first row\" nil \"second row\" nil nil \"third row\")
-   ->  (\"first row\" \"second row\" \"third row\")
-
-\(current-time-string) -> (\"<current time as string>\")
- 
-\('current-time-string) -> (\"<current time as string>\")
-
- '(\"A\" '(\"B\" \"C\"))) -> (\"A\" \"B\" \"C\")"
+remove any empty lists. Every non-nil item will be passed to
+FORMAT-STRING, which defaults to \"%s\"."
   (if (stringp l)
       (list l)
-    (seq-reduce (lambda (acc e)
-		  (cond
-		   ;; ignore nils:
-		   ((null e)  acc)
-		   ;; don't pass quoting cars to the result:
-		   ((eq e 'function) acc)
-		   ((eq e 'quote)    acc)
-		   ((eq e 'closure)  acc)
-		   ;; flatten lists
-		   ((and (listp e) (not (functionp e)))
-		    (append acc (lister-strflat e)))
-		   ;; actual work:
-		   (t (append acc (list
-				   (if (functionp e)
-				       (funcall e)
-				     (if (stringp e)
-					 e
-				       (format "%s" e))))))))
-		l '())))
+    (mapcar (apply-partially #'format format-string)
+	    (flatten-tree l))))
 
 (defun lister-indent-line (str n &optional offset)
   "Indent STR by adding N+OFFSET spaces.
