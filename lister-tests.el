@@ -429,11 +429,45 @@
     (lister-goto buf :last)
     (expect (test-line buf) :to-be 3)))
 
-;; TODO Add test for indexfunctions
-;; (describe "Indexed lists:"
-;;   (before-each
-;;     (setq buf (lister-setup (test-new-buffer) #'list
-;; 			    '(1 2 3 4 5 6 7)))
+(describe "Indexed lists:"
+  (before-each
+    (setq buf (lister-setup (test-new-buffer) #'list
+			    '(0 1 2 3 4 5 6 7))))
+  (after-each
+    (kill-buffer buf))
+  (it "Use index positions to access items:"
+    (expect 
+     (lister-get-data buf (lister-index-marker buf 0))
+     :to-equal
+     0)
+    (expect 
+     (lister-get-data buf (lister-index-marker buf 1))
+     :to-equal
+     1)
+    (expect 
+     (lister-get-data buf (lister-index-marker buf 3))
+     :to-equal
+     3)
+    (expect 
+     (lister-get-data buf (lister-index-marker buf 7))
+     :to-equal
+     7))
+  (it "Return nil if index position is out of bounds:"
+    (expect (lister-index-marker buf 2000)
+	    :to-be
+	    nil))
+  (it "Find the index position of a marker:"
+    (cl-loop for i from 0 to 7
+	     do
+	     (expect
+	      (lister-index-position buf
+				     (lister-index-marker buf i))
+	      :to-be
+	      i))))
+
+
+    
+    
 
 (describe "Using predicates:"
   :var (buf datalist)

@@ -354,17 +354,19 @@ This is intended to be similar to `point-max'."
        ;; nothing there, just go to the beginning:
        (t (point-min))))))
 
-;; TODO Write a test for this function 
 (defun lister-index-position (lister-buf marker-or-pos)
-  "Get the index position of the item at MARKER-OR-POS in LISTER-BUF.
-Return nil if MARKER-OR-POS is not on an item."
-  (cl-position marker-or-pos (buffer-local-value 'lister-local-marker-list lister-buf)  #'=))
+  "Get index position (starting with 0) of the item at MARKER-OR-POS.
+Return nil if MARKER-OR-POS in LISTER-BUF is not pointing to an
+item."
+  (cl-position marker-or-pos
+	       (buffer-local-value 'lister-local-marker-list lister-buf)
+	       :test #'=))
 
-;; TODO Write a test for this function 
 (defun lister-index-marker (lister-buf index-position)
-  "Get the marker for INDEX-POSITION in LISTER-BUF.
+  "Get the marker for INDEX-POSITION (starting with 0) in LISTER-BUF.
 Return nil if no such position is available."
-  (elt (buffer-local-value 'lister-local-marker-list lister-buf) index-position))
+  (elt (buffer-local-value 'lister-local-marker-list lister-buf)
+       index-position))
 
 (defun lister-all-markers (lister-buf)
   "Get a freshly build list of all item markers in LISTER-BUF."
@@ -809,7 +811,7 @@ LISTER-BUF is a lister buffer."
 ;; * Insert, add, remove or replace list items
 ;; -----------------------------------------------------------
 
-;; Insert Single Items
+;;; Insert Single Items
 
 (defun lister-insert (lister-buf position-or-symbol data &optional level)
     "Insert DATA as item at POSITION-OR-SYMBOL in LISTER-BUF.
@@ -847,7 +849,7 @@ add an item to the end of the list, use `lister-add'."
       (lister-sensor-enter lister-buf)
       marker)))
 
-;; * Insert Sequences of Items
+;;; * Insert Sequences of Items
 
 (defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
@@ -904,7 +906,7 @@ markers."
     ;; lister-goto calls both sensor-leave and sensor-enter
     (lister-goto lister-buf pos-or-marker)))
 
-;; Add
+;;; Add item to the end of the list
 
 (defun lister-add (lister-buf data &optional level)
   "Add a list item representing DATA to the end of the list in LISTER-BUF.
@@ -915,6 +917,8 @@ Return the marker of the added item's cursor gap position."
   (lister-insert lister-buf
 		 (lister-next-free-position lister-buf)
 		 data level))
+
+;;; Add sequence of items to the end of the list
 
 (defun lister-add-sequence (lister-buf seq &optional level)
   "Add SEQ as items to LISTER-BUF with indentation LEVEL.
@@ -930,7 +934,7 @@ possible values of LEVEL, see `lister-determine-level'.
 Return a list of newly inserted markers."
   (lister-insert-sequence lister-buf nil seq level))
 
-;; Remove items
+;;; Remove item
 
 (defun lister-remove (lister-buf position-or-symbol)
   "Remove the item at POSITION-OR-SYMBOL from LISTER-BUF.
@@ -940,7 +944,7 @@ does not indicate an item.
 
 Also call the sensor functions before and after removing the
 item; update the buffer local marker list and move point if the
-removed item if it was the last. 
+removed item was at the end of the list.
 
 The automatic correction of point is turned off when
 `lister-inhibit-cursor-action' is set to t."
@@ -951,7 +955,7 @@ The automatic correction of point is turned off when
       (unless lister-inhibit-cursor-action 
 	(when (= cursor-pos pos)
 	  (lister-sensor-leave lister-buf)))
-      ;; update the local marker list
+      ;; remove associated marker from the local marker list
       (with-current-buffer lister-buf
 	  (setq lister-local-marker-list
 		(cl-remove pos lister-local-marker-list :test #'=)))
@@ -963,12 +967,12 @@ The automatic correction of point is turned off when
 	(with-current-buffer lister-buf
 	  (goto-char (or (lister-marker-at lister-buf :last)
 			 (lister-item-max lister-buf)))))
-      ;; if we left the sensor, let's turn it on again:
+      ;; if we left the sensor, turn it on again:
       (unless lister-inhibit-cursor-action
 	(when (= cursor-pos pos)
 	  (lister-sensor-enter lister-buf pos))))))
 
-;; Remove sublists
+;;; Remove sublists
 
 (defun lister-level-at-item-index (lister-buf n)
   "Return the level of the Nth item in LISTER-BUF."
@@ -1047,7 +1051,8 @@ Do nothing if the next item is not a sublist."
 					    pos-or-marker)))
       (lister-remove-this-level lister-buf (lister-end-of-lines lister-buf pos-or-marker)))))
 
-;; Remove marked items
+;; Remove Marked Items
+
 (defun lister-remove-marked-items (lister-buf
 				   &optional include-sublists)
   "Remove all marked items from LISTER-BUF.
@@ -1060,7 +1065,7 @@ marked items."
 	(lister-remove-sublist-below lister-buf m))
       (lister-remove lister-buf m))))
 
-;; Replace items
+;; Replace Item
 
 (defun lister-replace (lister-buf position-or-symbol data &optional new-level)
   "Replace the item at POSITION-OR-SYMBOL with one representing DATA.
@@ -1074,7 +1079,9 @@ Preserve the indentation level or use NEW-LEVEL."
       (lister-remove lister-buf pos-marker)
       (lister-insert lister-buf pos-marker data level))))
 
-;; Replace the whole buffer list (set list)
+;;; There is currently no function to replace sublists
+
+;;; Replace the whole buffer list (set the list)
 
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
