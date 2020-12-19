@@ -1232,15 +1232,19 @@ levels or hierarchies."
 ;; TODO add option to also build a vector list
 (cl-defun lister-group-by-level (l level-fn &optional (map-fn #'identity))
   "Build a tree from the flat list L.
-L is a list of elements with no nesting. LEVEL-FN has to return
-the intended nesting level for each element it is called with (as
-an integer). Elements with the same level are treated as one
-list; elements with higher levels are stored into sublists of
-this list. MAP-FN can be used to additionally transform the
-elements when building the tree.
+L is a list of elements with no nesting. LEVEL-FN is called with
+each element and has to return the intended nesting level (as an
+integer). Elements with the same associated level are treated as
+one list; elements with higher levels are stored into sublists of
+this list. 
+
+MAP-FN can be used to additionally transform the elements when
+building the tree.
 
 Example:
-   (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'cl-second #'cl-first)
+  ;; use the cadr of each item as the level (level-fn);
+  ;; use the car as the item itself (map-fn)  
+  (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'cl-second #'cl-first)
  -> (a (b c) d)"
   (let* ((push-item  nil)
 	 (item       (car l))
