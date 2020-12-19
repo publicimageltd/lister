@@ -544,22 +544,22 @@ NO-ERROR."
 (defun lister-set-header (lister-buf header)
   "Insert or replace HEADER before the first item in LISTER-BUF."
   (with-current-buffer lister-buf
-    (setq lister-local-header-marker
-	  (if lister-local-header-marker
-	      (lister-replace-lines lister-buf lister-local-header-marker header)
-	    (lister-insert-lines lister-buf (point-min) header 0)))
-    (when lister-local-header-marker
-      (lister-propertize-header-or-footer lister-buf lister-local-header-marker))))
+    (and 
+     (setq lister-local-header-marker
+	   (if lister-local-header-marker
+	       (lister-replace-lines lister-buf lister-local-header-marker header)
+	     (lister-insert-lines lister-buf (point-min) header 0)))
+     (lister-propertize-header-or-footer lister-buf lister-local-header-marker))))
 
 (defun lister-set-footer (lister-buf footer)
   "Insert or replace FOOTER after the last item of LISTER-BUF."
   (with-current-buffer lister-buf
-    (setq lister-local-footer-marker
-	  (if lister-local-footer-marker
-	      (lister-replace-lines lister-buf lister-local-footer-marker footer)
-	    (lister-insert-lines lister-buf (point-max) footer 0)))
-    (when lister-local-footer-marker
-      (lister-propertize-header-or-footer lister-buf lister-local-footer-marker))))
+    (and 
+     (setq lister-local-footer-marker
+	   (if lister-local-footer-marker
+	       (lister-replace-lines lister-buf lister-local-footer-marker footer)
+	     (lister-insert-lines lister-buf (point-max) footer 0)))
+     (lister-propertize-header-or-footer lister-buf lister-local-footer-marker))))
 
 
 ;; -----------------------------------------------------------
