@@ -310,7 +310,7 @@ the new text."
 	      (not marker-or-pos))
     ;; NOTE Actually the whole stuff below might seem totally useless.
     ;; Simply updating the marker list by setting its value to the
-    ;; result of `lister-all-item-markers` works as well and does not take
+    ;; result of `lister-rescan-item-markers` works as well and does not take
     ;; more time (!). 
     (let* ((m-o-p-list    (if (listp marker-or-pos)
 			      marker-or-pos
@@ -368,7 +368,7 @@ Return nil if no such position is available."
   (elt (buffer-local-value 'lister-local-marker-list lister-buf)
        index-position))
 
-(defun lister-all-item-markers (lister-buf)
+(defun lister-rescan-item-markers (lister-buf)
   "Get a freshly build list of all item markers in LISTER-BUF."
   (with-current-buffer lister-buf
     (save-excursion
