@@ -405,10 +405,12 @@ BUF is a lister buffer."
 	    (lister-cursor-locked t)
 	    (cursor-pos (with-current-buffer ,buf (point))))
        ,@body
-       (unless (get-text-property cursor-pos 'item ,buf)
-	 (lister-goto ,buf :last)))
-     (lister-sensor-enter ,buf
-			  (with-current-buffer ,buf (point)))))
+       (lister-goto ,buf (if (and (< cursor-pos (with-current-buffer ,buf (point-max)))
+				  (get-text-property cursor-pos 'item ,buf))
+			     cursor-pos
+			   :last))
+       (lister-sensor-enter ,buf
+			    (with-current-buffer ,buf (point))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
