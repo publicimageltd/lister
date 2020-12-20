@@ -65,9 +65,9 @@ expression with the argument DATA.")
 (defvar-local lister-local-marking-predicate nil
   "Function which decides if an item can be marked at all.
 If there is no function, just treat any item as subject to
-marking. A function has to be called with two arguments: the
-item's marker and its associated data. The item will be exempt
-from marking if the return value is nil.")
+marking. The function has to be called with one argument: the
+associated data. The item will be exempt from marking if the
+return value is nil.")
 
 (defvar-local lister-local-header-marker nil
   "Stores the marker for the upper left corner of the header.")
@@ -1166,7 +1166,7 @@ Return t if the item's state has been changed, else nil."
   (let* ((m (lister-marker-at lister-buf position-or-symbol))
 	 (f (buffer-local-value 'lister-local-marking-predicate lister-buf)))
     (when (or (null f)
-	      (funcall f m (lister-get-data lister-buf m)))
+	      (funcall f (lister-get-data lister-buf m)))
       (lister-set-prop lister-buf m 'mark value)
       (lister-display-mark-state lister-buf m)
       t)))
