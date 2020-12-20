@@ -62,6 +62,13 @@ expression with the argument DATA.")
 (defvar-local lister-local-filter-active nil
   "Only filter the items if this buffer local variable is t.")
 
+(defvar-local lister-local-marking-predicate nil
+  "Function which decides if an item can be marked at all.
+If there is no function, just treat any item as subject to
+marking. A function has to be called with two arguments: the
+item's marker and its associated data. The item will be exempt
+from marking if the return value is nil.")
+
 (defvar-local lister-local-header-marker nil
   "Stores the marker for the upper left corner of the header.")
 
@@ -1153,10 +1160,16 @@ marker, a buffer position, or one of the symbols `:point',
 `:first' or `:last'. LISTER-BUF is a lister buffer.
 
 After (un)marking the item, update the visible display of its
-current mark state."
-  (let* ((m (lister-marker-at lister-buf position-or-symbol)))
-    (lister-set-prop lister-buf m 'mark value)
-    (lister-display-mark-state lister-buf m)))
+current mark state.
+
+Return t if the item's state has been changed, else nil."
+  (let* ((m (lister-marker-at lister-buf position-or-symbol))
+	 (f (buffer-local-value 'lister-local-marking-predicate lister-buf)))
+    (when (or (null f)
+	      (funcall f m (lister-get-data lister-buf m)))
+      (lister-set-prop lister-buf m 'mark value)
+      (lister-display-mark-state lister-buf m)
+      t)))
 
 ;; Marking a list of items
 
@@ -1426,12 +1439,12 @@ Do nothing if `lister-inhibit-cursor-action' is t."
   (interactive)
   (when-let* ((buf (current-buffer))
 	      (m (lister-marker-at buf :point)))
-    (lister-mark-item buf m
-		      (not (lister-get-mark-state buf m)))
-    ;; move forward one line after marking:
-    (when-let* ((next-item (lister-end-of-lines buf m)))
-      (unless (invisible-p next-item)
-	(lister-goto buf next-item)))))
+    (if (not (lister-mark-item buf m (not (lister-get-mark-state buf m))))
+	(user-error "Item cannot be marked")
+      ;; move forward one line after marking:
+      (when-let* ((next-item (lister-end-of-lines buf m)))
+	(unless (invisible-p next-item)
+	  (lister-goto buf next-item))))))
 
 (defun lister-key-mark-all-items ()
   "Mark all items of the current list."
