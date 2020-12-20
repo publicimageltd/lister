@@ -1138,49 +1138,39 @@ is no item at POS-OR-SYMBOL."
     (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
 		lister-local-marker-list)))
 
-(defun lister-map-marked-items (lister-buf fn)
-  "Collect the results of calling FN on each marked item.
-FN has to accept a marker object as its sole argument."
-  (seq-map fn (lister-all-marked-items lister-buf)))
-
 (defun lister-get-marked-data (lister-buf)
   "Collect all data from the marked items in LISTER-BUF."
-  (lister-map-marked-items lister-buf
-			   (apply-partially #'lister-get-data lister-buf)))
+  (seq-map (apply-partially #'lister-get-data lister-buf)
+	   (lister-all-marked-items lister-buf)))
 
 ;; Marking a single item
 
 (defun lister-mark-item (lister-buf position-or-symbol value)
-  "Set the item's mark at POSITION-OR-SYMBOL to a boolean VALUE.
-POSITION-OR-SYMBOL can be a marker, a buffer position, or one of
-the symbols `:point', `:first' or `:last'.
+  "According to VALUE, either mark or unmark the item at POSITION-OR-SYMBOL.
+VALUE must be a boolean value. POSITION-OR-SYMBOL can be a
+marker, a buffer position, or one of the symbols `:point',
+`:first' or `:last'. LISTER-BUF is a lister buffer.
 
- LISTER-BUF is a lister buffer."
+After (un)marking the item, update the visible display of its
+current mark state."
   (let* ((m (lister-marker-at lister-buf position-or-symbol)))
     (lister-set-prop lister-buf m 'mark value)
     (lister-display-mark-state lister-buf m)))
 
-
 ;; Marking a list of items
 
-(defun lister-mark-all-items (lister-buf value)
-  "Set all items to the marking state VALUE in LISTER-BUF."
+(defun lister-mark-some-items (lister-buf positions value)
+  "In LISTER-BUF, mark all items in POSITIONS with VALUE."
   (with-lister-buffer lister-buf
     (save-excursion
       (seq-do (lambda (m) (lister-mark-item lister-buf m value))
-	      lister-local-marker-list))))
+	      positions))))
 
-;; TODO This should be also possible by passing a list of positions.
-(defun lister-mark-some-items (lister-buf marked-data value)
-  "In LISTER-BUF, mark items which are members of MARKED-DATA.
-Comparison is done with `equal'. VALUE should be either t to set
-the mark or nil to remove it."
-  (let* ((ml (with-current-buffer lister-buf lister-local-marker-list)))
-    (cl-loop for m in ml
-	     do
-	     (when (member (lister-get-data lister-buf m) marked-data)
-	       (lister-mark-item lister-buf m value)))))
-
+(defun lister-mark-all-items (lister-buf value)
+  "Set all items to the marking state VALUE in LISTER-BUF."
+  (lister-mark-some-items lister-buf
+			  (buffer-local-value 'lister-local-marker-list lister-buf)
+			  value))
 
 ;; -----------------------------------------------------------
 ;; * Setting and getting data
