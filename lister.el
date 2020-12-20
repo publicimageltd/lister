@@ -1173,6 +1173,16 @@ current mark state."
 			  (buffer-local-value 'lister-local-marker-list lister-buf)
 			  value))
 
+(cl-defun lister-mark-items-if (lister-buf pred &optional (value t))
+  "Set all items matching PRED to marking state VALUE.
+PRED is called with the item's data as its sole argument. VALUE
+defaults to t, meaning 'mark all these items matching the
+predicate'. LISTER-BUF is a lister buffer."
+  (lister-mark-some-items lister-buf
+			  (cl-remove-if-not (lambda (m) (funcall pred (lister-get-data lister-buf m)))
+					    (buffer-local-value 'lister-local-marker-list lister-buf))
+			  value))
+
 ;; -----------------------------------------------------------
 ;; * Setting and getting data
 ;; -----------------------------------------------------------
