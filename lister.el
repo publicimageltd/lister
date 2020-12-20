@@ -1041,7 +1041,7 @@ Example:
   "Remove the sublist below the item at POS-OR-MARKER.
 Do nothing if the next item is not a sublist."
   (when (lister-sublist-below-p lister-buf pos-or-marker)
-    ;; don't call sensor function is removed items are below point:
+    ;; don't call sensor function if removed items are below point:
     (let* ((lister-inhibit-cursor-action (= (with-current-buffer lister-buf (point))
 					    pos-or-marker)))
       (lister-remove-this-level lister-buf (lister-end-of-lines lister-buf pos-or-marker)))))
@@ -1081,21 +1081,17 @@ Preserve the indentation level or use NEW-LEVEL."
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
 SEQ can be nested to insert hierarchies."
+  ;; delete old list:
   (with-lister-buffer lister-buf
-    ;; delete old list:
-    (when-let* ((ml lister-local-marker-list)
-		;; (nth 0 ml) is always the first item,
-		;; because header marker is stored in
-		;; its own buffer local variable:
-		(beg (nth 0 ml))
-		(end (or lister-local-footer-marker
-			 (point-max)))
-		(inhibit-read-only t))
-      (delete-region beg end)
-      (setq lister-sensor-last-item nil)
-      (setq lister-local-marker-list nil))
-    ;; insert new list:
-    (lister-add-sequence lister-buf seq)))
+    (let ((inhibit-read-only t)
+	  (cursor-sensor-inhibit t))
+      (delete-region (lister-item-min lister-buf)
+		     (or lister-local-footer-marker
+			 (lister-item-max lister-buf))))
+    (setq lister-sensor-last-item nil)
+    (setq lister-local-marker-list nil))
+  ;; insert new list:
+  (lister-add-sequence lister-buf seq))
 
 ;; -----------------------------------------------------------
 ;; * Marking and unmarking items

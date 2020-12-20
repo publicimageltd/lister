@@ -302,7 +302,38 @@
        (lister-replace buf m3 "3")
       (expect (lister-get-all-data buf)
 	      :to-equal
-	      '("1" "2" "3")))))
+	      '("1" "2" "3"))))
+  (it "Replace a whole list via set-list, with header and footer defined:"
+    (cl-dolist (item '(1 2 3 4 5 6 7))
+      (lister-add buf item))
+    (lister-set-header buf header)
+    (lister-set-footer buf footer)
+    (let ((data '("A" "B" "C")))
+      (lister-set-list buf data)
+      (expect (lister-get-all-data buf)
+	      :to-equal
+	      data)
+      (expect (test-buffer-content buf)
+	      :to-equal
+	      (format "%s\n%s\n%s\n" ;; footer and header each have a newline!
+		      header
+		      (string-join data "\n") ;; last item's newline
+					      ;; is in the format spec
+		      footer))))
+  (it "Replace a whole list via set-list, with no header or footer:"
+    (cl-dolist (item '(1 2 3 4 5 6 7))
+      (lister-add buf item))
+    (lister-set-header buf nil)
+    (lister-set-footer buf nil)
+    (let ((data '("A" "B" "C")))
+      (lister-set-list buf data)
+      (expect (lister-get-all-data buf)
+	      :to-equal
+	      data)
+      (expect (test-buffer-content buf)
+	      :to-equal
+	      (concat (string-join data "\n") "\n")))))
+	      
 
 (describe "Inserting sequences:"
   :var (buf)
