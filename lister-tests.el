@@ -545,7 +545,7 @@
     (lister-goto buf :last)
     (lister-goto buf :first)
     (expect value :to-equal "D"))
-  (it "Do not call callback within `with-locked-cursor'"
+  (it "Do not call callback within `lister-with-locked-cursor'"
     (lister-add-enter-callback buf callbackfn)
     (let (in-between-value)
       (lister-goto buf :first)
