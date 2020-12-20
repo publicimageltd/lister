@@ -1062,7 +1062,7 @@ Do nothing if the next item is not a sublist."
 If INCLUDE-SUBLISTS is set, also remove sublists belonging to
 marked items."
   (lister-with-locked-cursor lister-buf
-    (seq-doseq (m (lister-marked-items lister-buf))
+    (seq-doseq (m (lister-all-marked-items lister-buf))
       (when (and include-sublists
 		 (lister-sublist-below-p lister-buf m))
 	(lister-remove-sublist-below lister-buf m))
@@ -1166,7 +1166,7 @@ position."
 
 ;; * Collecting marked items
 
-(defun lister-marked-items (lister-buf)
+(defun lister-all-marked-items (lister-buf)
   "Get all markers pointing to marked items in LISTER-BUF."
   (with-lister-buffer lister-buf
     (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
@@ -1175,7 +1175,7 @@ position."
 (defun lister-map-marked-items (lister-buf fn)
   "Collect the results of calling FN on each marked item.
 FN has to accept a marker object as its sole argument."
-  (seq-map fn (lister-marked-items lister-buf)))
+  (seq-map fn (lister-all-marked-items lister-buf)))
 
 (defun lister-get-marked-data (lister-buf)
   "Collect all data from the marked items in LISTER-BUF."
