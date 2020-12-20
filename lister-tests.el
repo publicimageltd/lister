@@ -142,7 +142,7 @@
     (let* ((llm (with-current-buffer buf
 		  lister-local-marker-list)))
       (expect llm :to-equal
-	    (lister-all-markers buf))))
+	    (lister-all-item-markers buf))))
   (it "Get the first item:"
     (let ((m (lister-marker-at buf :first)))
       (expect (lister-get-data buf m) :to-equal "A")))
