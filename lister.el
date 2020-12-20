@@ -288,7 +288,7 @@ valid position."
 	      (seq-subseq target target-pos))
     (append target new)))
 
-(defun lister-add-marker (lister-buf marker-or-pos)
+(defun lister-add-item-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
 MARKER-OR-POS can be a marker or a pos, or a sorted homogenous
 list of only markers or only positions.
@@ -843,7 +843,7 @@ add an item to the end of the list, use `lister-add'."
 		       '(lister-sensor-function))
       (when (buffer-local-value 'lister-local-filter-active lister-buf)
 	(lister-possibly-hide-item lister-buf marker data))
-      (lister-add-marker lister-buf marker)
+      (lister-add-item-marker lister-buf marker)
       (with-current-buffer lister-buf
 	(goto-char marker))
       (lister-sensor-enter lister-buf)
@@ -889,7 +889,7 @@ markers."
 			    new-marker))
 	  (setq pos (lister-end-of-lines lister-buf (setq last-pos (car new-marker))))))
       (setq new-marker (reverse new-marker))
-      (lister-add-marker lister-buf new-marker)
+      (lister-add-item-marker lister-buf new-marker)
       (lister-sensor-enter lister-buf last-pos)
       new-marker)))
 
