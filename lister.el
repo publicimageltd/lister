@@ -1217,7 +1217,7 @@ POSITION-OR-SYMBOL can be either a buffer position, a marker, or
 The values are collected in a flat list, ignoring any nested
 levels or hierarchies."
   (seq-map (apply-partially #'lister-get-data lister-buf)
-	   (lister-marker-sublist lister-buf beg end)))
+	   (lister-items-in-region lister-buf beg end)))
 
 (defun lister-get-visible-data (lister-buf)
   "Collect the data values of all items visible in LISTER-BUF."
@@ -1261,7 +1261,7 @@ Example:
     (reverse res)))
 
 
-(defun lister-marker-sublist (lister-buf beg end)
+(defun lister-items-in-region (lister-buf beg end)
   "Get all marker from index pos BEG to and including END.
 LISTER-BUF must be a lister buffer; BEG and END are index
 positions starting with 0. If either BEG or END is nil, use the
@@ -1284,7 +1284,7 @@ buffer positions BEG and END (END is inclusive). If either BEG or
 END is nil, use the position of the first or last item."
   (let* ((data-list (seq-map (lambda (pos)
 			       (lister-get-props-at lister-buf pos 'data 'level))
-			     (lister-marker-sublist lister-buf beg end))))
+			     (lister-items-in-region lister-buf beg end))))
       (lister-group-by-level data-list #'cl-second #'cl-first)))
 
 ;; -----------------------------------------------------------
