@@ -1459,13 +1459,12 @@ Do nothing if `lister-inhibit-cursor-action' is t."
 (defun lister-key-action ()
   "Do something with the item at point."
   (interactive)
-  (unless  (and (get-text-property (point) 'item)
-		(not (get-text-property (point) 'header-or-footer)))
-    (user-error "No item at point"))
-  (if-let* ((fn lister-local-action))
-      (funcall lister-local-action
-	       (lister-get-data (current-buffer) :point))
-    (message "No action defined")))
+  (if (get-text-property (point) 'item)
+      (if-let* ((fn lister-local-action))
+	  (funcall lister-local-action
+		   (lister-get-data (current-buffer) :point))
+	(message "No action defined"))
+    (user-error "No item at point")))
 
 (defvar lister-mode-map
   (let ((map (make-sparse-keymap)))
