@@ -583,7 +583,7 @@ The VALUE t hides the item, nil makes it visible."
   "In LISTER-BUF, set the item at MARKER-OR-POS as invisible."
   (lister-set-item-invisibility lister-buf marker-or-pos t))
 
-(defun lister-invisible-markers (lister-buf)
+(defun lister-invisible-items (lister-buf)
   "Get all markers pointing only to hidden items in LISTER-BUF."
   (with-lister-buffer lister-buf
     (seq-filter (lambda (m)
@@ -594,7 +594,7 @@ The VALUE t hides the item, nil makes it visible."
 		  (text-property-any m (1+ m) 'invisible t))
 		lister-local-marker-list)))
 
-(defun lister-visible-markers (lister-buf)
+(defun lister-visible-items (lister-buf)
   "Get all markers pointing only to visible items in LISTER-BUF."
   (with-lister-buffer lister-buf
     (seq-filter (lambda (m)
@@ -1134,11 +1134,10 @@ is no item at POS-OR-SYMBOL."
 
 (defun lister-all-marked-items (lister-buf)
   "Get all markers pointing to marked items in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
-		lister-local-marker-list)))
+  (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
+	      (buffer-local-value 'lister-local-marker-list lister-buf)))
 
-(defun lister-get-marked-data (lister-buf)
+(defun lister-all-marked-data (lister-buf)
   "Collect all data from the marked items in LISTER-BUF."
   (seq-map (apply-partially #'lister-get-data lister-buf)
 	   (lister-all-marked-items lister-buf)))
@@ -1223,7 +1222,7 @@ levels or hierarchies."
 (defun lister-get-visible-data (lister-buf)
   "Collect the data values of all items visible in LISTER-BUF."
   (seq-map (apply-partially #'lister-get-data lister-buf)
-	   (lister-visible-markers lister-buf)))
+	   (lister-visible-items lister-buf)))
 
 ;; TODO add option to also build a vector list
 (cl-defun lister-group-by-level (l level-fn &optional (map-fn #'identity))
@@ -1522,7 +1521,7 @@ Return BUF."
     (when data-list
       (lister-set-list buf data-list))
     ;; move to first item:
-    (if (lister-visible-markers buf)
+    (if (lister-visible-items buf)
 	(lister-goto buf :first)
       (goto-char (point-min)))
     buf))

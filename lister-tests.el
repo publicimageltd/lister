@@ -454,7 +454,7 @@
   (it "Filter all data so that nothing is displayed."
     (lister-add-filter buf (lambda (data) (ignore data)))
     (lister-activate-filter buf)
-    (expect (lister-visible-markers buf)  :to-be   nil))
+    (expect (lister-visible-items buf)  :to-be   nil))
   (it "Filter everything, then remove the filter."
     (lister-add-filter buf (lambda (data) (ignore data)))
     (lister-activate-filter buf)
@@ -581,7 +581,7 @@
       (expect (lister-get-mark-state buf m)   :to-be  nil)))
   (it "Mark all items, return marked values"
     (lister-mark-all-items buf t)
-    (expect  (lister-get-marked-data buf)  :to-equal (lister-get-all-data buf))))
+    (expect  (lister-all-marked-data buf)  :to-equal (lister-get-all-data buf))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
