@@ -310,7 +310,7 @@ the new text."
 	      (not marker-or-pos))
     ;; NOTE Actually the whole stuff below might seem totally useless.
     ;; Simply updating the marker list by setting its value to the
-    ;; result of `lister-all-markers` works as well and does not take
+    ;; result of `lister-all-item-markers` works as well and does not take
     ;; more time (!). 
     (let* ((m-o-p-list    (if (listp marker-or-pos)
 			      marker-or-pos
@@ -368,7 +368,7 @@ Return nil if no such position is available."
   (elt (buffer-local-value 'lister-local-marker-list lister-buf)
        index-position))
 
-(defun lister-all-markers (lister-buf)
+(defun lister-all-item-markers (lister-buf)
   "Get a freshly build list of all item markers in LISTER-BUF."
   (with-current-buffer lister-buf
     (save-excursion
@@ -992,6 +992,12 @@ corresponding to these two items.
 Example:
   ;; these are the boundaries of the first four items:
   (#<marker ....> #<marker ...> 0 3)"
+  ;; FIXME This function uses the marker list heavily, which might be
+  ;; costly if there are thousands of items. An alternative approach
+  ;; would be to proceed from the item and to move up and down using
+  ;; text property searches. It should be faster since the current
+  ;; version still needs to access the text properties to determine
+  ;; the level.
   (with-lister-buffer lister-buf
     (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
 	   (n       (cl-position marker lister-local-marker-list :test #'=))
@@ -1048,6 +1054,8 @@ Do nothing if the next item is not a sublist."
 
 ;; Remove Marked Items
 
+;; TODO This is too specific. Instead write a function which removes
+;; all items passed as a list of positions.
 (defun lister-remove-marked-items (lister-buf
 				   &optional include-sublists)
   "Remove all marked items from LISTER-BUF.
