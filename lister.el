@@ -1196,6 +1196,20 @@ predicate'. LISTER-BUF is a lister buffer."
 					    (buffer-local-value 'lister-local-marker-list lister-buf))
 			  value))
 
+(defun lister-mark-this-sublist (lister-buf marker-or-pos value)
+  "Mark the sublist to which MARKER-OR-POS belongs.
+LISTER-BUF has to be a valid lister buffer."
+  (let* ((bounds (lister-sublist-boundaries lister-buf marker-or-pos))
+	 (index-first (cl-third bounds))
+	 (index-last  (cl-fourth bounds))
+	 (all-markers (buffer-local-value 'lister-local-marker-list lister-buf)))
+    (lister-mark-some-items lister-buf
+			    (cl-subseq all-markers
+				       index-first
+				       (1+ index-last))
+			    value)))
+	 
+
 ;; -----------------------------------------------------------
 ;; * Setting and getting data
 ;; -----------------------------------------------------------
