@@ -1327,6 +1327,26 @@ END is nil, use the position of the first or last item."
       (lister-group-by-level data-list #'cl-second #'cl-first)))
 
 ;; -----------------------------------------------------------
+;; * Walk the lister buffer
+;; -----------------------------------------------------------
+
+(defun lister-walk (lister-buf pred action)
+  "Execute ACTION for each item matching PRED.
+Both PRED and ACTION have to accept one single argument, the
+data. ACTION is further called with point on the item's cursor
+gap. Returns the number of matched items."
+  (with-current-buffer lister-buf
+    (save-excursion
+      (let ((n 0))
+	(cl-dolist (item lister-local-marker-list)
+	  (let ((data (lister-get-data lister-buf item)))
+	    (when (funcall pred data)
+	      (setq n (1+ n))
+	      (goto-char item)
+	      (funcall action data))))
+	n))))
+
+;; -----------------------------------------------------------
 ;; * Moving point
 ;; -----------------------------------------------------------
 
