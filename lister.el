@@ -418,17 +418,18 @@ current."
 	 ;; NOTE: binding buf here avoids pitfalls when buffer is
 	 ;; changed in body-fn (and buf would be, say,
 	 ;; "(current-buffer)")
-	 (let ((,buffer-var ,buf))
+	 (let (,result-var
+	       (,buffer-var ,buf))
 	   (lister-sensor-leave ,buffer-var)
 	   (let* ((lister-cursor-locked t)         ;; don't nest
 		  (lister-inhibit-cursor-action t) ;; no actions
 		  (cursor-sensor-inhibit t)        ;; no sensor
-		  (,cursor-line-var ,get-line)     ;; current line
-		  (,result-var     (body-fn)))
+		  (,cursor-line-var ,get-line))    ;; current line
+	     (setq ,result-var (body-fn))
 	     (lister-goto ,buffer-var (or (lister-index-marker ,buffer-var ,cursor-line-var)
-					  :last))
-	     (lister-sensor-enter ,buffer-var)
-	     ,result-var))))))
+					  :last)))
+	   (lister-sensor-enter ,buffer-var)
+	   ,result-var)))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
