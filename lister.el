@@ -1355,35 +1355,32 @@ END is nil, use the position of the first or last item."
   "In LISTER-BUF, execute ACTION for each of ITEM-POSITIONS.
 ITEM-POSITIONS is a list either consisting of integer positions
 or markers. ACTION has to accept one single argument, the data
-associated with the item. ACTION will be executed with the
-current buffer set to LISTER-BUF and point set on the current
-item's position. ACTION will be only executed if the position
-points to a valid item; invalid positions will be silently
-skipped. Returns the number of actions executed.
+associated with the item. The optional argument PREDICATE can be
+used to further restrict the items on which ACTION will be
+executed. 
 
-Optionally further restrict action on those items matching
-PREDICATE, which is also called with the item's data as its
-argument."
+Both PREDICATE and ACTION are called with point on the item's
+cursor gap and the current buffer set to LISTER-BUF, thus making
+it easy to use all common lister functions. ACTION will be only
+executed if the position points to a valid item (and optionally,
+if PREDICATE returns a non-nil value); invalid positions will be
+silently skipped. Return the number of actions executed."
   (with-current-buffer lister-buf
     (save-excursion
       (let ((n 0))
 	(cl-dolist (item item-positions)
 	  (when (get-text-property item 'item)
 	    (let ((data (lister-get-data lister-buf item)))
+	      (goto-char item)
 	      (when (or (null predicate)
 			(funcall predicate data))
 		(setq n (1+ n))
-		(goto-char item)
 		(funcall action data)))))
 	n))))
 
 (defun lister-walk-all (lister-buf action &optional pred)
   "In LISTER-BUF, execute ACTION for each item matching PRED.
-To both PRED and ACTION one single argument is passed, the data
-associated with the item. If PRED is nil, execute action on every
-item. ACTION is further called with point on the item's cursor
-gap and the current buffer set to LISTER-BUF. Returns the number
-of matched items."
+See `lister-walk-some' for more details."
   (lister-walk-some lister-buf 
 		    (buffer-local-value 'lister-local-marker-list
 					lister-buf)
