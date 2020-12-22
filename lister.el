@@ -404,21 +404,28 @@ execute body.
 
 BUF is a lister buffer."
   (declare (indent 1) (debug (sexp body)))
-  `(cl-labels ((body-fn () ,@body))
-     (if lister-cursor-locked
-	 (body-fn)
-       (lister-sensor-leave ,buf)
-       (let* ((lister-cursor-locked t) ;; this is just to avoid nesting
-	      (lister-inhibit-cursor-action t)
-	      (cursor-sensor-inhibit t)
-	      (cursor-pos (with-current-buffer ,buf (point))))
-	 (body-fn)
-	 (lister-goto ,buf (if (and (< cursor-pos (with-current-buffer ,buf (point-max)))
-				    (get-text-property cursor-pos 'item ,buf))
-			       cursor-pos
-			     :last))
-	 (lister-sensor-enter ,buf
-			      (with-current-buffer ,buf (point)))))))
+  ;;
+  (let* ((cursor-line-var (make-symbol "cursor-line"))
+	 (buffer-var      (make-symbol "buffer"))
+	 (get-point      `(with-current-buffer ,buffer-var (point)))
+	 (get-line       `(lister-index-position ,buffer-var ,get-point)))
+    ;;
+    `(cl-labels ((body-fn () ,@body))
+       (if lister-cursor-locked
+	   (body-fn)
+	 ;; NOTE: binding buf here avoids pitfalls when buffer is
+	 ;; changed in body-fn (and buf would be, say,
+	 ;; "(current-buffer)")
+	 (let ((,buffer-var ,buf))
+	   (lister-sensor-leave ,buffer-var)
+	   (let* ((lister-cursor-locked t)         ;; don't nest
+		  (lister-inhibit-cursor-action t) ;; no actions
+		  (cursor-sensor-inhibit t)        ;; no sensor
+		  (,cursor-line-var ,get-line))      ;; current line
+	     (body-fn)
+	     (lister-goto ,buffer-var (or (lister-index-marker ,buffer-var ,cursor-line-var)
+					  :last))
+	     (lister-sensor-enter ,buffer-var)))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
@@ -1366,18 +1373,18 @@ it easy to use all common lister functions. ACTION will be only
 executed if the position points to a valid item (and optionally,
 if PREDICATE returns a non-nil value); invalid positions will be
 silently skipped. Return the number of actions executed."
-  (with-current-buffer lister-buf
-    (save-excursion
-      (let ((n 0))
-	(cl-dolist (item item-positions)
-	  (when (get-text-property item 'item)
-	    (let ((data (lister-get-data lister-buf item)))
+  (save-excursion
+    (let ((n 0))
+      (cl-dolist (item item-positions)
+	(when (get-text-property item 'item)
+	  (let ((data (lister-get-data lister-buf item)))
+	    (with-current-buffer lister-buf
 	      (goto-char item)
 	      (when (or (null predicate)
 			(funcall predicate data))
 		(setq n (1+ n))
-		(funcall action data)))))
-	n))))
+		(funcall action data))))))
+      n)))
 
 (defun lister-walk-all (lister-buf action &optional pred)
   "In LISTER-BUF, execute ACTION for each item matching PRED.
