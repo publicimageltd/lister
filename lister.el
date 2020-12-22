@@ -1188,6 +1188,9 @@ Return t if the item's state has been changed, else nil."
 (defun lister-mark-some-items (lister-buf positions value)
   "In LISTER-BUF, mark all items in POSITIONS with VALUE."
   (with-lister-buffer lister-buf
+    ;; using 'save-excursion' instead of `lister-with-locked-cursor'
+    ;; assumes that marking does not change the item's positions or
+    ;; size:
     (save-excursion
       (seq-do (lambda (m) (lister-mark-item lister-buf m value))
 	      positions))))
@@ -1196,16 +1199,6 @@ Return t if the item's state has been changed, else nil."
   "Set all items to the marking state VALUE in LISTER-BUF."
   (lister-mark-some-items lister-buf
 			  (buffer-local-value 'lister-local-marker-list lister-buf)
-			  value))
-
-(cl-defun lister-mark-items-if (lister-buf pred &optional (value t))
-  "Set all items matching PRED to marking state VALUE.
-PRED is called with the item's data as its sole argument. VALUE
-defaults to t, meaning 'mark all these items matching the
-predicate'. LISTER-BUF is a lister buffer."
-  (lister-mark-some-items lister-buf
-			  (cl-remove-if-not (lambda (m) (funcall pred (lister-get-data lister-buf m)))
-					    (buffer-local-value 'lister-local-marker-list lister-buf))
 			  value))
 
 (defun lister-mark-this-sublist (lister-buf marker-or-pos value)
@@ -1525,17 +1518,22 @@ Do nothing if `lister-inhibit-cursor-action' is t."
     (goto-char lister-local-isearch-opoint)))
 
 ;; Keys
-(defun lister-key-toggle-mark ()
-  "Toggle mark of item at point."
-  (interactive)
-  (when-let* ((buf (current-buffer))
-	      (m (lister-marker-at buf :point)))
-    (if (not (lister-mark-item buf m (not (lister-get-mark-state buf m))))
-	(user-error "Item cannot be marked")
-      ;; move forward one line after marking:
-      (when-let* ((next-item (lister-end-of-lines buf m)))
-	(unless (invisible-p next-item)
-	  (lister-goto buf next-item))))))
+(defun lister-key-toggle-mark (&optional sublist)
+  "Toggle mark of item at point.
+With prefix SUBLIST, mark the whole sublist with the inverted
+status of the item at point."
+  (interactive "P")
+  (let* ((buf (current-buffer))
+	 (m (lister-marker-at buf :point))
+	 (mark-state (lister-get-mark-state buf m)))
+    (if sublist
+	(lister-mark-this-sublist buf m (not mark-state))
+      (if (not (lister-mark-item buf m (not mark-state)))
+	  (user-error "Item cannot be marked")
+	;; move forward one line after marking:
+	(when-let* ((next-item (lister-end-of-lines buf m)))
+	  (unless (invisible-p next-item)
+	    (lister-goto buf next-item)))))))
 
 (defun lister-key-mark-all-items ()
   "Mark all items of the current list."
