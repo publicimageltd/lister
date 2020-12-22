@@ -1330,21 +1330,43 @@ END is nil, use the position of the first or last item."
 ;; * Walk the lister buffer
 ;; -----------------------------------------------------------
 
-(defun lister-walk (lister-buf pred action)
-  "Execute ACTION for each item matching PRED.
-Both PRED and ACTION have to accept one single argument, the
-data. ACTION is further called with point on the item's cursor
-gap. Returns the number of matched items."
+(defun lister-walk-some (lister-buf item-positions action &optional predicate)
+  "In LISTER-BUF, execute ACTION for each of ITEM-POSITIONS.
+ITEM-POSITIONS is a list either consisting of integer positions
+or markers. ACTION has to accept one single argument, the data
+associated with the item. ACTION will be executed with the
+current buffer set to LISTER-BUF and point set on the current
+item's position. ACTION will be only executed if the position
+points to a valid item; invalid positions will be silently
+skipped. Returns the number of actions executed.
+
+Optionally further restrict action on those items matching
+PREDICATE, which is also called with the item's data as its
+argument."
   (with-current-buffer lister-buf
     (save-excursion
       (let ((n 0))
-	(cl-dolist (item lister-local-marker-list)
-	  (let ((data (lister-get-data lister-buf item)))
-	    (when (funcall pred data)
-	      (setq n (1+ n))
-	      (goto-char item)
-	      (funcall action data))))
+	(cl-dolist (item item-positions)
+	  (when (get-text-property item 'item)
+	    (let ((data (lister-get-data lister-buf item)))
+	      (when (or (null pred)
+			(funcall pred data))
+		(setq n (1+ n))
+		(goto-char item)
+		(funcall action data)))))
 	n))))
+
+(defun lister-walk-all (lister-buf action &optional pred)
+  "In LISTER-BUF, execute ACTION for each item matching PRED.
+To both PRED and ACTION one single argument is passed, the data
+associated with the item. If PRED is nil, execute action on every
+item. ACTION is further called with point on the item's cursor
+gap and the current buffer set to LISTER-BUF. Returns the number
+of matched items."
+  (lister-walk-some lister-buf action
+		    (buffer-local-variable 'lister-local-marker-list
+					   lister-buf)
+		    pred))
 
 ;; -----------------------------------------------------------
 ;; * Moving point
