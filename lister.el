@@ -1245,6 +1245,14 @@ Return the number of items actually treated."
   "Return the values of all PROPS at POS in BUF."
   (seq-map (apply-partially #'lister-get-prop buf pos) props))
 
+(defun lister-item-p (lister-buf pos)
+  "Return t if POS points to a lister item in LISTER-BUF."
+  ;; this is intended to be used as a first check in interactive
+  ;; functions, so we also check that the current buffer is a
+  ;; "lister-buffer"
+  (with-lister-buffer buf
+    (get-text-property pos 'item)))
+
 ;; Set data
 
 (defun lister-set-data (lister-buf position-or-symbol data)
