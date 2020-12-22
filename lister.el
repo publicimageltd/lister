@@ -408,6 +408,7 @@ current."
   ;;
   (let* ((cursor-line-var (make-symbol "cursor-line"))
 	 (buffer-var      (make-symbol "buffer"))
+	 (result-var      (make-symbol "result"))
 	 (get-point      `(with-current-buffer ,buffer-var (point)))
 	 (get-line       `(lister-index-position ,buffer-var ,get-point)))
     ;;
@@ -422,11 +423,12 @@ current."
 	   (let* ((lister-cursor-locked t)         ;; don't nest
 		  (lister-inhibit-cursor-action t) ;; no actions
 		  (cursor-sensor-inhibit t)        ;; no sensor
-		  (,cursor-line-var ,get-line))      ;; current line
-	     (body-fn)
+		  (,cursor-line-var ,get-line)     ;; current line
+		  (,result-var     (body-fn)))
 	     (lister-goto ,buffer-var (or (lister-index-marker ,buffer-var ,cursor-line-var)
 					  :last))
-	     (lister-sensor-enter ,buffer-var)))))))
+	     (lister-sensor-enter ,buffer-var)
+	     ,result-var))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
@@ -1362,30 +1364,34 @@ END is nil, use the position of the first or last item."
 
 (defun lister-walk-some (lister-buf item-positions action &optional predicate)
   "In LISTER-BUF, execute ACTION for each of ITEM-POSITIONS.
-ITEM-POSITIONS is a list either consisting of integer positions
+ITEM-POSITIONS is a list consisting of either integer positions
 or markers. ACTION has to accept one single argument, the data
 associated with the item. The optional argument PREDICATE can be
 used to further restrict the items on which ACTION will be
-executed. 
+executed.
 
 Both PREDICATE and ACTION are called with point on the item's
 cursor gap and the current buffer set to LISTER-BUF, thus making
-it easy to use all common lister functions. ACTION will be only
-executed if the position points to a valid item (and optionally,
-if PREDICATE returns a non-nil value); invalid positions will be
-silently skipped. Return the number of actions executed."
-  (save-excursion
-    (let ((n 0))
-      (cl-dolist (item item-positions)
-	(when (get-text-property item 'item)
-	  (let ((data (lister-get-data lister-buf item)))
-	    (with-current-buffer lister-buf
+it easy to use all common lister functions. The whole loop is
+wrapped in a call to `lister-with-locked-cursor', which see.
+
+ACTION will be only executed if the position points to a valid
+item (and optionally, if PREDICATE returns a non-nil value);
+invalid positions will be silently skipped.
+
+Return the number of actions executed."
+  (lister-with-locked-cursor lister-buf
+    (with-current-buffer lister-buf
+      (let ((n 0))
+	(cl-dolist (item item-positions)
+	  (when (get-text-property item 'item)
+	    (let ((data (lister-get-data lister-buf item)))
 	      (goto-char item)
 	      (when (or (null predicate)
 			(funcall predicate data))
 		(setq n (1+ n))
-		(funcall action data))))))
-      n)))
+		(funcall action data)))))
+	n))))
 
 (defun lister-walk-all (lister-buf action &optional pred)
   "In LISTER-BUF, execute ACTION for each item matching PRED.
