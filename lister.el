@@ -402,7 +402,8 @@ re-activate the cursor sensor.
 If this macro is called within the BODY of this macro, just
 execute body.
 
-BUF is a lister buffer."
+BUF is a lister buffer. Note that this function does NOT set BUF
+current."
   (declare (indent 1) (debug (sexp body)))
   ;;
   (let* ((cursor-line-var (make-symbol "cursor-line"))
