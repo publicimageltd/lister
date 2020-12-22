@@ -31,44 +31,56 @@ Zettelkasten page.
 - [[#design-and-basic-features][Design and Basic Features]]
   - [[#design-principles][Design Principles]]
   - [[#additional-features][Additional Features]]
+  - [[#overview-of-files][Overview of files]]
+- [[#keymap][Keymap]]
 - [[#using-lister-programmatically][Using Lister Programmatically]]
-  - [[#example][Example]]
-  - [[#doing-something-with-an-item][Doing Something with an Item]]
-  - [[#lister-mode][Lister Mode]]
+  - [[#simple-example][Simple example]]
+  - [[#doing-something-with-an-item][Doing something with an item]]
+  - [[#lister-mode][Lister mode]]
   - [[#overriding-lister-mode][Overriding lister mode]]
-  - [[#functions-and-variables][Functions and Variables]]
-    - [[#basic-setup][Basic Setup]]
-    - [[#editing-lists][Editing Lists]]
-    - [[#navigation][Navigation]]
-    - [[#accessing-the-data][Accessing the Data]]
-  - [[#other-stuff][Other Stuff]]
+  - [[#lister-highlight-mode][Lister highlight mode]]
+- [[#functions-and-variables][Functions and Variables]]
+  - [[#some-conventions][Some Conventions]]
+  - [[#basic-setup][Basic Setup]]
+  - [[#editing-plain-lists][Editing plain lists]]
+  - [[#editing-hierarchical-lists][Editing hierarchical lists]]
+  - [[#navigation][Navigation]]
+  - [[#accessing-the-data][Accessing the data]]
+  - [[#marking--unmarking][Marking / unmarking]]
+  - [[#walking-the-list][Walking the list]]
+  - [[#cursor-sensor-functions][Cursor sensor functions]]
+  - [[#low-level-functions][Low-level functions]]
 - [[#changelog][Changelog]]
   - [[#changes-to-the-current-version-no-new-release][Changes to the current version (no new release)]]
 :END:
 
-
 * Project still in progress
 
-=Lister= does work. I use it every day. Yet at the beginning, I had
-implemented quite some features which I did not debug anymore, and which
-are not properly tested. So better don't use filtering, for example. I
-am planning, of couse, to weed out all that stuff in some closer future.
-But since I have next to no time at all for this kind of work, it will
-take some time.
+=Lister= does work. I use it every day, and sometimes I work heavily on
+improving it. But since I have rarely time at all for this kind of
+work, it will take some time to declare it stable.
+
+| Feature                                    | State      | Automated tests? |
+|--------------------------------------------+------------+------------------|
+| build simple or large lists                | stable     | yes              |
+| build nested lists                         | stable     | yes              |
+| retrieve data, possibly with hierarchies   | stable     | yes              |
+| walk the list                              | seems okay | no               |
+| provide API for marking or unmarking items | seems okay | partially        |
+| use cursor sensor functions                | stable     | yes              |
+| filter items                               | unknown    | no               |
+|--------------------------------------------+------------+------------------|
+
 
 * Design and Basic Features
-
-I don't think there will be too many people actually using this library.
-But since I use it myself for =delve=, it makes sense to document some
-of the features and some of the API.
 
 ** Design Principles
 
 - A "list" is a collection of printed items. The items do not have to be
   of the same size. The data associated with the item is stored as a
   text property.
-- Every item is printed by passing it to a buffer local mapper
-  function, which has to return a list of printable lines. It is
+- Every item is printed using a buffer local mapper function, which
+  maps the associated data to a list of printable lines. It is
   possible to add a margins to each item.
 - Each item has its own "indentation level", making it possible to print
   and operate on nested lists ("sublists").
@@ -79,17 +91,52 @@ of the features and some of the API.
   positions to keep track of each item (=lister-local-marker-list=). So
   jumping to an item is as fast as jumping to the associated marker. If
   you move a list item, the marker will be moved with it.
-- There are hooks defined for responding to the events of entering an
-  item or leaving it. This is used for implementing a minor mode which
-  highlights the item at point and, of course, removes the highlighting
-  on leaving it (=lister-highlight-mode=).
+- There are hooks defined to be be called on entering or leaving an
+  item. This is showcased with a minor mode which highlights the item
+  at point and, of course, removes the highlighting on leaving it
+  (=lister-highlight-mode=).
 
 ** Additional Features
 
+- The list can have a header or a footer. 
 - In =lister-mode=, using isearch works out of the box.
+- Items can be marked and unmarked. There are functions which make it
+  easy to work with these marked items.
+- There is a filtering mechanism, but it is not tested or used yet. It
+  is "under the hood", but not active.
+
+** Overview of files
+
+| File                          | Description                   |
+|-------------------------------+-------------------------------|
+| lister.el                     | lister major mode             |
+| lister-highlight.el           | minor mode 'lister-highlight' |
+| lister-tests.el               | buttercup tests               |
+| lister-interactive-playground | an interactive test buffer    |
+| makem.sh                      |                               |
+| README.org                    | this file                     |
+| LICENSE                       |                               |
+|-------------------------------+-------------------------------|
+
+* Keymap
+
+=lister-mode= implements a keymap (=lister-mode-map=). It covers the
+following keys:
+
+| Key     | Description                                      |
+|---------+--------------------------------------------------|
+| <ENTER> | Call =lister-local-action= with the item at point. |
+| n, p    | Move one line down or up.                        |
+| m       | Toggle mark, or with prefix whole sublist.       |
+| *       | Mark all items.                                  |
+| u       | Unmark all items.                                |
+|---------+--------------------------------------------------|
+
+Note that the marking commands respect =lister-local-marking-predicate=,
+which see.
 
 * Using Lister Programmatically
-** Example
+** Simple example
 
 #+BEGIN_SRC emacs-lisp
   (let* ((buf (generate-new-buffer "*LISTER*")))
@@ -117,7 +164,7 @@ This little program yields:
     This is the end of the list
 #+END_EXAMPLE
 
-** Doing Something with an Item
+** Doing something with an item
 
 If you press on an item, the function =lister-local-action= is called
 with the associated data as its sole argument. So if you want something
@@ -133,7 +180,7 @@ example:
     (setq lister-local-action #'my-action))
 #+END_SRC
 
-** Lister Mode
+** Lister mode
 
 Each lister buffer has the major mode =lister-mode=. It offers the
 following keybindings:
@@ -152,10 +199,13 @@ following keybindings:
 
 ** Overriding lister mode
 
-If you want to derive your own major mode from lister mode, you might
-want to provide an initial list. Since =lister-setup= also turns on
-lister mode, you have to call it with an optional argument telling it to
-/not/ turn on lister mode:
+You must take care if derive your own major mode from =lister mode=. You
+need to call =lister-setup= to initialize the buffer, yet this function
+also turns on lister mode. This would interfere with your program
+trying to turn on its own major mode.
+
+Thus there is an optional argument telling =lister-setup= to /not/ turn on
+=lister mode=:
 
 #+BEGIN_SRC emacs-lisp
   (define-derived-mode some-mode
@@ -174,57 +224,125 @@ lister mode, you have to call it with an optional argument telling it to
     (setq-local lister-local-action #'some-mode-action)) 
 #+END_SRC
 
-Don't forget to add that specific option each time you call
-=lister-setup= in your own mode.
+** Lister highlight mode
 
-** Functions and Variables
+Turning on this minor mode turns on highlighting of the item at point.
 
-A short list of the most important functions -- have a look at the
-documentation strings if you want to know more:
+   #+begin_src emacs-lisp
+(require 'lister-highlight)
 
-*** Basic Setup
+;; turn on the minor mode:
+(with-current-buffer lister-buf
+  (lister-highlight-mode))
+   #+end_src
 
-| Function        | Purpose                                                 |
-|-----------------+---------------------------------------------------------|
-| lister-setup    | Initialize a buffer and turns on "lister-mode"          |
-| lister-set-list | Replace current list with another (possibly empty) list |
-|-----------------+---------------------------------------------------------|
+The highlighting is done adding =lister-highlight-face-or-property= on
+the item. You can set this to a face spec or to the name of an
+existing face.
 
-***  Editing Lists
+* Functions and Variables
+
+A short list of the most important functions and variables -- have a
+look at the documentation strings if you want to know more:
+
+** Some Conventions
+
+ - The =lister= buffer is set up using quite some buffer local
+   variables. All of these variables are prefixed with =lister-local=
+   (e.g., =lister-local-marker-list=).
+ - The first argument is usually the lister buffer object. It cannot
+   be omitted; even the current buffer has to be passed explicitly.
+ - All argument variables usually also express a type. Thus =lister-buf=
+   must be a buffer set up as a lister buffer. Common argument names
+   are =marker-or-pos= (implying that one can either pass a marker or an
+   integer); or =pos-or-symbol= (meaning that one can pass a marker, an
+   integer or a symbol =:last=, =:point=, =:first=). Many commands which
+   work on a position (such as =lister-goto= or =lister-remove=) use this
+   latter type, making possible expressions such as =(lister-goto buf
+   :first)=.
+
+** Basic Setup
+
+| Function          | Purpose                                                  |
+|-------------------+----------------------------------------------------------|
+| lister-setup      | Initialize a buffer and turn on "lister-mode".           |
+| lister-set-list   | Replace current list with another (possibly empty) list. |
+| lister-set-header | Set a header on top of the list.                         |
+| lister-set-footer | Set a footer at the end of the list.                     |
+|-------------------+----------------------------------------------------------|
+
+** Editing plain lists
 
 | Function                    | Purpose                                                          |
 |-----------------------------+------------------------------------------------------------------|
 | lister-insert               | Insert a single item                                             |
 | lister-insert-sequence      | Insert a sequence of items                                       |
-| lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
 | lister-add                  | Add a single item to the end of the list                         |
 | lister-add-sequence         | Add a sequence to the end of the list                            |
 | lister-remove               | Remove an item                                                   |
-| lister-remove-this-level    | Remove all items with the indentation level of an item           |
-| lister-remove-sublist-below | Remove all items below the current items with higher indentation |
 | lister-replace              | Replace an item with another one                                 |
 |-----------------------------+------------------------------------------------------------------|
 
+Each command dealing with a single item usually accept many different
+types of positions (markers, integers, symbold). They also call the
+cursor sensor callbacks. If you use several of these commands in a
+row, wrap them in =lister-with-locked-cursor= to avoid calling the
+sensor functions after each single step.
 
-*** Navigation
+Inserting sequences is optimized for speed, so it might be useful to
+first build a list and insert them in one rush.
+
+** Editing hierarchical lists
+
+All =-sequence= commands also accept nested sequences, which result in
+indented lists (i.e., hierarchies). Indentation is visually indicated
+by prepending a single space per indentation level. An list which is
+indented relative to their surrounding items is called a "sublist".
+Thus in a normal hierarchical list, if one 'opens' a node, a sublist
+will be inserted under it. 
+
+There are special functions for dealing with sublists:
+
+| Function                    | Description                                                      |
+|-----------------------------+------------------------------------------------------------------|
+| lister-insert-sublist-below | Insert a sequence below an item, with indentation                |
+| lister-sublist-below-p      | Check if there is a sublist below this item.                     |
+| lister-remove-this-level    | Remove all items with the indentation level of an item           |
+| lister-remove-sublist-below | Remove all items below the current items with higher indentation |
+| lister-sublist-boundaries   | Determine the boundaries of the sublist at pos.                  |
+| lister-get-all-data-tree    | Return the current list as an hierachical list.                  |
+|-----------------------------+------------------------------------------------------------------|
+
+
+
+** Navigation
 
 The usual navigation functions work, since all items are exposed to
-emacs using a cursor gap. =lister-goto= is mainly for positioning the
-cursor after operating on the list.
+emacs using a cursor gap.
 
- | Function                  | Purpose                                                    |
- |---------------------------+------------------------------------------------------------|
- | lister-goto               | Goto a position                                            |
- | lister-with-locked-cursor | MACRO: Execute BODY and restore cursor position afterwards |
- |---------------------------+------------------------------------------------------------|
+ =lister-goto= is your main entry point for positioning the cursor from
+within the program; it takes care of the cursor sensor functions.
+Don't use =goto-char= unless you know what you do. =lister-goto= accepts
+many different types of arguments, such as markers, integer positions
+or meaningful symbols such as =:last, =:first= or =:point=.
 
- | Variable            | Purpose                                       |
- |---------------------+-----------------------------------------------|
- | lister-local-action | Call the fn stored here when pressing <ENTER> |
- |---------------------+-----------------------------------------------|
+For more complex navigation operations, wrap the calls within
+=lister-with-locked-cursor=. This macro saves point and intelligently
+re-sets the cursor the same line after executing body.
+
+ | Function                  | Purpose                                                  |
+ |---------------------------+----------------------------------------------------------|
+ | lister-goto               | Goto a position                                          |
+ | lister-with-locked-cursor | MACRO: Execute BODY and restore line position afterwards |
+ |---------------------------+----------------------------------------------------------|
+
+ | Variable            | Purpose                                  |
+ |---------------------+------------------------------------------|
+ | lister-local-action | This  fn is called when pressing <ENTER> |
+ |---------------------+------------------------------------------|
 
 
-*** Accessing the Data
+** Accessing the data
 
 | Function                 | Purpose                                                |
 |--------------------------+--------------------------------------------------------|
@@ -234,16 +352,84 @@ cursor after operating on the list.
 | lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
 |--------------------------+--------------------------------------------------------|
 
-** Other Stuff
+** Marking / unmarking
 
- Further high-level functions are dealing with filtering, and there is
- also a basic facility to mark an item and to process these selected
- items. But this is not tested well.
+Every item can be 'marked'. Note that 'mark', in =lister=, is thus an
+ambiguous term: It might refer to the /state/ of an item, being marked
+or unmarked; or to the /position/ of the item, usually represented by a
+marker. If you have any suggestion for a better semantics, write me.
+
+Before any marking command is being done, =lister= checks if the item at
+point can be marked at all. This is determined using
+=lister-local-marking-predicate=. This makes it easy to restrict all
+marking to only items with a specific data type.
+
+| Variable                       | Description                                        |
+|--------------------------------+----------------------------------------------------|
+| lister-mark-face-or-property   | Face to visually indicate that an item is 'marked' |
+| lister-local-marking-predicate | Predicate defining what item can be marked or not  |
+|--------------------------------+----------------------------------------------------|
+
+All the following functions respect =lister-local-marking-predicate=:
+
+| Function                  | Description                                                 |
+|---------------------------+-------------------------------------------------------------|
+| lister-get-mark-state     | Return the 'mark state' of the item.                        |
+| lister-display-mark-state | Update the display of the 'mark state' of the item.         |
+| lister-all-marked-items   | Return the positions of all marked items.                   |
+| lister-all-marked-data    | Return the data of all marked items.                        |
+| lister-mark-item          | Mark a single item (or unmark it).                          |
+| lister-mark-some-items    | Mark or unmark a list of items.                             |
+| lister-mark-all-items     | Now guess what!?                                            |
+| lister-mark-this-sublist  | Mark or unmark all items belonging to the sublist at point. |
+| lister-walk-marked-items  | Do something with each marked item.                         |
+|---------------------------+-------------------------------------------------------------|
+
+** Walking the list
+
+| Function         | Description                                                       |
+|------------------+-------------------------------------------------------------------|
+| lister-walk-some | Do something on each item on the list passed (list of positions). |
+| lister-walk-all  | Do something on each item.                                        |
+|------------------+-------------------------------------------------------------------|
+
+** Cursor sensor functions
+
+=lister= uses =cursor-sensor-mode=. Thus an event is caused by every
+/entering/ or /leaving/ an item. All common operations take care of this,
+that is, these sensor functions are only called once, and only /after/
+the operation is done. See =lister-with-locked-cursor= for some details.
+The minor mode =lister-highlight= (shipped with this mode) uses sensor
+functions to highlight the item at point.
+
+Sensor functions *must not* be added via =add-hook= and friends. Instead,
+use the homegrown functions:
+
+| Function                             | Description                                                   |
+|--------------------------------------+---------------------------------------------------------------|
+| lister-add-enter-callback            | Add callback function for the event 'entering the item'       |
+| lister-add-leave-callback            | Add callback function for the event 'leavingte item'          |
+| lister-remove-{enter/leave}-callback | Hard to know!                                                 |
+| lister-sensor-enter                  | Force calling the callback functions for the event 'entering' |
+| lister-sensor-leave                  | Force calling the callback functions for the event 'leaving'  |
+|--------------------------------------+---------------------------------------------------------------|
+
+** Low-level functions
+
+Some of the most useful low-level functions:
+
+| Function            | Description                                       |
+|---------------------+---------------------------------------------------|
+| lister-end-of-lines | Return the next cursor gap position /after/ an item |
+| lister-item-p       | Check is point is on an item                      |
+|---------------------+---------------------------------------------------|
+
 
 * Changelog
 ** Changes to the current version (no new release)
 
- + Quite some internal cleanup of the code base.
+ + Extend the documentation.
+ + /Quite/ some internal cleanup of the code base.
  + Use =org-make-toc= for the README.org
 
 
