@@ -1370,8 +1370,8 @@ argument."
 	(cl-dolist (item item-positions)
 	  (when (get-text-property item 'item)
 	    (let ((data (lister-get-data lister-buf item)))
-	      (when (or (null pred)
-			(funcall pred data))
+	      (when (or (null predicate)
+			(funcall predicate data))
 		(setq n (1+ n))
 		(goto-char item)
 		(funcall action data)))))
@@ -1384,9 +1384,10 @@ associated with the item. If PRED is nil, execute action on every
 item. ACTION is further called with point on the item's cursor
 gap and the current buffer set to LISTER-BUF. Returns the number
 of matched items."
-  (lister-walk-some lister-buf action
-		    (buffer-local-variable 'lister-local-marker-list
-					   lister-buf)
+  (lister-walk-some lister-buf 
+		    (buffer-local-value 'lister-local-marker-list
+					lister-buf)
+		    action
 		    pred))
 
 ;; -----------------------------------------------------------
