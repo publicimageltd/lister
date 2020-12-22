@@ -396,13 +396,13 @@ Return nil if no such position is available."
 
 Turn off the cursor sensor, execute BODY, and then try to set the
 cursor back at its old position. If this position is not
-available anymore, move it to the end of the list. Then
-re-activate the cursor sensor.
+available anymore, move cursor to the end of the list. Then
+re-activate the cursor sensor. Return the result of BODY.
 
 If this macro is called within the BODY of this macro, just
-execute body.
+execute body directly.
 
-BUF is a lister buffer. Note that this function does NOT set BUF
+BUF is a lister buffer. Note that this function does NOT make BUF
 current."
   (declare (indent 1) (debug (sexp body)))
   ;;
