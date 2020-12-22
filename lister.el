@@ -399,25 +399,26 @@ cursor back at its old position. If this position is not
 available anymore, move it to the end of the list. Then
 re-activate the cursor sensor.
 
-If this macro is called within the BODY of this macro, do
-nothing.
+If this macro is called within the BODY of this macro, just
+execute body.
 
 BUF is a lister buffer."
   (declare (indent 1) (debug (sexp body)))
-  ;; don't nest:
-  `(unless lister-cursor-locked
-     (lister-sensor-leave ,buf)
-     (let* ((lister-inhibit-cursor-action t)
-	    (cursor-sensor-inhibit t)
-	    (lister-cursor-locked t)
-	    (cursor-pos (with-current-buffer ,buf (point))))
-       ,@body
-       (lister-goto ,buf (if (and (< cursor-pos (with-current-buffer ,buf (point-max)))
-				  (get-text-property cursor-pos 'item ,buf))
-			     cursor-pos
-			   :last))
-       (lister-sensor-enter ,buf
-			    (with-current-buffer ,buf (point))))))
+  `(cl-labels ((body-fn () ,@body))
+     (if lister-cursor-locked
+	 (body-fn)
+       (lister-sensor-leave ,buf)
+       (let* ((lister-cursor-locked t) ;; this is just to avoid nesting
+	      (lister-inhibit-cursor-action t)
+	      (cursor-sensor-inhibit t)
+	      (cursor-pos (with-current-buffer ,buf (point))))
+	 (body-fn)
+	 (lister-goto ,buf (if (and (< cursor-pos (with-current-buffer ,buf (point-max)))
+				    (get-text-property cursor-pos 'item ,buf))
+			       cursor-pos
+			     :last))
+	 (lister-sensor-enter ,buf
+			      (with-current-buffer ,buf (point)))))))
 
 ;; -----------------------------------------------------------
 ;; * Building the list with lines
