@@ -439,12 +439,20 @@ current."
 ;; insert, remove or replace lines of text, usually passed to these
 ;; functions as a list of strings.
 
+;; use this instead of flatten-tree for emacsen < 27.1:
+(defun lister--flatten (l)
+  "Flatten the list L, removing any null values.
+This is a simple copy of dash's `-flatten' using `seq'."
+  (if (and (listp l) (listp (cdr l)))
+      (seq-mapcat #'lister--flatten l)
+    (list l)))
+
 (cl-defun lister-strflat (l &optional (format-string "%s"))
   "Recursively stringify all items in L, flattening any sublists.
 If L is not a list item, wrap it into a list. Every non-nil item
 will be passed to FORMAT-STRING, which defaults to \"%s\"."
   (mapcar (apply-partially #'format format-string)
-	  (flatten-tree l)))
+	  (lister--flatten l)))
 
 (defun lister-add-vertical-margins (lister-buf strings)
   "Pad a list of STRINGS vertically by adding empty strings.
