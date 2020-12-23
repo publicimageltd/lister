@@ -384,16 +384,6 @@ Return nil if no such position is available."
 	    (setq pos (next-single-property-change pos 'item nil max)))
 	(setq pos (next-single-char-property-change pos 'item nil max)))
       (reverse res))))
-  
-  ;; (with-current-buffer lister-buf
-  ;;   (save-excursion
-  ;;     (goto-char (point-min))
-  ;;     (let (res)
-  ;; 	(when (get-text-property (point) 'item)
-  ;; 	  (push (lister-make-marker lister-buf (point)) res))
-  ;; 	(while (text-property-search-forward 'item t nil)
-  ;; 	  (push (lister-make-marker lister-buf (point)) res))
-  ;; 	(reverse (cdr res))))))
 
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
