@@ -581,10 +581,7 @@
       (expect (lister-get-mark-state buf m)   :to-be  nil)))
   (it "Mark all items, return marked values"
     (lister-mark-all-items buf t)
-    (expect  (lister-all-marked-data buf)  :to-equal (lister-get-all-data buf)))
-  (it "Mark an item according to predicate:"
-    (lister-mark-items-if buf (apply-partially #'string-match "B"))
-    (expect (lister-all-marked-data buf)  :to-equal '("B"))))
+    (expect  (lister-all-marked-data buf)  :to-equal (lister-get-all-data buf))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
