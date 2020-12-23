@@ -40,7 +40,6 @@
 (require 'seq)
 (require 'subr-x)
 (require 'cursor-sensor)
-(require 'text-property-search)
 
 ;; -----------------------------------------------------------
 ;; * Variables
@@ -378,14 +377,23 @@ Return nil if no such position is available."
 (defun lister-rescan-item-markers (lister-buf)
   "Get a freshly build list of all item markers in LISTER-BUF."
   (with-current-buffer lister-buf
-    (save-excursion
-      (goto-char (point-min))
-      (let (res)
-	(when (get-text-property (point) 'item)
-	  (push (lister-make-marker lister-buf (point)) res))
-	(while (text-property-search-forward 'item t nil)
-	  (push (lister-make-marker lister-buf (point)) res))
-	(reverse (cdr res))))))
+    (let (res (pos (point-min)) (max (point-max)))
+      (while (< pos max)
+	(when (get-text-property pos 'item)
+	  (push (lister-make-marker lister-buf pos) res)
+	    (setq pos (next-single-property-change pos 'item nil max)))
+	(setq pos (next-single-char-property-change pos 'item nil max)))
+      (reverse res))))
+  
+  ;; (with-current-buffer lister-buf
+  ;;   (save-excursion
+  ;;     (goto-char (point-min))
+  ;;     (let (res)
+  ;; 	(when (get-text-property (point) 'item)
+  ;; 	  (push (lister-make-marker lister-buf (point)) res))
+  ;; 	(while (text-property-search-forward 'item t nil)
+  ;; 	  (push (lister-make-marker lister-buf (point)) res))
+  ;; 	(reverse (cdr res))))))
 
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
@@ -986,8 +994,8 @@ The automatic correction of point is turned off when
 	  (lister-sensor-leave lister-buf)))
       ;; remove associated marker from the local marker list
       (with-current-buffer lister-buf
-	  (setq lister-local-marker-list
-		(cl-remove pos lister-local-marker-list :test #'=)))
+	(setq lister-local-marker-list
+	      (cl-remove pos lister-local-marker-list :test #'=)))
       ;; remove the item 
       (lister-remove-lines lister-buf pos)
       ;; move point if it is not on an item anymore:

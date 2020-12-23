@@ -272,6 +272,7 @@
       ;; the original marker one further down.
        (lister-replace buf m2 "2")
        (lister-replace buf m3 "3")
+       (ignore m1)
       (expect (lister-get-all-data buf) :to-equal '("1" "2" "3"))))
   (it "Replace a whole list via set-list, with header and footer defined:"
     (cl-dolist (item '(1 2 3 4 5 6 7))
@@ -387,29 +388,29 @@
     (setq buf (lister-setup (test-new-buffer) #'list))
     (setq header "HEADER")
     (lister-add-sequence buf '("1" "2" "3"))
-  (after-each
-    (kill-buffer buf))
-  ;;
-  (it "Move to the first item with :first."
-    (lister-goto buf :first)
-    (expect (test-line buf) :to-be 1))
-  (it "Move to the last item with :last."
-    (lister-goto buf :last)
-    (expect (test-line buf) :to-be 3))
-  (it "Add header, then move to first item."
-    (lister-set-header buf header)
-    (lister-goto buf :first)
-    (expect (test-line buf) :to-be 2))
-  (it "Add header, then move to the last item."
-    (lister-set-header buf header)
-    (lister-goto buf :last)
-    (expect (test-line buf) :to-be 4))
-  (it "Add header, remove random item, move to last item using :last."
-    (lister-set-header buf header)
-    (lister-remove buf (with-current-buffer buf
-			 (seq-random-elt lister-local-marker-list)))
-    (lister-goto buf :last)
-    (expect (test-line buf) :to-be 3))))
+    (after-each
+      (kill-buffer buf))
+    ;;
+    (it "Move to the first item with :first."
+      (lister-goto buf :first)
+      (expect (test-line buf) :to-be 1))
+    (it "Move to the last item with :last."
+      (lister-goto buf :last)
+      (expect (test-line buf) :to-be 3))
+    (it "Add header, then move to first item."
+      (lister-set-header buf header)
+      (lister-goto buf :first)
+      (expect (test-line buf) :to-be 2))
+    (it "Add header, then move to the last item."
+      (lister-set-header buf header)
+      (lister-goto buf :last)
+      (expect (test-line buf) :to-be 4))
+    (it "Add header, remove random item, move to last item using :last."
+      (lister-set-header buf header)
+      (lister-remove buf (with-current-buffer buf
+			   (seq-random-elt lister-local-marker-list)))
+      (lister-goto buf :last)
+      (expect (test-line buf) :to-be 3))))
 
 (describe "Indexed lists:"
   :var (buf)
