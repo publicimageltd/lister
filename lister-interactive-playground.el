@@ -3,7 +3,7 @@
 ;; Copyright (C) 2020  
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Keywords: 
+;; Keywords: org-roam, lister, convenience
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -60,6 +60,7 @@
 (defun lister-interactive-action (data)
   "Do something with the item at point."
   (interactive)
+  (ignore data)
   (message "Nothing implemented to do."))
 
 
