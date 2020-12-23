@@ -381,7 +381,7 @@ Return nil if no such position is available."
       (while (< pos max)
 	(when (get-text-property pos 'item)
 	  (push (lister-make-marker lister-buf pos) res)
-	    (setq pos (next-single-property-change pos 'item nil max)))
+	  (setq pos (next-single-property-change pos 'item nil max)))
 	(setq pos (next-single-char-property-change pos 'item nil max)))
       (reverse res))))
 
