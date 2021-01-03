@@ -499,10 +499,14 @@ gap position."
 	;;
 	;; Store some useful information at the beginning of the item,
 	;; which is also its "marker position" used to reference the
-	;; item:
-	(put-text-property beg (1+ beg) 'item t)
-	(put-text-property beg (1+ beg) 'level (or level 0))
-	(put-text-property beg (1+ beg) 'nchars (- (point) beg))
+	;; item.
+	;;
+	;; Calling `Lister-set-props' adds too much overhead, we add
+	;; the properties directly: 
+	(add-text-properties beg (1+ beg)
+			     (list 'item t
+				   'level (or level 0)
+				   'nchars (- (point) beg)))
 	(lister-make-marker buf beg)))))
 
 (defun lister-remove-lines (buf marker-or-pos)
@@ -544,26 +548,55 @@ NO-ERROR."
 	     (lister-pos-as-integer marker-or-pos)))))
 
 ;; -----------------------------------------------------------
-;; * Set header or footer of the list
+;; * Static items
 ;; -----------------------------------------------------------
 
-;; Headers or footers are just ordinary lists inserted by
-;; `lister-insert-lines'; usually lists of strings. Unlike list items,
-;; they are set to be 'intangible' for the cursor, so that point
-;; cannot move to them. For this to work, `cursor-intangible-mode' has
-;; to be enabled. To distinguish headers and footers from ordinary
-;; dynamic items, only the latter are marked with the text property
-;; `item', while the former is marked with the property
-;; `header-or-footer'.
+;; Basic functions for dealing with so-called static items. Best
+;; examples for static items are the list header and the list footer.
+;; More generally, 'static' items are distinguished from normal list
+;; items by two features:
+;;
+;;  (1.) They have no cursor gap. Thus, they are completely
+;; "unreachable" with the usual navigation tools. Accordingly, they
+;; are not marked as an item and thus are hidden from view for all
+;; functions which act on regular list items.
+;;
+;;  (2.) Their content is printed as-is, not using the local mapper.
+;;
 
-(defun lister-propertize-header-or-footer (lister-buf marker-or-pos)
+(defun lister-make-item-static (lister-buf marker-or-pos &rest props)
+  "In LISTER-BUF, mark the item at MARKER-OR-POS as a static item.
+Basically, that means (a) to close the cursor gap, and (b) to
+remove the text property 'item' and to replace it with the text
+property 'static'.
+
+Optionally also use PROPS to add extra property-value-pairs to be
+set at the cursor gap position (i.e. to make the item easily
+detectable by searching for text properties)."
+  (apply #'lister-set-props lister-buf marker-or-pos
+	 'item nil
+	 'static t
+	 'cursor-intangible t
+	 'front-sticky t
+	 props))
+
+;; TODO Define these functions
+;; TODO Write tests
+(defun lister-insert-static-item ())
+;; TODO rewrite walk funktions to add "property predicate"
+;; TODO Add function walk-static-items
+
+;; ----------------------------------------------------------- * Set
+;; header or footer of the list
+;; -----------------------------------------------------------
+
+;; Headers or footers are static items placed at the end or the
+;; beginning of the list.
+
+(defun lister-make-header-or-footer (lister-buf marker-or-pos)
   "Mark the item at MARKER-OR-POS to be a header or footer."
-  (with-current-buffer lister-buf
-    (let* ((inhibit-read-only t))
-      (put-text-property marker-or-pos (1+ marker-or-pos)  'item nil)
-      (put-text-property marker-or-pos (1+ marker-or-pos)  'header-or-footer t)
-      (put-text-property marker-or-pos (1+ marker-or-pos)  'cursor-intangible t)
-      (put-text-property marker-or-pos (1+ marker-or-pos)  'front-sticky t))))
+  (lister-make-item-static lister-buf marker-or-pos
+			   'header-or-footer t))
 
 (defun lister-set-header (lister-buf header)
   "Insert or replace HEADER before the first item in LISTER-BUF."
@@ -573,7 +606,7 @@ NO-ERROR."
 	   (if lister-local-header-marker
 	       (lister-replace-lines lister-buf lister-local-header-marker header)
 	     (lister-insert-lines lister-buf (point-min) header 0)))
-     (lister-propertize-header-or-footer lister-buf lister-local-header-marker))))
+     (lister-make-header-or-footer lister-buf lister-local-header-marker))))
 
 (defun lister-set-footer (lister-buf footer)
   "Insert or replace FOOTER after the last item of LISTER-BUF."
@@ -583,7 +616,7 @@ NO-ERROR."
 	   (if lister-local-footer-marker
 	       (lister-replace-lines lister-buf lister-local-footer-marker footer)
 	     (lister-insert-lines lister-buf (point-max) footer 0)))
-     (lister-propertize-header-or-footer lister-buf lister-local-footer-marker))))
+     (lister-make-header-or-footer lister-buf lister-local-footer-marker))))
 
 
 ;; -----------------------------------------------------------
@@ -867,9 +900,9 @@ add an item to the end of the list, use `lister-add'."
 					       (lister-determine-level lister-buf marker-or-pos (or level 0)))))
       ;;
       (lister-set-data lister-buf marker data)
-      (lister-set-prop lister-buf marker
-		       'cursor-sensor-functions
-		       '(lister-sensor-function))
+      (lister-set-props lister-buf marker
+			'cursor-sensor-functions
+			'(lister-sensor-function))
       (when (buffer-local-value 'lister-local-filter-active lister-buf)
 	(lister-possibly-hide-item lister-buf marker data))
       (lister-add-item-marker lister-buf marker)
@@ -1187,7 +1220,7 @@ Return t if the item's state has been changed, else nil."
 	 (f (buffer-local-value 'lister-local-marking-predicate lister-buf)))
     (when (or (null f)
 	      (funcall f (lister-get-data lister-buf m)))
-      (lister-set-prop lister-buf m 'mark value)
+      (lister-set-props lister-buf m 'mark value)
       (lister-display-mark-state lister-buf m)
       t)))
 
@@ -1242,12 +1275,24 @@ Return the number of items actually treated."
 ;; -----------------------------------------------------------
 
 ;; Generic property handling
-(defun lister-set-prop (buf pos-or-marker prop value)
-  "Store VALUE in text property PROP at POS-OR-MARKER."
+;; TODO Maybe change name to add-, like the built in f()s?
+(defun lister-set-props (buf pos-or-marker &rest props)
+  "Store PROPS as text properties at POS-OR-MARKER.
+PROPS is a list of properties and values."
   (with-current-buffer buf
     (let* ((inhibit-read-only t)
 	   (pos (lister-pos-as-integer pos-or-marker)))
-      (put-text-property pos (1+ pos) prop value))))
+      (add-text-properties pos (1+ pos) props))))
+
+(defun lister-remove-props (buf pos-or-marker &rest props)
+  "Remove PROPS from POS-OR-MARKER.
+PROPS is a list of property-value-pairs, but only the property
+field is used. See `remove-text-properties', which is called."
+  (when props
+    (with-current-buffer buf
+      (let* ((inhibit-read-only t)
+	     (pos (lister-pos-as-integer pos-or-marker)))
+	(remove-text-properties pos (1+ pos) props)))))
 
 (defun lister-get-prop (buf pos-or-marker prop)
   "Get VALUE from POS-OR-MARKER."
@@ -1272,7 +1317,7 @@ Return the number of items actually treated."
 POSITION-OR-SYMBOL can be either a buffer position, a marker, or
  one of the symbols `:point', `:last' or `:first'."
   (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
-    (lister-set-prop lister-buf m 'data data)))
+    (lister-set-props lister-buf m 'data data)))
 
 ;; Get data
 
