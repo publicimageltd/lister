@@ -374,15 +374,17 @@ Return nil if no such position is available."
   (elt (buffer-local-value 'lister-local-marker-list lister-buf)
        index-position))
 
-(defun lister-rescan-item-markers (lister-buf)
-  "Get a freshly build list of all item markers in LISTER-BUF."
+(cl-defun lister-rescan-item-markers (lister-buf &optional (prop 'item))
+  "Get a freshly build list of all item markers in LISTER-BUF.
+Items are identified by checking the property PROP. PROP defaults
+to `item', meaning that this function matches all regular items."
   (with-current-buffer lister-buf
     (let (res (pos (point-min)) (max (point-max)))
       (while (< pos max)
-	(when (get-text-property pos 'item)
+	(when (get-text-property pos prop)
 	  (push (lister-make-marker lister-buf pos) res)
-	  (setq pos (next-single-property-change pos 'item nil max)))
-	(setq pos (next-single-char-property-change pos 'item nil max)))
+	  (setq pos (next-single-property-change pos prop nil max)))
+	(setq pos (next-single-char-property-change pos prop nil max)))
       (reverse res))))
 
 ;; -----------------------------------------------------------
