@@ -607,17 +607,6 @@ Return the marker of the inserted item."
       (lister-sensor-enter lister-buf)
       marker)))
 
-(defun lister-walk-static-items (lister-buf action &optional predicate)
-  "Apply ACTION on all static items in LISTER-BUF.
-Optionally restrict the actions further by checking each item's
-position for PREDICATE.
-
-PREDICATE must be a function accepting as its sole argument the
-position of the item."
-  (lister-walk-some lister-buf
-		    (lister-rescan-item-markers lister-buf 'static)
-		    action
-		    predicate))
 
 ;; ----------------------------------------------------------- * Set
 ;; header or footer of the list
