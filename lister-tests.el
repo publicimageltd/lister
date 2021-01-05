@@ -23,6 +23,7 @@
 (require 'lister "lister.el")
 (require 'buttercup)
 (require 'seq)
+(require 'cl-lib)
 
 (message "Running tests on Emacs %s" emacs-version)
 
@@ -522,6 +523,34 @@
     (lister-remove-sublist-below buf (lister-index-marker buf 1))
     (expect (lister-get-all-data-tree buf)  :to-equal '("Item1" "Item2" "Item3"))))
 
+(describe "Walk items:"
+  :var (buf data)
+  (before-each
+    (setq buf (lister-setup (test-new-buffer)
+			    (apply-partially #'format "%d")))
+    (setq data  '(1 2 3 4 5 6 7 8 9 10))
+    (lister-add-sequence buf data))
+  (after-each
+    (kill-buffer buf))
+  ;;
+  (it "Walk all items:"
+    (expect 
+     (lister-walk-all buf #'identity)
+     :to-be
+     (length data))
+    (let ((acc 0))
+      (lister-walk-all buf (lambda (data)
+			     (setq acc (+ acc data))))
+      (expect
+       acc
+       :to-be
+       (apply #'+ data))))
+  ;;
+  (it "Walk all items using predicate:"
+    (expect 
+     (lister-walk-all buf #'identity #'cl-evenp))
+    :to-be
+    (length (seq-filter #'cl-evenp data))))
 
 (describe "Use a callback function:"
   :var (value buf callbackfn)

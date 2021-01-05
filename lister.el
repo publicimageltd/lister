@@ -558,8 +558,9 @@ NO-ERROR."
 ;;
 ;;  (1.) They have no cursor gap. Thus, they are completely
 ;; "unreachable" with the usual navigation tools. Accordingly, they
-;; are not marked as an item and thus are hidden from view for all
-;; functions which act on regular list items.
+;; are not marked as an item and are not part of the
+;; `lister-local-marker-list'. Thus they are effectively hidden from
+;; view for all functions which act on regular list items.
 ;;
 ;;  (2.) Their content is printed as-is, not using the local mapper.
 ;;
@@ -580,23 +581,57 @@ detectable by searching for text properties)."
 	 'front-sticky t
 	 props))
 
-;; TODO Define these functions
 ;; TODO Write tests
-(defun lister-insert-static-item ())
-;; TODO rewrite walk funktions to add "property predicate"
-;; TODO Add function walk-static-items
+(defun lister-insert-static-item (lister-buf position-or-symbol data &optional level)
+  "Insert DATA as a static item at POSITION-OR-SYMBOL in LISTER-BUF.
+POSITION-OR-SYMBOL must be either an integer position, a marker,
+or one of the symbols `:first', `:last' or `:point'. DATA must be
+a list of strings which will be inserted unmodified. Optional
+argument LEVEL determines the indentation level of the item,
+defaulting to 0.
+
+Return the marker of the inserted item."
+  (let ((cursor-sensor-inhibit t))
+    (lister-sensor-leave lister-buf)
+    (let* ((pos    (lister-eval-pos-or-symbol lister-buf position-or-symbol))
+	   (marker (lister-insert-lines lister-buf
+					pos
+					data
+					(lister-determine-level lister-buf
+								pos
+								(or level 0)))))
+      (lister-make-item-static lister-buf marker)
+      ;; TODO Hide this static item iff its associate is also hidden.
+      (with-current-buffer lister-buf
+	(goto-char marker))
+      (lister-sensor-enter lister-buf)
+      marker)))
+
+(defun lister-walk-static-items (lister-buf action &optional predicate)
+  "Apply ACTION on all static items in LISTER-BUF.
+Optionally restrict the actions further by checking each item's
+position for PREDICATE.
+
+PREDICATE must be a function accepting as its sole argument the
+position of the item."
+  (lister-walk-some lister-buf
+		    (lister-rescan-item-markers lister-buf 'static)
+		    action
+		    predicate))
 
 ;; ----------------------------------------------------------- * Set
 ;; header or footer of the list
 ;; -----------------------------------------------------------
 
 ;; Headers or footers are static items placed at the end or the
-;; beginning of the list.
+;; beginning of the list. Headers or footers have their own text
+;; property, the property 'static is removed.
 
 (defun lister-make-header-or-footer (lister-buf marker-or-pos)
   "Mark the item at MARKER-OR-POS to be a header or footer."
   (lister-make-item-static lister-buf marker-or-pos
-			   'header-or-footer t))
+			   'header-or-footer t
+			   'static nil))
 
 (defun lister-set-header (lister-buf header)
   "Insert or replace HEADER before the first item in LISTER-BUF."
@@ -1196,9 +1231,12 @@ is no item at POS-OR-SYMBOL."
 
 (defun lister-all-marked-items (lister-buf)
   "Get all markers pointing to marked items in LISTER-BUF."
+  ;; alternative: (lister-rescan-item-markers lister-buf 'mark)
+  ;; Probably faster. 
   (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
 	      (buffer-local-value 'lister-local-marker-list lister-buf)))
 
+;; TODO Remove this! Is this ever used by anyone? Doesn't even make sense!
 (defun lister-all-marked-data (lister-buf)
   "Collect all data from the marked items in LISTER-BUF."
   (seq-map (apply-partially #'lister-get-data lister-buf)
@@ -1345,7 +1383,7 @@ levels or hierarchies."
 ;; TODO add option to also build a vector list
 (cl-defun lister-group-by-level (l level-fn &optional (map-fn #'identity))
   "Build a tree from the flat list L.
-L is a list of elements with no nesting. LEVEL-FN is called with
+L i s a list of elements with no nesting. LEVEL-FN is called with
 each element and has to return the intended nesting level (as an
 integer). Elements with the same associated level are treated as
 one list; elements with higher levels are stored into sublists of
@@ -1409,17 +1447,19 @@ END is nil, use the position of the first or last item."
 ;; * Walk the lister buffer
 ;; -----------------------------------------------------------
 
-(defun lister-walk-some (lister-buf item-positions action &optional predicate)
+(defun lister-walk-some (lister-buf item-positions action
+				       &optional predicate)
   "In LISTER-BUF, execute ACTION for each of ITEM-POSITIONS.
 ITEM-POSITIONS is a list consisting of either integer positions
-or markers. ACTION has to accept one single argument, the data
-associated with the item. The optional argument PREDICATE can be
-used to further restrict the items on which ACTION will be
-executed.
+or markers. 
+
+ACTION will be called with the item's associated data. The
+optional argument PREDICATE can be used to further restrict the
+items on which ACTION will be executed. 
 
 Both PREDICATE and ACTION are called with point on the item's
-cursor gap and the current buffer set to LISTER-BUF, thus making
-it easy to use all common lister functions. The whole loop is
+cursor gap and the current buffer set to LISTER-BUF, making it
+easy to use all common lister functions. The whole loop is
 wrapped in a call to `lister-with-locked-cursor', which see.
 
 ACTION will be only executed if the position points to a valid
