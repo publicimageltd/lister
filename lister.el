@@ -1236,12 +1236,6 @@ is no item at POS-OR-SYMBOL."
   (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
 	      (buffer-local-value 'lister-local-marker-list lister-buf)))
 
-;; TODO Remove this! Is this ever used by anyone? Doesn't even make sense!
-(defun lister-all-marked-data (lister-buf)
-  "Collect all data from the marked items in LISTER-BUF."
-  (seq-map (apply-partially #'lister-get-data lister-buf)
-	   (lister-all-marked-items lister-buf)))
-
 ;; Marking a single item
 
 (defun lister-mark-item (lister-buf position-or-symbol value)
