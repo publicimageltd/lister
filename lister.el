@@ -607,7 +607,6 @@ Return the marker of the inserted item."
       (lister-sensor-enter lister-buf)
       marker)))
 
-
 ;; ----------------------------------------------------------- * Set
 ;; header or footer of the list
 ;; -----------------------------------------------------------
