@@ -614,7 +614,8 @@
       (expect (lister-get-mark-state buf m)   :to-be  nil)))
   (it "Mark all items, return marked values"
     (lister-mark-all-items buf t)
-    (expect  (lister-all-marked-data buf)  :to-equal (lister-get-all-data buf))))
+    (expect  (lister-all-marked-items buf)
+	     :to-equal (lister-get-all-data buf))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
