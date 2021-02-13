@@ -1285,13 +1285,15 @@ LISTER-BUF has to be a valid lister buffer."
 (defun lister-walk-marked-items (lister-buf action &optional pred)
   "In LISTER-BUF, apply ACTION on each marked item.
 The function ACTION is executed on each marked item, with point
-on the item's cursor gap. It recieves the item's data object as
+on the item's cursor gap. It receives the item's data object as
 its sole argument.
 
-Optionally restrict action on only those marked items matching PRED.
+Optionally further restrict action on only those marked items
+matching PRED.
 
-Return the number of items actually treated."
-  (lister-walk-some lister-buf (lister-all-marked-items lister-buf)
+Return the number of items actually visited."
+  (lister-walk-some lister-buf
+		    (lister-all-marked-items lister-buf)
 		    action pred))
 
 
