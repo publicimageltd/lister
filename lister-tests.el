@@ -1,4 +1,4 @@
-;;; lister-tests.el --- testsuite for lister.el      -*- lexical-binding: t; -*-
+;;; lister-tests.el --- testsuite for lister.el  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020-2021
 
@@ -28,334 +28,538 @@
 (require 'seq)
 (require 'cl-lib)
 
-(message "Running tests on Emacs %s" emacs-version)
+(message "Testing lister version %s on Emacs %s" lister-version emacs-version)
 
-;; * Functions for common setup tasks
-;;
-(defun test-new-buffer ()
+;; * Utility functions for common setup tasks
+
+(defun lister-test-new-buffer ()
   (generate-new-buffer "*LISTER*"))
 
-(defun test-buffer-content (buf)
+(defun lister-test-buffer-content (buf)
   (with-current-buffer buf
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun test-buffer-content-with-properties (buf)
+(defun lister-test-buffer-content-with-properties (buf)
   (with-current-buffer buf (buffer-string)))
 
-(defun test-point (buf)
+(defun lister-test-point (buf)
   (with-current-buffer buf (point)))
 
-(defun test-line (buf)
+(defun lister-test-line (buf)
   (with-current-buffer buf
     (line-number-at-pos)))
+
+(defun lister-test-setup-minimal-buffer ()
+  "Set up a minimal buffer, with no margins and a list mapper.
+Return the buffer object"
+  (let ((new-buf (lister-setup (generate-new-buffer "*LISTER*")
+			       #'list)))
+    (with-current-buffer new-buf
+      (setq lister-local-left-margin 0
+	    lister-local-top-margin 0
+	    lister-local-bottom-margin 0))
+    new-buf))
+
+(defun lister-test-positions-of (l &optional indentation)
+  "Return a list of expected positions for inserting L.
+L has to be a list of strings. The results are only valid in a
+buffer with no margins, and if the items are inserted with no
+indentation level.
+
+Optional argument INDENTATION adds an indentation level of n."
+  (let (acc (last-pos 1))
+    (cl-dolist (item l)
+      (push last-pos acc)
+      (setq last-pos (+ last-pos (or indentation 0)
+			(1+ (length item)))))
+    (reverse acc)))
+
+(defun lister-test-expected-content (l &optional header footer indentation)
+  "Return a string of the expected buffer contents when inserting L.
+L has to be a list of strings. HEADER and FOOTER have to be nil
+or strings. The results are only valid in a minimal buffer with
+no margins, and if the items are inserted with no indentation.
+
+Optional argument INDENTATION adds an indentation level of n."
+  (let ((indent-string (make-string (or indentation 0) ? )))
+    (concat
+     (when header (format "%s\n" header))
+     (when l
+       (concat (string-join (mapcar (apply-partially #'concat indent-string) l)
+			    "\n")
+	       "\n"))
+     (when footer (format "%s\n" footer)))))
+
+;; to match buffer contents:
+(buttercup-define-matcher :to-have-as-content (buf content-to-be)
+  (let* ((content (with-current-buffer (funcall buf)
+		    (buffer-substring-no-properties
+		     (point-min) (point-max))))
+	 (expected-content (funcall content-to-be)))
+    (buttercup--test-expectation
+	(equal content expected-content)
+      :expect-match-phrase
+      (format "Expected buffer content to be '%s', but instead it was '%s'"
+	      expected-content content)
+      :expect-mismatch-phrase
+      (format "Expected buffer content not to be '%s', but it was."
+	      expected-content))))
+  
 
 ;; -----------------------------------------------------------
 ;; The tests.
 
 (describe "lister-insert-lines:"
-  :var (buf marker test-item)
+  :var (buf)
   (before-each
-    (with-current-buffer (setq buf (test-new-buffer))
-      (setq lister-local-left-margin 0
-	    lister-local-top-margin 0
-	    lister-local-bottom-margin 0)
-      (setq marker (make-marker))
-      (set-marker marker (point-max)))
-    (setq test-item '("1" "2")))
+    (setq buf (lister-test-setup-minimal-buffer)))
   (after-each
     (kill-buffer buf))
-  ;;
-  (it "Flatten an item list."
+
+  ;; For constructing the expected content, each item's line is
+  ;; treated as a separate item: The item ("1" "2") prints the same
+  ;; result as a list of two single items ("1") and ("2").
+  
+  (it "Flatten an item list."    
     (expect (lister-strflat "test")         :to-equal '("test"))
     (expect (lister-strflat '("1" nil "3")) :to-equal '("1" "3"))
     (expect (lister-strflat '(("1") ("2"))) :to-equal '("1" "2")))
-  (it "Insert item using a marker position."
-    (lister-insert-lines buf marker test-item 0)
-    (expect (test-buffer-content buf)              :to-equal  "1\n2\n")
-    (expect (get-text-property marker 'item buf)   :to-be  t)
-    (expect (get-text-property marker 'nchars buf) :to-be  4))
-  (it "Insert item using an integer position."
-    (lister-insert-lines buf (marker-position marker) test-item 0)
-    (expect (test-buffer-content buf)  :to-equal "1\n2\n"))
-  (it "Insert item with indentation level 1."
-    (lister-insert-lines buf (marker-position marker) test-item 1)
-    (expect (test-buffer-content buf)  :to-equal " 1\n 2\n"))
-  (it "Insert item with indentation level 2."
-    (lister-insert-lines buf (marker-position marker) test-item 2)
-    (expect (test-buffer-content buf)  :to-equal "  1\n  2\n"))
-  (it "Insert item with indentation level 3."
-    (lister-insert-lines buf (marker-position marker) test-item 3)
-    (expect (test-buffer-content buf)  :to-equal "   1\n   2\n")))
-
-(describe "Low-level item:"
-  :var (buf)
-  (before-each
-    (setq buf (lister-setup (test-new-buffer) #'list))
-    (with-current-buffer buf
-      (setq lister-local-left-margin 0
-	    lister-local-top-margin 0
-	    lister-local-bottom-margin 0)))
-  (after-each
-    (kill-buffer buf))
-  ;;
-  (it "item-min/item-max returns correct position:"
-    (expect (lister-item-min buf) :to-be 1)
-    (expect (lister-item-max buf) :to-be 1)
-    (lister-add buf "A")
-    (expect (lister-item-min buf) :to-be 1)
-    (expect (lister-item-max buf) :to-be 3)
-    (lister-add buf "A")
-    (expect (lister-item-max buf) :to-be 5))
-  (it "looking-at-prop returns correct positions:"
-    (lister-add buf "A")
-    (lister-add buf "A")
-    (expect (lister-looking-at-prop buf 3 'item 'previous) :to-be 1)
-    (expect (lister-looking-at-prop buf 1 'item 'next)     :to-be 3)))
   
-(describe "lister-marker-at:"
+  (it "Insert item using a marker position."
+    (let* ((marker     (with-current-buffer buf (point-max-marker)))
+	   (test-item '("1" "2")))
+      (lister-insert-lines buf marker test-item 0)
+      (expect buf :to-have-as-content (lister-test-expected-content test-item))
+      (expect (get-text-property marker 'item buf)   :to-be  t)
+      (expect (get-text-property marker 'nchars buf) :to-be  4)))
+  
+  (it "Insert item using an integer position."
+    (let* ((marker     (with-current-buffer buf (point-max-marker)))
+	   (test-item '("1" "2")))
+      (lister-insert-lines buf (marker-position marker) test-item 0)
+      (expect buf :to-have-as-content (lister-test-expected-content test-item))))
+  
+  (it "Insert item with indentation level 1."
+    (let* ((marker    (with-current-buffer buf (point-max-marker)))
+	   (test-item '("1" "2")))
+      (lister-insert-lines buf (marker-position marker) test-item 1)
+      (expect buf :to-have-as-content (lister-test-expected-content test-item nil nil 1))))
+  
+  (it "Insert item with indentation level 2."
+    (let* ((marker    (with-current-buffer buf (point-max-marker)))
+	   (test-item '("1" "2")))
+      (lister-insert-lines buf (marker-position marker) test-item 2)
+      (expect buf :to-have-as-content (lister-test-expected-content test-item nil nil 2))))
+  
+  (it "Insert item with indentation level 3."
+    (let* ((marker    (with-current-buffer buf (point-max-marker)))
+	   (test-item '("1" "2")))
+      (lister-insert-lines buf (marker-position marker) test-item 3)
+      (expect buf :to-have-as-content (lister-test-expected-content test-item nil nil 3)))))
+
+(describe "Some low level item functions:"
   :var (buf)
   (before-each
-    (setq buf (lister-setup (test-new-buffer)  #'list))
-    (with-current-buffer buf
-      (setq lister-local-left-margin 0
-	    lister-local-top-margin 0
-	    lister-local-bottom-margin 0))
-      (lister-add buf "A") ;; integer position 1
-      (lister-add buf "B") ;; 3
-      (lister-add buf "C") ;; 5
-      (lister-add buf "D") ;; 7
-      (lister-add buf "E") ;; 9
-      )
+    (setq buf (lister-test-setup-minimal-buffer)))
   (after-each
     (kill-buffer buf))
-  ;;
-  (it "Local marker list equals collected markers:"
-    (let* ((llm (with-current-buffer buf lister-local-marker-list)))
-      (expect llm :to-equal (lister-rescan-item-markers buf))))
-  (it "Get the first item:"
-    (let ((m (lister-marker-at buf :first)))
-      (expect (lister-get-data buf m) :to-equal "A")))
-  (it "Get the last item:"
-    (let ((m (lister-marker-at buf :last)))
-      (expect (lister-get-data buf m) :to-equal "E")))
-  (it "Access value at point:"
-    (lister-goto buf :first)
-    (with-current-buffer buf  (forward-line))
-    (let ((m (lister-marker-at buf :point)))
-      (expect (lister-get-data buf m) :to-equal "B")))
-  (it "Call it with a marker:"
-    (let* ((m1 (lister-make-marker buf 9))
+
+  (describe "lister-insert:"
+    (it "inserts item content as expected"
+      (let ((item "JLKJLKDJFLKDSJFLKDJSLKFJSLKJFSLKJ"))
+	(lister-insert buf (point-min) item)
+	(expect buf :to-have-as-content (lister-test-expected-content (list item)))))
+    (it "inserts item with properties nchars, item, level"
+      (let* ((data "SOMEDATASHOULDBEGOOD")
+	     (m (lister-insert buf (point-min) data)))
+	(expect (get-text-property m 'nchars buf) :to-be (1+ (length data )))
+	(expect (get-text-property m 'level buf)  :to-be 0)
+	(expect (get-text-property m 'item buf)   :to-be t)))
+    (it "inserts item with sensor function"
+      (let* ((m (lister-insert buf (point-min) "A")))
+	(expect (get-text-property m 'cursor-sensor-functions buf)
+		:to-equal
+		'(lister-sensor-function))))
+    (it "inserts the new marker in the the marker list"
+      (let* ((m (lister-insert buf (point-min) "A")))
+	(expect (buffer-local-value 'lister-local-marker-list buf)
+		:to-equal
+		(list m)))))
+
+  (describe "lister-next-free-position"
+    (it "returns point-min in an empty buffer with no margins or heading"
+      (expect (lister-next-free-position buf)
+	      :to-be
+	      (with-current-buffer buf (point-min))))
+    (it "returns point-min in an empty buffer with footer"
+      (lister-set-footer buf "A FOOTER")
+      (expect (lister-next-free-position buf)
+	      :to-be
+	      (with-current-buffer buf (point-min))))
+    (it "returns point after header if header is given"
+      (let ((header "A HEADER"))
+	(lister-set-header buf header)
+	(expect (lister-next-free-position buf)
+		:to-be
+		;; add 1 nor item newline, 1 for next free pos:
+		(+ 2 (length header)))))
+    (it "returns point-max after last item if some items have been inserted"
+      (let* ((some-items '("A" "B" "C" "D" "JA" "NEIN" "ACH" "EGAL")))
+	(dolist (item some-items)
+	  (lister-insert buf (point-max) item))
+	(expect (lister-next-free-position buf)
+		:to-be
+		(with-current-buffer buf (point-max))))))
+
+  ;; now we can use lister-add, which relies on lister-next-free-position:  
+  (describe "lister-item-min"
+    (it "returns the correct position if there is no item"
+      (expect (lister-item-min buf) :to-be 1))
+    (it "returns the corrrect position after 1 item"
+      (lister-add buf "A")
+      (expect (lister-item-min buf) :to-be 1))
+    (it "returns the corrrect position after 2 items"
+      (lister-add buf "A")
+      (lister-add buf "A")
+      (expect (lister-item-min buf) :to-be 1))
+    (it "returns the corrrect position after 3 items"
+      (lister-add buf "A")
+      (lister-add buf "A")
+      (lister-add buf "A")
+      (expect (lister-item-min buf) :to-be 1)))
+  
+  (describe "lister-item-max"
+    (it "returns the correct position if there is no item"
+      (expect (lister-item-max buf) :to-be 1))
+    (it "returns the corrrect position after 1 item"
+      (lister-add buf "A")
+      (expect (lister-item-max buf) :to-be 3)) ;; 1+"A"+"\n"
+    (it "returns the corrrect position after 2 items"
+      (lister-add buf "A")
+      (lister-add buf "A")
+      (expect (lister-item-max buf) :to-be 5))
+    (it "returns the corrrect position after 3 items"
+      (lister-add buf "A")
+      (lister-add buf "A")
+      (lister-add buf "A")
+      (expect (lister-item-max buf) :to-be 7)))    
+
+  (describe "lister-looking-at-prop:"
+    (it "looks at next item and returns nil if there is none"
+      (expect (lister-looking-at-prop buf 1 'item 'next) :to-be nil))
+    (it "looks at previous item and returns nil if there is none"
+      (expect (lister-looking-at-prop buf 1 'item 'previous) :to-be nil))
+    (it "looks at previous item and returns its position"
+      (lister-add buf "A") ;; = pos 1
+      (lister-add buf "A") ;; = pos 3
+      (expect (lister-looking-at-prop buf 1 'item 'next)     :to-be 3))
+    (it "looks at next item and returns its position"
+      (lister-add buf "A") ;; = pos 1
+      (lister-add buf "A") ;; = pos 3
+      (expect (lister-looking-at-prop buf 3 'item 'previous) :to-be 1)))
+
+  (describe "lister-rescan-item-markers:"
+    (it "returns the correct positions for all items:"
+      (let* ((some-items '("A" "B" "JAJA" "NEINEIN" "ACH")))
+	(cl-dolist (item  some-items)
+	  (lister-add buf item))
+	(expect (mapcar #'marker-position (lister-rescan-item-markers buf))
+		:to-equal
+		(lister-test-positions-of some-items))))))
+
+(describe "lister-marker-at:"
+  :var (buf some-items some-positions)
+  (before-each
+    (setq some-items '("A" "B" "JAJA" "NEINEIN" "ACHJE"))
+    (setq some-positions (lister-test-positions-of some-items))
+    (setq buf (lister-test-setup-minimal-buffer))
+    (cl-dolist (item some-items)
+      (lister-add buf item)))
+  (after-each
+    (kill-buffer buf))
+  
+  (it "premise: inserted lists has the right positions"
+    (expect (mapcar #'marker-position (lister-rescan-item-markers buf))
+	    :to-equal
+	    (lister-test-positions-of some-items)))
+  (it "points correctly to the first item:"
+    (expect (lister-get-data buf (lister-marker-at buf :first))
+	    :to-equal (elt some-items 0)))
+  (it "points correctly to the last item:"
+    (expect (lister-get-data buf (lister-marker-at buf :last))
+	    :to-equal
+	    (car (reverse some-items))))
+  (it "correctly points to some item at point:"
+    (let (n)
+      (with-current-buffer buf
+	(setq n (random (seq-length some-items)))
+	(goto-char (elt some-positions n)))
+      (expect (lister-get-data buf :point)
+	      :to-equal
+	      (elt some-items n))))
+  (it "accepts a marker as an argument"
+    (let* ((position (elt some-positions 3))
+	   (m1 (lister-make-marker buf position))
 	   (m2 (lister-marker-at buf m1)))
       (expect m1 :to-equal m2)))
-  (it "Call it with a position:"
-    (let* ((p1 9)
-	   (m1 (lister-marker-at buf p1)))
-      (expect (marker-position m1) :to-equal p1))))
+  (it "accepts an integer position as an argument"
+    (let* ((position (elt some-positions 3))
+	   (m (lister-marker-at buf position)))
+      (expect (marker-position m) :to-equal position))))
 
-(describe "Set header, footer and items:"
+(describe "Header and footer:"
   :var (buf header footer data)
   (before-each
-    (with-current-buffer  (setq buf (lister-setup (test-new-buffer) #'list))
-      (setq header "HEADER" footer "FOOTER" data   "DATA")
-      (setq lister-local-left-margin 0
-	    lister-local-top-margin 0
-	    lister-local-bottom-margin 0)))
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq header "HEADER"
+	  footer "FOOTER"
+	  data   "DATA"))
   (after-each
     (kill-buffer buf))
   ;;
-  (it "Insert a single header."
-    (lister-set-header buf header)
-    (expect (test-buffer-content buf) :to-equal  (concat header "\n")))
-  (it "Insert a single footer."
-    (lister-set-footer buf footer)
-    (expect (test-buffer-content buf) :to-equal (concat footer "\n")))
-  (it "Insert header and footer."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (expect (test-buffer-content buf) :to-equal (concat header "\n" footer "\n")))
-  (it "Insert header and footer with left margin."
-    (with-current-buffer buf
-      (setq lister-local-left-margin 3))
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat (make-string 3 ? ) header "\n"
-		    (make-string 3 ? ) footer "\n")))
-  (it "Insert header and footer with top margin."
-    (with-current-buffer buf
-      (setq lister-local-top-margin 1))
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat "\n" header "\n" "\n" footer "\n")))
-  (it "Insert header and footer, then remove footer."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-set-footer buf nil)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat header "\n")))
-  (it "Insert header and footer, then remove header."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-set-header buf nil)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat footer "\n")))
-  (it "Add header and footer, then add a data item."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-add buf data)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat header "\n" data "\n" footer "\n")))
-  (it "Add header and footer, add data item, remove footer."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-add buf data)
-    (lister-set-footer buf nil)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat header "\n" data "\n")))
-  (it "Add header and footer, add data item, remove header."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-add buf data)
-    (lister-set-header buf nil)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat data "\n" footer "\n")))
-  (it "Add header, footer, some list items."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-add buf "1")
-    (lister-add buf "2")
-    (lister-add buf "3")
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    (concat header "\n1\n2\n3\n" footer "\n")))
-  (it "Add header, footer, some items, remove everything."
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (lister-add buf "1")
-    (lister-add buf "2")
-    (lister-add buf "3")
-    (with-current-buffer buf
-      (lister-goto buf :first)
-      (lister-remove buf (point))
-      (lister-remove buf (point))
-      (lister-remove buf (point)))
-    (lister-set-header buf nil)
-    (lister-set-footer buf nil)
-    (expect (test-buffer-content buf)
-	    :to-equal
-	    ""))
-  (it "Check return values when adding items:"
-    (let* ((m1 (lister-add buf "1"))
-	   (m2 (lister-add buf "2"))
-	   (m3 (lister-add buf "3")))
-      (expect (list m1 m2 m3)
-	      :to-equal
-	      (with-current-buffer buf
-		lister-local-marker-list))))
-  (it "Replace last item:"
-    (lister-add buf "1")
-    (lister-add buf "2")
-    (lister-add buf "nana")
-    (lister-replace buf :last "3")
-    (expect (lister-get-all-data buf)  :to-equal  '("1" "2" "3")))
-  (it "Replace last and second item:"
-    (let* ((m1 (lister-add buf "1"))
-	   (m2 (lister-add buf "old-2"))
-	   (m3 (lister-add buf "old-3"))
-	   (lister-inhibit-cursor-action t))
-      ;; Calling the two replacement actions the other way around
-      ;; kills the marker m2, since inserting the new data also moves
-      ;; the original marker one further down.
-       (lister-replace buf m2 "2")
-       (lister-replace buf m3 "3")
-       (ignore m1)
-      (expect (lister-get-all-data buf) :to-equal '("1" "2" "3"))))
-  (it "Replace a whole list via set-list, with header and footer defined:"
-    (cl-dolist (item '(1 2 3 4 5 6 7))
-      (lister-add buf item))
-    (lister-set-header buf header)
-    (lister-set-footer buf footer)
-    (let ((data '("A" "B" "C")))
-      (lister-set-list buf data)
-      (expect (lister-get-all-data buf)  :to-equal    data)
-      (expect (test-buffer-content buf)  :to-equal   (format "%s\n%s\n%s\n" ;; footer and header each have a newline!
-							     header
-							     (string-join data "\n") ;; last item's newline
-							     ;; is in the format spec
-							     footer))))
-  (it "Replace a whole list via set-list, with no header or footer:"
-    (cl-dolist (item '(1 2 3 4 5 6 7))
-      (lister-add buf item))
-    (lister-set-header buf nil)
-    (lister-set-footer buf nil)
-    (let ((data '("A" "B" "C")))
-      (lister-set-list buf data)
-      (expect (lister-get-all-data buf) :to-equal   data)
-      (expect (test-buffer-content buf) :to-equal  (concat (string-join data "\n") "\n")))))
+  (describe "Header and footer in empty lists:"
+    
+    (describe "lister-set-header"
+      (it "inserts a single header."
+	(lister-set-header buf header)
+	(expect buf :to-have-as-content (lister-test-expected-content nil header)))
+      (it "inserts a single header and removes it"
+	(lister-set-header buf header)
+	(lister-set-header buf nil)
+	(expect buf :to-have-as-content (lister-test-expected-content nil))))
+    
+    (describe "lister-set-footer"
+      (it "inserts a single footer."
+	(lister-set-footer buf footer)
+	(expect buf :to-have-as-content (lister-test-expected-content nil nil footer)))
+      (it "inserts a single footer and removes it"
+	(lister-set-footer buf header)
+	(lister-set-footer buf nil)
+	(expect buf   :to-have-as-content (lister-test-expected-content nil))))
+    
+    (describe "set-header/set-footer combined: "
+      (it "insert header and footer"
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(expect buf :to-have-as-content (lister-test-expected-content nil header footer)))
+      (it "insert header and footer, then remove footer"
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(lister-set-footer buf nil)
+	(expect buf :to-have-as-content (lister-test-expected-content nil header)))
+      (it "insert header and footer, then remove header."
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(lister-set-header buf nil)
+	(expect buf :to-have-as-content (lister-test-expected-content nil nil footer))))
+    
+    (describe "set-header/-footer with margins:"
+      (it "insert header and footer with left margin"
+	(let ((margin 3))
+	  (with-current-buffer buf
+	    (setq lister-local-left-margin margin))
+	  (lister-set-header buf header)
+	  (lister-set-footer buf footer)
+	  (let ((margined-header (concat (make-string 3 ? ) header))
+		(margined-footer (concat (make-string 3 ? ) footer)))
+	    (expect buf :to-have-as-content
+		    (lister-test-expected-content nil margined-header margined-footer)))))
+      (it "inserts header and footer with top margin."
+	(with-current-buffer buf
+	  (setq lister-local-top-margin 1))
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(expect buf :to-have-as-content (concat "\n" header "\n" "\n" footer "\n")))))
 
-(describe "Inserting sequences:"
+   (describe "Header and footer in non-empty lists"
+     (it "adds one item between header and footer"
+       (lister-set-header buf header)
+       (lister-set-footer buf footer)
+       (lister-add buf data)
+       (expect buf :to-have-as-content (lister-test-expected-content (list data) header footer)))
+     (it "adds some items between header and footer"
+       (let ((some-items '("1" "2" "3")))
+	 (lister-set-header buf header)
+	 (lister-set-footer buf footer)
+	 (cl-dolist (item some-items)
+	   (lister-add buf item))
+	 (expect buf :to-have-as-content (lister-test-expected-content some-items header footer))))
+     (it "lister-set-footer nil removes footer"
+       (lister-set-header buf header)
+       (lister-set-footer buf footer)
+       (lister-add buf data)
+       (lister-set-footer buf nil)
+       (expect buf :to-have-as-content (lister-test-expected-content (list data) header)))
+     (it "lister-set-header nil removes header"
+       (lister-set-header buf header)
+       (lister-set-footer buf footer)
+       (lister-add buf data)
+       (lister-set-header buf nil)
+       (expect buf :to-have-as-content (lister-test-expected-content (list data) nil footer)))
+     (it "removes header and footer, leaving only the list:"
+       (let ((some-items '("1" "2" "3")))
+	 (lister-set-header buf header)
+	 (lister-set-footer buf footer)
+	 (cl-dolist (item some-items)
+	   (lister-add buf item))
+	 (lister-set-header buf nil)
+	 (lister-set-footer buf nil)
+	 (expect buf :to-have-as-content (lister-test-expected-content some-items))))))
+
+(describe "Adding and replacing items"
+  :var (buf some-items)
+  (before-each
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("1" "2abc" "3")))
+  (after-each
+    (kill-buffer buf))
+
+  (describe "lister-add"
+    (it "returns correct marker positions:"
+      (let* ((markers (mapcar (apply-partially #'lister-add buf)
+			      some-items)))
+	(expect (mapcar #'marker-position markers)
+		:to-equal
+		(lister-test-positions-of some-items))))
+    (it "stores item positions in local marker list:"
+      (let* ((markers (mapcar (apply-partially #'lister-add buf)
+			      some-items)))
+	(expect markers
+		:to-equal
+		(with-current-buffer buf
+		  lister-local-marker-list)))))
+
+  (describe "lister-replace"
+    (it "replaces last item using position :last:"
+      (cl-dolist (item some-items)
+	(lister-add buf item))
+      (lister-replace buf :last "REPLACED")
+      (expect buf :to-have-as-content
+	      (lister-test-expected-content (append (butlast some-items 1)
+						    '("REPLACED")))))
+    (it "replaces all items while forwarding point"
+      (cl-dolist (item some-items)
+	(lister-add buf item))
+      (with-current-buffer buf
+	(let ((new-items '("RAS" "DWA" "TRI")))
+	  (goto-char (lister-item-min buf))	  
+	  (cl-dolist (item new-items)
+	    (lister-replace buf :point item)
+	    (forward-line))
+	  (expect buf :to-have-as-content (lister-test-expected-content new-items))))))
+
+  (describe "lister-set-list"
+    (it "replaces a whole list keeping header and footer"
+      (let* ((header "HEADER")
+	     (footer "FOOTER"))
+	(cl-dolist (item some-items)
+	  (lister-add buf item))
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(let ((new-data '("A" "B" "C")))
+	  (lister-set-list buf new-data)
+	  (expect buf :to-have-as-content (lister-test-expected-content new-data header footer)))))
+    
+    (it "replaces a whole list with no header or footer"
+      (cl-dolist (item some-items)
+	(lister-add buf item))
+      (lister-set-header buf nil)
+      (lister-set-footer buf nil)
+      (let ((new-data '("A" "B" "C")))
+	(lister-set-list buf new-data)
+	(expect buf :to-have-as-content (lister-test-expected-content new-data))))))
+
+(describe "lister-get-all-data"
+  :var (buf some-items)
+  (before-each
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("A" "JHJH" "OUO" "KLL" "RZGVJ&&&%&%/")))
+  (after-each
+    (kill-buffer buf))
+  
+  (it "returns nil if list is empty"
+    (expect (lister-get-all-data buf) :to-be nil))
+  (it "returns all data as a flat list"
+    (cl-dolist (item some-items)
+      (lister-add buf item))
+    (expect (lister-get-all-data buf) :to-equal some-items))
+  (it "returns only data within a region"
+    (cl-dolist (item some-items)
+      (lister-add buf item))
+    (let* ((positions (lister-test-positions-of some-items))
+	   (beg-n     2)
+	   (end-n     4))
+      (expect (lister-get-all-data buf
+				   (elt positions beg-n)
+				   (elt positions end-n))
+	      :to-equal
+	      ;; positions always stand for the beginning of the item,
+	      ;; so we have to expand the subsequence by 1
+	      (seq-subseq some-items beg-n (1+ end-n)))))
+  (it "returns all data even if it is marked as hidden"
+    (cl-dolist (item some-items)
+      (lister-hide-item buf (lister-add buf item)))
+    (expect (lister-get-all-data buf) :to-equal some-items)))
+
+(describe "linster-insert-sequence:"
   :var (buf)
   (before-each
-    (setq buf (lister-setup (test-new-buffer)  #'list)))
+    (setq buf (lister-test-setup-minimal-buffer)))
   (after-each
     (kill-buffer buf))
   ;;
-  (it "Insert list in the right order:"
+  (it "insert a list in the right order"
     (let ((the-sequence '("A" "B" "C" "D")))
       (lister-insert-sequence buf (lister-marker-at buf :first) the-sequence)
       (expect (lister-get-all-data buf) :to-equal the-sequence)))
-  (it "Insert vector in the right order:"
+  (it "inserts vector in the right order"
     (let ((the-sequence ["A" "B" "C" "D"]))
       (lister-insert-sequence buf (lister-marker-at buf :first) the-sequence)
-      (expect (lister-get-all-data buf) :to-equal (seq-into the-sequence 'list))))
-  (it "Insert two sequences using lister-add-sequence:"
+      (expect (lister-get-all-data buf) :to-equal (seq-into the-sequence 'list)))))
+
+(describe "lister-add-sequence"
+  :var (buf)
+  (before-each
+    (setq buf (lister-test-setup-minimal-buffer)))
+  (after-each
+    (kill-buffer buf))
+  
+  (it "inserts two sequences one after another"
     (let ((the-sequence '("A" "B" "C" "D")))
       (lister-add-sequence buf the-sequence)
       (lister-add-sequence buf the-sequence)
-      (expect (lister-get-all-data buf) :to-equal (append the-sequence the-sequence)))))
+      (expect (lister-get-all-data buf) :to-equal (append the-sequence the-sequence))))
 
-(describe "Inserting looong sequences:"
-  :var (buf)
-  (before-each
-    (setq buf (lister-setup (test-new-buffer)  #'list)))
-  (after-each
-    (kill-buffer buf))
-  ;;
-  (it "Add list with 1.000 items:"
-    (lister-add-sequence buf (make-list 1000 "Item")))
-  (it "Add list with 2.000 items:"
-    (lister-add-sequence buf (make-list 2000 "I am an item")))
-  (it "Add list with 5.000 items:"
-    (lister-add-sequence buf (make-list 5000 "I am an item")))
-  (it "Add vector with 1.000 items:"
-    (lister-add-sequence buf (make-vector 1000 "Item")))
-  (it "Add vector with 2.000 items:"
-    (lister-add-sequence buf (make-vector 2000 "I am an item")))
-  (it "Add vector with 5.000 items:"
-    (lister-add-sequence buf (make-vector 5000 "I am an item")))
-  (it "Add and remove list with 1.000 items:"
-    (lister-add-sequence buf  (make-list 1000 "Item"))
-    (lister-remove-this-level buf (lister-item-min buf)))
-  (it "Add and remove list with 2.000 items:"
-    (lister-add-sequence buf (make-list 2000 "Item"))
-    (lister-remove-this-level buf (lister-item-min buf)))
-  (it "Add and remove list with 5.000 items:"
-    (lister-add-sequence buf (make-list 5000 "Item"))
-    (lister-remove-this-level buf (lister-item-min buf))))
+  ;; this is just for time measurement:
+  (xdescribe "takes its time when it"
+    (it "adds a list with 1.000 items"
+      (lister-add-sequence buf (make-list 1000 "Item")))
+    (it "adds a list with 2.000 items:"
+      (lister-add-sequence buf (make-list 2000 "I am an item")))
+    (it "adds a with 5.000 items:"
+      (lister-add-sequence buf (make-list 5000 "I am an item")))
+    (it "adds a vector with 1.000 items:"
+      (lister-add-sequence buf (make-vector 1000 "Item")))
+    (it "adds a vector with 2.000 items:"
+      (lister-add-sequence buf (make-vector 2000 "I am an item")))
+    (it "adds a vector with 5.000 items:"
+      (lister-add-sequence buf (make-vector 5000 "I am an item")))
+    (it "adds and removes a list with 1.000 items:"
+      (lister-add-sequence buf  (make-list 1000 "Item"))
+      (lister-remove-this-level buf (lister-item-min buf)))
+    (it "adds and removes a list with 2.000 items:"
+      (lister-add-sequence buf (make-list 2000 "Item"))
+      (lister-remove-this-level buf (lister-item-min buf)))
+    (it "adds and removes a list with 5.000 items:"
+      (lister-add-sequence buf (make-list 5000 "Item"))
+      (lister-remove-this-level buf (lister-item-min buf)))))
 
+;; REVIEW 
 (describe "Hiding items:"
   :var (buf first-item second-item
 	    third-item fourth-item)
   (before-each
-    (setq buf (lister-setup (test-new-buffer)
+    (setq buf (lister-setup (lister-test-new-buffer)
 			    #'list
 			    '("A" "B" "C" "D")))
     (switch-to-buffer buf)
@@ -386,10 +590,11 @@
     (expect (lister-get-visible-data buf)
 	    :to-equal '("B" "C" "D"))))
 
+;; REVIEW 
 (describe "Moving to items:"
   :var (buf header)
   (before-each
-    (setq buf (lister-setup (test-new-buffer) #'list))
+    (setq buf (lister-setup (lister-test-new-buffer) #'list))
     (setq header "HEADER")
     (lister-add-sequence buf '("1" "2" "3"))
     (after-each
@@ -397,29 +602,30 @@
     ;;
     (it "Move to the first item with :first."
       (lister-goto buf :first)
-      (expect (test-line buf) :to-be 1))
+      (expect (lister-test-line buf) :to-be 1))
     (it "Move to the last item with :last."
       (lister-goto buf :last)
-      (expect (test-line buf) :to-be 3))
+      (expect (lister-test-line buf) :to-be 3))
     (it "Add header, then move to first item."
       (lister-set-header buf header)
       (lister-goto buf :first)
-      (expect (test-line buf) :to-be 2))
+      (expect (lister-test-line buf) :to-be 2))
     (it "Add header, then move to the last item."
       (lister-set-header buf header)
       (lister-goto buf :last)
-      (expect (test-line buf) :to-be 4))
+      (expect (lister-test-line buf) :to-be 4))
     (it "Add header, remove random item, move to last item using :last."
       (lister-set-header buf header)
       (lister-remove buf (with-current-buffer buf
 			   (seq-random-elt lister-local-marker-list)))
       (lister-goto buf :last)
-      (expect (test-line buf) :to-be 3))))
+      (expect (lister-test-line buf) :to-be 3))))
 
+;; REVIEW 
 (describe "Indexed lists:"
   :var (buf)
   (before-each
-    (setq buf (lister-setup (test-new-buffer) #'list
+    (setq buf (lister-setup (lister-test-new-buffer) #'list
 			    '(0 1 2 3 4 5 6 7))))
   (after-each
     (kill-buffer buf))
@@ -444,11 +650,12 @@
 	      :to-be
 	      i))))
 
+;; REVIEW 
 (describe "Using predicates:"
   :var (buf datalist)
   (before-each
     (setq datalist '("AA" "AB" "BA" "BB"))
-    (setq buf (lister-setup (test-new-buffer)
+    (setq buf (lister-setup (lister-test-new-buffer)
 			    #'list
 			    datalist)))
   (after-each
@@ -482,10 +689,11 @@
     (lister-activate-filter buf)
     (expect (lister-get-visible-data buf) :to-equal  '("AA" "BA" "BB"))))
 
+;; REVIEW 
 (describe "Use hierarchies and indentation:"
   :var (buf datalist)
   (before-each
-    (setq buf (lister-setup (test-new-buffer)
+    (setq buf (lister-setup (lister-test-new-buffer)
 			    #'list))
     (setq datalist '("Item1" "Item2"
 		     ("Subitem1" "Subitem2")
@@ -526,10 +734,11 @@
     (lister-remove-sublist-below buf (lister-index-marker buf 1))
     (expect (lister-get-all-data-tree buf)  :to-equal '("Item1" "Item2" "Item3"))))
 
+;; REVIEW 
 (describe "Walk items:"
   :var (buf data)
   (before-each
-    (setq buf (lister-setup (test-new-buffer)
+    (setq buf (lister-setup (lister-test-new-buffer)
 			    (apply-partially #'format "%d")))
     (setq data  '(1 2 3 4 5 6 7 8 9 10))
     (lister-add-sequence buf data))
@@ -558,7 +767,7 @@
 (describe "Use a callback function:"
   :var (value buf callbackfn)
   (before-each
-    (setq buf (lister-setup (test-new-buffer)
+    (setq buf (lister-setup (lister-test-new-buffer)
 			    #'list
 			    '("A" "B" "C" "D")))
     (switch-to-buffer buf) ;; we need the window to be set.
@@ -589,11 +798,12 @@
       (expect value :to-equal "A")
       (expect in-between-value :to-equal "A"))))
 
+;; REVIEW 
 (describe "Mark and unmark items"
   :var (buf data)
   (before-each
     (setq data '("A" "B" "C" "D"))
-    (setq buf (lister-setup (test-new-buffer)
+    (setq buf (lister-setup (lister-test-new-buffer)
 			    #'list
 			    data)))
   (after-each
@@ -612,7 +822,7 @@
       (lister-mark-item buf m nil)
       (expect (get-text-property m 'mark buf) :to-be  nil)
       (expect (lister-get-mark-state buf m)   :to-be  nil)))
-  (it "Mark all items, return marked values"
+  (xit "Mark all items, return marked values"
     (lister-mark-all-items buf t)
     (expect  (lister-all-marked-items buf)
 	     :to-equal (lister-get-all-data buf))))
