@@ -45,6 +45,11 @@
 ;; * Variables
 ;; -----------------------------------------------------------
 
+;; Version:
+
+(defvar lister-version "0.1.0"
+  "Version number.")
+
 ;; Local Variables:
 
 (defvar-local lister-local-mapper nil
