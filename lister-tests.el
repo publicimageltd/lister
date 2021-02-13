@@ -1,9 +1,8 @@
 ;;; lister-tests.el --- testsuite for lister.el      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020  
+;; Copyright (C) 2020-2021
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Keywords: 
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
