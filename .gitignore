@@ -1,3 +1,5 @@
 /konzeptblatt.org
 /*.elc
 /konzeptblatt.org_archive
+/lister-interactive-playground.el
+/.dir-locals.el
