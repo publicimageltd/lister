@@ -728,6 +728,10 @@ Optional argument INDENTATION adds an indentation level of n."
     (expect (lister-filter--expand-sexp 'ignore)
 	    :to-equal
 	    '(ignore data)))
+  (it "expands the sexp '(not 'fn) to its lisp equivalent"
+    (expect (lister-filter--expand-sexp '(not 'ignore))
+	    :to-equal
+	    '(not (ignore data))))
   (it "expands the sexp '(and x1 x2) to its lisp equivalent"
     (expect (lister-filter--expand-sexp '(and x1 x2))
 	    :to-equal
