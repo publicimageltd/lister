@@ -31,7 +31,7 @@
 
 (message "Testing lister version %s on Emacs %s" lister-version emacs-version)
 
-;; * Utility functions for common setup tasks
+;; * Utility functions 
 
 (defun lister-test-new-buffer ()
   (generate-new-buffer "*LISTER*"))
@@ -45,10 +45,6 @@
 
 (defun lister-test-point (buf)
   (with-current-buffer buf (point)))
-
-(defun lister-test-line (buf)
-  (with-current-buffer buf
-    (line-number-at-pos)))
 
 (defun lister-test-setup-minimal-buffer ()
   "Set up a minimal buffer, with no margins and a list mapper.
@@ -112,6 +108,8 @@ Optional argument INDENTATION adds an indentation level of n."
           (goto-char next-change)))
       acc)))
 
+;;; * Custom Matchers
+
 ;; to match buffer contents:
 (buttercup-define-matcher :to-have-as-content (buf content-to-be)
   (let* ((content (with-current-buffer (funcall buf)		      
@@ -140,6 +138,22 @@ Optional argument INDENTATION adds an indentation level of n."
       (format "Expected buffer content not to be '%s', but it was."
 	      expected-content))))
 
+;; to match the position of point:
+(buttercup-define-matcher :to-have-point-value-of (buf pos-or-integer)
+  (let* ((point (with-current-buffer (funcall buf) (point)))
+	 (pos   (let ((poi (funcall pos-or-integer)))
+		  (pcase poi
+		    ((pred integerp) poi)
+		    ((pred markerp) (marker-position poi))
+		    (_              (error "invalid position: %s" poi))))))
+    (buttercup--test-expectation
+	(eq point pos)
+      :expect-match-phrase
+      (format "Expected point in buffer to be '%d', but instead it was '%d'."
+	      pos point)
+      :expect-mismatch-phrase
+      (format "Expected point in buffer not to be '%d', but it was."
+	      pos))))
 
 ;; -----------------------------------------------------------
 ;; The tests.
@@ -632,36 +646,35 @@ Optional argument INDENTATION adds an indentation level of n."
 		(lister-test-remove-elt-by-index some-items n))))))
 
 
-;; REVIEW Rewrite with new matcher
-(describe "Moving to items:"
-  :var (buf header)
+(describe "Navigation:"
+  :var (buf some-items positions)
   (before-each
-    (setq buf (lister-setup (lister-test-new-buffer) #'list))
-    (setq header "HEADER")
-    (lister-add-sequence buf '("1" "2" "3"))
-    (after-each
-      (kill-buffer buf))
-    ;;
-    (it "Move to the first item with :first."
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("1" "2" "3" "4" "5" "6" "7"))
+    (setq positions (lister-test-positions-of some-items))
+    (lister-add-sequence buf some-items))
+  (after-each
+    (kill-buffer buf))
+
+  (describe "lister-goto "
+    (it "jumps to the first item when called with :first"
       (lister-goto buf :first)
-      (expect (lister-test-line buf) :to-be 1))
-    (it "Move to the last item with :last."
+      (expect buf :to-have-point-value-of (elt positions 0)))
+    (it "jumps to the last item when called with :last"
       (lister-goto buf :last)
-      (expect (lister-test-line buf) :to-be 3))
-    (it "Add header, then move to first item."
-      (lister-set-header buf header)
-      (lister-goto buf :first)
-      (expect (lister-test-line buf) :to-be 2))
-    (it "Add header, then move to the last item."
-      (lister-set-header buf header)
-      (lister-goto buf :last)
-      (expect (lister-test-line buf) :to-be 4))
-    (it "Add header, remove random item, move to last item using :last."
-      (lister-set-header buf header)
-      (lister-remove buf (with-current-buffer buf
-			   (seq-random-elt lister-local-marker-list)))
-      (lister-goto buf :last)
-      (expect (lister-test-line buf) :to-be 3))))
+      (expect buf :to-have-point-value-of (elt positions (1- (length some-items)))))
+    (it "accepts an integer position as argument"
+      (let* ((n (random (length some-items)))
+	    (int-pos (elt positions n)))
+	(lister-goto buf int-pos)
+	(expect buf :to-have-point-value-of (elt positions n))))
+    (it "accepts :point as argument"
+      (let* ((n (random (length some-items)))
+	    (int-pos (elt positions n)))
+	(with-current-buffer buf
+	  (goto-char int-pos))
+	(lister-goto buf :point)
+	(expect buf :to-have-point-value-of (elt positions n))))))
 
 ;; REVIEW Rewrite with new matcher 
 (describe "Indexed lists:"
