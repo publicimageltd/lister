@@ -554,7 +554,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-add-sequence buf (make-list 5000 "Item"))
       (lister-remove-this-level buf (lister-item-min buf)))))
 
-;; REVIEW 
+;; REVIEW Rewrite with new matcher 
 (describe "Hiding items:"
   :var (buf first-item second-item
 	    third-item fourth-item)
@@ -590,7 +590,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (expect (lister-get-visible-data buf)
 	    :to-equal '("B" "C" "D"))))
 
-;; REVIEW 
+;; REVIEW Rewrite with new matcher
 (describe "Moving to items:"
   :var (buf header)
   (before-each
@@ -621,7 +621,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-goto buf :last)
       (expect (lister-test-line buf) :to-be 3))))
 
-;; REVIEW 
+;; REVIEW Rewrite with new matcher 
 (describe "Indexed lists:"
   :var (buf)
   (before-each
@@ -650,7 +650,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-be
 	      i))))
 
-;; REVIEW 
+;; REVIEW Rewrite with new matcher
 (describe "Using predicates:"
   :var (buf datalist)
   (before-each
@@ -689,7 +689,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (lister-activate-filter buf)
     (expect (lister-get-visible-data buf) :to-equal  '("AA" "BA" "BB"))))
 
-;; REVIEW 
+;; REVIEW Rewrite with new matcher
 (describe "Use hierarchies and indentation:"
   :var (buf datalist)
   (before-each
@@ -715,7 +715,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (lister-add buf "Item1")
     (lister-add buf "Item2")
     (lister-add buf "Subitem1" 1)
-    (lister-add buf "Subitem2" 1)
+    (lister-add buf "Subitem2" 1) 
     (lister-add buf "Item3" 0)
     (expect (lister-get-all-data-tree buf)  :to-equal datalist))
   (it "Fail to insert top item with level > 0:"
@@ -734,7 +734,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (lister-remove-sublist-below buf (lister-index-marker buf 1))
     (expect (lister-get-all-data-tree buf)  :to-equal '("Item1" "Item2" "Item3"))))
 
-;; REVIEW 
+;; REVIEW Maybe rewrite; check at least
 (describe "Walk items:"
   :var (buf data)
   (before-each
