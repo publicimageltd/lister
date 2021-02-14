@@ -723,7 +723,28 @@ Optional argument INDENTATION adds an indentation level of n."
 ;; variant: A filter is an object (list), and negation etc. is to be
 ;; done with the filter list, not on the buffer level.
 
-
+(describe "Building filter terms: "
+  (it "turns a quoted symbol to a lisp function call with arg DATA"
+    (expect (lister-filter--expand-sexp 'ignore)
+	    :to-equal
+	    '(ignore data)))
+  (it "expands the sexp '(and x1 x2) to its lisp equivalent"
+    (expect (lister-filter--expand-sexp '(and x1 x2))
+	    :to-equal
+	    '(and (x1 data) (x2 data))))
+  (it "expands the sexp '(or x1 x2) to its lisp equivalent"
+    (expect (lister-filter--expand-sexp '(or x1 x2))
+	    :to-equal
+	    '(or (x1 data) (x2 data))))
+  (it "throws an error if sexp '(and ...) has no arguments"
+    (expect (lister-filter--expand-sexp '(and))
+	    :to-throw))
+  (it "throws an error if sexp '(or ...) has no arguments"
+    (expect (lister-filter--expand-sexp '(or))
+	    :to-throw))
+  (it "throws an error if sexp begins with an unknown operator"
+    (expect (lister-filter--expand-sexp '(operator))
+	    :to-throw)))
 
 (xdescribe "Filtering:"
   :var (buf some-items)

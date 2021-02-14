@@ -716,7 +716,28 @@ The VALUE t hides the item, nil makes it visible."
 	  (remove-text-properties m (1+ m) '(front-sticky nil)))))))
 
 ;; * Building filter terms
-  
+
+;; A "filter term" is simply a sexpr with some special operators.
+;; Applying a filter term, here, means to first expand this sexp to a
+;; valid lambda expression with "data" as its sole argument, and then
+;; to call it.
+
+(defun lister-filter--expand-sexp (sexp)
+  (pcase sexp
+    ((pred symbolp) `(,sexp data))
+    ((and `(,op . ,x)
+	  (pred cdr)
+	  (or (app car 'and)  ;; "APPly CAR and test for pattern AND"
+	      (app car 'or)))
+     `(,op ,@(mapcar #'lister-filter--expand-sexp x)))
+    (`(not ,x)      `(not ,(lister-filter--expand-sexp x)))
+    (`(quote ,x)    `(,x data))
+    (_               (error "invalid filter expression '%s'" sexp))))
+
+(defun lister-filter--get-function (filter-term)
+  `(lambda (data) ,(lister-filter--expand-sexp filter-term)))
+
+
 (defun lister-apply-filter-term (data term)
   "Pass DATA as an argument to TERM and return the result.
 If TERM is nil, return t.
