@@ -697,6 +697,8 @@ The VALUE t hides the item, nil makes it visible."
 		  (text-property-any m (1+ m) 'invisible nil))
 		lister-local-marker-list)))
 
+;; TODO Let this fn call "lister-show-some-items" with first 
+;; and last as region boundaries
 (defun lister-show-all-items (lister-buf)
   "Make all items in LISTER-BUF visible again."
   (with-lister-buffer lister-buf
@@ -713,18 +715,9 @@ The VALUE t hides the item, nil makes it visible."
 	(cl-dolist (m lister-local-marker-list)
 	  (remove-text-properties m (1+ m) '(front-sticky nil)))))))
 
-(defun lister-possibly-hide-item (lister-buf marker-or-pos data)
-  "Hide item at MARKER-OR-POS if the filter on DATA yields nil.
-Show item if the result of applying the local filter term returns
-non-nil.
-
-The filter is stored in LISTER-BUF. See `lister-set-filter'."
-  (unless (lister-apply-filter data lister-local-filter-term)
-    (lister-hide-item lister-buf marker-or-pos)))
-
-;; Filtering
-
-(defun lister-apply-filter (data term)
+;; * Building filter terms
+  
+(defun lister-apply-filter-term (data term)
   "Pass DATA as an argument to TERM and return the result.
 If TERM is nil, return t.
 If DATA is nil, also return t."
@@ -760,6 +753,22 @@ Examples:
 	       (not (eq op 'not)))
 	  (append term `((,fn data)))
 	`(,op ,term)))))
+
+;; * The actual filtering: hiding and showing items according to filter
+;; terms
+
+(defun lister-maybe-hide-item (lister-buf marker-or-pos data)
+  "Hide item at MARKER-OR-POS if it matches the local filter.
+
+Hide item if the result of applying the local filter term returns
+nil; else leave it untouched. Note that in the latter case, if
+the item is already invisible, it will not be set visible again.
+
+The filter is stored in LISTER-BUF. See `lister-set-filter'."
+  (with-current-buffer lister-buf
+    (unless (lister-apply-filter-term data
+				      lister-local-filter-term)
+      (lister-hide-item lister-buf marker-or-pos))))
 
 (defun lister-add-filter (lister-buf fn &optional op)
   "Combine FN with the current filter in LISTER-BUF.
@@ -806,7 +815,7 @@ Use the boolean operator `and' or instead use OP, if specified."
 	       lister-local-marker-list)
       (setq lister-local-filter-active t)
       (cl-dolist (m lister-local-marker-list)
-	(lister-possibly-hide-item lister-buf m
+	(lister-maybe-hide-item lister-buf m
 				   (lister-get-data lister-buf m))))))
 
 (defun lister-update-filter (lister-buf)
@@ -934,7 +943,7 @@ add an item to the end of the list, use `lister-add'."
 			'cursor-sensor-functions
 			'(lister-sensor-function))
       (when (buffer-local-value 'lister-local-filter-active lister-buf)
-	(lister-possibly-hide-item lister-buf marker data))
+	(lister-maybe-hide-item lister-buf marker data))
       (lister-add-item-marker lister-buf marker)
       (with-current-buffer lister-buf
 	(goto-char marker))
