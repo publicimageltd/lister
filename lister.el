@@ -257,6 +257,8 @@ does not check whether the position found is valid."
 	   ((eq position-or-symbol :point)  (with-current-buffer lister-buf (point)))
 	   ((eq position-or-symbol :last)
 	    (when-let*
+		;; This is faster than traversing the whole marker
+		;; list to retrieve the last item.
 		((last-pos (lister-item-max lister-buf))
 		 (last-pos (previous-single-property-change last-pos
 							    'item
@@ -277,12 +279,12 @@ If POSITION-OR-SYMBOL is one of the symbols `:first', `:last' or
 `:point', return the position of the first item, the last item or
 the item at point, respectively.
 
-If POSITION-OR-SYMBOL is a marker, return it unchanged iff it
-represents a valid position.
+If POSITION-OR-SYMBOL is a marker, return it unchanged iff there
+is an item.
 
 If POSITION-OR-SYMBOL is an integer, treat it as a buffer
-position and return a marker representing it iff it represents a
-valid position."
+position and return a marker representing it iff there is an
+item."
   (when-let* ((m (lister-eval-pos-or-symbol lister-buf
 					    position-or-symbol)))
     (and (get-text-property (lister-pos-as-integer m)
