@@ -799,8 +799,8 @@ Use the boolean operator `and' or instead use OP, if specified."
   (with-lister-buffer lister-buf
     (setq lister-local-filter-term nil)))
 
-(defun lister-activate-filter (lister-buf)
-  "Activate the filter in LISTER-BUF and update the display."
+(defun lister-apply-filter (lister-buf)
+  "Apply the filter in LISTER-BUF, updating the display."
   (with-lister-buffer lister-buf
     (when (and (not lister-local-filter-active)
 	       lister-local-marker-list)
@@ -809,6 +809,11 @@ Use the boolean operator `and' or instead use OP, if specified."
 	(lister-possibly-hide-item lister-buf m
 				   (lister-get-data lister-buf m))))))
 
+(defun lister-update-filter (lister-buf)
+  "Re-apply the filter in LISTER-BUF, updating the list."
+  (lister-deactivate-filter lister-buf)
+  (lister-apply-filter lister-buf))
+
 (defun lister-deactivate-filter (lister-buf)
   "Deactivate the filter in LISTER-BUF and update the display."
   (with-lister-buffer lister-buf
@@ -816,11 +821,6 @@ Use the boolean operator `and' or instead use OP, if specified."
 	       lister-local-marker-list)
       (setq lister-local-filter-active nil)
       (lister-show-all-items lister-buf))))
-
-(defun lister-update-filter (lister-buf)
-  "Re-apply the filter in LISTER-BUF, updating the list."
-  (lister-deactivate-filter lister-buf)
-  (lister-activate-filter lister-buf))
 
 ;; * Finding properties in other items
 
@@ -1686,7 +1686,7 @@ inserted at the end of the list. See `lister-insert-lines' for
 the exact format.
 
 Optional argument FILTER-FUNCTIONS defines a filter function
-which has to turned on using `lister-activate-filter' to become
+which has to turned on using `lister-apply-filter' to become
 effective.
 
 Set the major mode to `lister-mode' unless NO-MAJOR-MODE is true.

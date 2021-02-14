@@ -716,44 +716,66 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister-index-marker buf n-max) :to-be nil)))))
 
 
-;; REVIEW Rewrite with new matcher
-(describe "Using predicates:"
-  :var (buf datalist)
+;; TODO Rewrite
+;; The whole logic of filtering is too passive. Currently, you work
+;; with a buffer-local filter value; i.e. negating negates the filter
+;; stored in this variable. This has to be turned into a functional
+;; variant: A filter is an object (list), and negation etc. is to be
+;; done with the filter list, not on the buffer level.
+
+
+
+(xdescribe "Filtering:"
+  :var (buf some-items)
   (before-each
-    (setq datalist '("AA" "AB" "BA" "BB"))
-    (setq buf (lister-setup (lister-test-new-buffer)
-			    #'list
-			    datalist)))
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("AAAAA" "ABBBBBB"
+		       "BAAAA" "BBBBBB"
+		       "CAAAA" "CBBBBB"))
+    (lister-add-sequence buf some-items))
   (after-each
     (kill-buffer buf))
-  ;;
-  (it "Generated copy of data is correct."
-    (expect (lister-get-visible-data buf) :to-equal   datalist))
-  (it "Filter all data so that nothing is displayed."
-    (lister-add-filter buf (lambda (data) (ignore data)))
-    (lister-activate-filter buf)
-    (expect (lister-visible-items buf)  :to-be   nil))
-  (it "Filter everything, then remove the filter."
-    (lister-add-filter buf (lambda (data) (ignore data)))
-    (lister-activate-filter buf)
-    (lister-clear-filter buf)
-    (lister-update-filter buf)
-    (expect (lister-get-visible-data buf) :to-equal datalist))
-  (it "Apply filter which matches only some data."
-    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-    (lister-activate-filter buf)
-    (expect (lister-get-visible-data buf) :to-equal  '("AA" "AB")))
-  (it "Apply filter chain."
-    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-    (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
-    (lister-activate-filter buf)
-    (expect (lister-get-visible-data buf) :to-equal  '("AB")))
-  (it "Negate a filter chain."
-    (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-    (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
-    (lister-negate-filter buf)
-    (lister-activate-filter buf)
-    (expect (lister-get-visible-data buf) :to-equal  '("AA" "BA" "BB"))))
+
+  (describe "lister-add-filter: "
+   (it "does nothing if called on its own, awaiting activation"
+     (lister-add-filter buf (lambda (it) (ignore it)))
+     (expect buf :to-have-as-visible-content (lister-test-expected-content some-items)))
+   (it "applying #'ignore hides all visible items"
+     (lister-add-filter buf (lambda (it) (ignore it)))
+     (lister-apply-filter buf)
+     (expect buf :to-have-as-visible-content "")))
+
+  (describe "lister-negate-filter "
+    (it "throws an error if called in a buffer with no filter"
+      (expect (lister-negate-filter buf) :to-throw))
+    (it "changes nothing if negation is not activated yet"
+      (lister-add-filter buf (lambda (it) (ignore it)))
+      (lister-apply-filter buf)
+      (lister-negate-filter buf)
+      (expect buf :to-have-as-visible-content ""))))
+
+
+  ;; (it "Filter everything, then remove the filter."
+  ;;   (lister-add-filter buf (lambda (data) (ignore data)))
+  ;;   (lister-apply-filter buf)
+  ;;   (lister-clear-filter buf)
+  ;;   (lister-update-filter buf)
+  ;;   (expect (lister-get-visible-data buf) :to-equal datalist))
+  ;; (it "Apply filter which matches only some data."
+  ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
+  ;;   (lister-apply-filter buf)
+  ;;   (expect (lister-get-visible-data buf) :to-equal  '("AA" "AB")))
+  ;; (it "Apply filter chain."
+  ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
+  ;;   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
+  ;;   (lister-apply-filter buf)
+  ;;   (expect (lister-get-visible-data buf) :to-equal  '("AB")))
+  ;; (it "Negate a filter chain."
+  ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
+  ;;   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
+  ;;   (lister-negate-filter buf)
+  ;;   (lister-apply-filter buf)
+  ;;   (expect (lister-get-visible-data buf) :to-equal  '("AA" "BA" "BB"))))
 
 ;; REVIEW Rewrite with new matcher
 (describe "Use hierarchies and indentation:"

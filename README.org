@@ -112,7 +112,6 @@ work, it will take some time to declare it stable.
 | lister.el                     | lister major mode             |
 | lister-highlight.el           | minor mode 'lister-highlight' |
 | lister-tests.el               | buttercup tests               |
-| lister-interactive-playground | an interactive test buffer    |
 | makem.sh                      |                               |
 | README.org                    | this file                     |
 | LICENSE                       |                               |
