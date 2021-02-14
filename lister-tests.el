@@ -676,34 +676,45 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-goto buf :point)
 	(expect buf :to-have-point-value-of (elt positions n))))))
 
-;; REVIEW Rewrite with new matcher 
-(describe "Indexed lists:"
-  :var (buf)
+(describe "Indexes:"
+  :var (buf some-items positions)
   (before-each
-    (setq buf (lister-setup (lister-test-new-buffer) #'list
-			    '(0 1 2 3 4 5 6 7))))
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("A" "K" "8989" "dskjfs" "(NKJKHKJ" ")" "HA!"))
+    (setq positions (lister-test-positions-of some-items))
+    (lister-add-sequence buf some-items))
   (after-each
     (kill-buffer buf))
-  ;;
-  (it "Use index positions to access items:"
-    (expect 
-     (lister-get-data buf (lister-index-marker buf 0)) :to-equal  0)
-    (expect 
-     (lister-get-data buf (lister-index-marker buf 1)) :to-equal  1)
-    (expect 
-     (lister-get-data buf (lister-index-marker buf 3)) :to-equal  3)
-    (expect 
-     (lister-get-data buf (lister-index-marker buf 7)) :to-equal  7))
-  (it "Return nil if index position is out of bounds:"
-    (expect (lister-index-marker buf 2000)  :to-be  nil))
-  (it "Find the index position of a marker:"
-    (cl-loop for i from 0 to 7
-	     do
-	     (expect
-	      (lister-index-position buf
-				     (lister-index-marker buf i))
-	      :to-be
-	      i))))
+
+  (describe "lister-index-position: "
+    (it "returns the correct index number when called with integer positions"
+      (cl-loop for n from 0 below (length some-items)
+	       do
+	       (expect (lister-index-position buf (elt positions n))
+		       :to-be
+		       n)))
+    (it "returns the correct index number when called with marker positions"
+      (cl-loop for n from 0 below (length some-items)
+	       do
+	       (let ((m (with-current-buffer buf
+			  (goto-char (elt positions n))
+			  (point-marker))))
+		 (expect (lister-index-position buf m)
+			 :to-be
+			 n))))
+    (it "returns nil if position is invalid"
+      (expect (lister-index-position buf 23000) :to-be nil)))
+
+  (describe "lister-index-marker: "
+    (it "returns the correct marker for a given index position"
+      (cl-loop for n from 0 below (length some-items)
+	       do
+	       (let ((m (lister-index-marker buf n)))
+		 (expect (marker-position m) :to-be (elt positions n)))))
+    (it "returns nil if index position is out of bound"
+      (let ((n-max (+ (length some-items) 20)))
+	(expect (lister-index-marker buf n-max) :to-be nil)))))
+
 
 ;; REVIEW Rewrite with new matcher
 (describe "Using predicates:"
