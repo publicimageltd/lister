@@ -27,6 +27,7 @@
 (require 'buttercup)
 (require 'seq)
 (require 'cl-lib)
+(require 'cl-extra)
 
 (message "Testing lister version %s on Emacs %s" lister-version emacs-version)
 
@@ -90,9 +91,30 @@ Optional argument INDENTATION adds an indentation level of n."
 	       "\n"))
      (when footer (format "%s\n" footer)))))
 
+(defun lister-test-remove-elt-by-index (l n)
+  "Remove element with index N (zero-based) from L."
+  (append (cl-subseq l 0 n)
+	  (cl-subseq l (1+ n))))
+
+(defun lister-test-only-visible-content (buf)
+  "Return only content from BUF which is not marked as invisible."
+  (with-current-buffer buf
+    (goto-char (point-min))
+    (let (acc)
+      (while (not (eobp))
+	(let* ((invisible (get-text-property (point) 'invisible))
+               (next-change
+		(or (next-single-property-change (point) 'invisible)
+                    (point-max))))
+	  (unless invisible
+	    (setq acc
+		  (concat acc (buffer-substring-no-properties (point) next-change))))
+          (goto-char next-change)))
+      acc)))
+
 ;; to match buffer contents:
 (buttercup-define-matcher :to-have-as-content (buf content-to-be)
-  (let* ((content (with-current-buffer (funcall buf)
+  (let* ((content (with-current-buffer (funcall buf)		      
 		    (buffer-substring-no-properties
 		     (point-min) (point-max))))
 	 (expected-content (funcall content-to-be)))
@@ -104,7 +126,20 @@ Optional argument INDENTATION adds an indentation level of n."
       :expect-mismatch-phrase
       (format "Expected buffer content not to be '%s', but it was."
 	      expected-content))))
-  
+
+;; to match only visible buffer contents:
+(buttercup-define-matcher :to-have-as-visible-content (buf content-to-be)
+  (let* ((content  (lister-test-only-visible-content (funcall buf)))
+	 (expected-content (funcall content-to-be)))
+    (buttercup--test-expectation
+	(equal content expected-content)
+      :expect-match-phrase
+      (format "Expected buffer content to be '%s', but instead it was '%s'"
+	      expected-content content)
+      :expect-mismatch-phrase
+      (format "Expected buffer content not to be '%s', but it was."
+	      expected-content))))
+
 
 ;; -----------------------------------------------------------
 ;; The tests.
@@ -554,41 +589,48 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-add-sequence buf (make-list 5000 "Item"))
       (lister-remove-this-level buf (lister-item-min buf)))))
 
-;; REVIEW Rewrite with new matcher 
 (describe "Hiding items:"
-  :var (buf first-item second-item
-	    third-item fourth-item)
+  :var (buf some-items)
   (before-each
-    (setq buf (lister-setup (lister-test-new-buffer)
-			    #'list
-			    '("A" "B" "C" "D")))
-    (switch-to-buffer buf)
-    (setq first-item  (nth 0 lister-local-marker-list))
-    (setq second-item (nth 1 lister-local-marker-list))
-    (setq third-item  (nth 2 lister-local-marker-list))
-    (setq fourth-item (nth 3 lister-local-marker-list)))
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("A" "B" "C" "D" "E" "ETC" "PP"))
+    (lister-add-sequence buf some-items))
   (after-each
     (kill-buffer buf))
-  (it "Hide item."
-    (lister-hide-item buf first-item)		      
-    (expect (invisible-p first-item)  :to-be   t)
-    (expect (invisible-p second-item) :to-be  nil))
-  (it "Hide and show it again."
-    (lister-hide-item buf first-item)
-    (lister-show-item buf first-item)
-    (expect (invisible-p first-item) :to-be  nil))
-  (it "Hide some items and then show all."
-    (lister-hide-item buf (seq-random-elt lister-local-marker-list))
-    (lister-hide-item buf (seq-random-elt lister-local-marker-list))
-    (lister-show-all-items buf)
-    (expect (invisible-p first-item) :to-be nil)
-    (expect (invisible-p second-item) :to-be nil)
-    (expect (invisible-p third-item) :to-be nil)
-    (expect (invisible-p fourth-item) :to-be nil))
-  (it "Return correct list of visible item markers."
-    (lister-hide-item buf first-item)
-    (expect (lister-get-visible-data buf)
-	    :to-equal '("B" "C" "D"))))
+
+  (describe "lister-hide-item"
+    (it "hides an arbitrary item"
+      (let* ((positions (lister-test-positions-of some-items))
+	     (n (random (length some-items))))
+	(lister-hide-item buf (elt positions n))
+	(with-current-buffer buf
+	  (expect (invisible-p (elt positions n))  :to-be   t))))
+    (it "does not hide the other items"
+      (let* ((positions (lister-test-positions-of some-items))
+	     (n (random (length some-items))))
+	(lister-hide-item buf (elt positions n))
+	(expect buf :to-have-as-visible-content
+		(lister-test-expected-content 
+		 (lister-test-remove-elt-by-index some-items n))))))
+
+  (describe "lister-show-item"
+    (it "unhides an item"
+      (let* ((positions (lister-test-positions-of some-items))
+	     (n (random (length some-items))))
+	(lister-hide-item buf (elt positions n))
+	(lister-show-item buf (elt positions n))
+	(expect buf :to-have-as-content
+		(lister-test-expected-content some-items)))))
+
+  (describe "lister-get-visible-data"
+    (it "only returns visible item data"
+      (let* ((positions (lister-test-positions-of some-items))
+	     (n (random (length some-items))))      
+	(lister-hide-item buf (elt positions n))
+	(expect (lister-get-visible-data buf)
+		:to-equal
+		(lister-test-remove-elt-by-index some-items n))))))
+
 
 ;; REVIEW Rewrite with new matcher
 (describe "Moving to items:"
