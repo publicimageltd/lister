@@ -765,6 +765,14 @@ The VALUE t hides the item, nil makes it visible."
   "In LISTER-BUF, set the item at MARKER-OR-POS as invisible."
   (lister-set-item-invisibility lister-buf marker-or-pos t))
 
+(defun lister-item-invisible-p (lister-buf marker-or-pos)
+  "Check if MARKER-OR-POS in LISTER-BUF is visible.
+
+This is just wrapper for calling `invisible-p'. If you have the
+buffer current, you might as well that function directly."
+  (with-current-buffer lister-buf
+    (invisible-p (lister-pos-as-integer marker-or-pos))))
+
 ;; Access only the hidden or visible items
 
 (defun lister-invisible-items (lister-buf)
