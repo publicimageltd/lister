@@ -31,6 +31,8 @@
 
 (message "Testing lister version %s on Emacs %s" lister-version emacs-version)
 
+(setq buttercup-stack-frame-style 'pretty)
+
 ;; * Utility functions 
 
 (defun lister-test-new-buffer ()
@@ -717,11 +719,6 @@ Optional argument INDENTATION adds an indentation level of n."
 
 
 ;; TODO Rewrite
-;; The whole logic of filtering is too passive. Currently, you work
-;; with a buffer-local filter value; i.e. negating negates the filter
-;; stored in this variable. This has to be turned into a functional
-;; variant: A filter is an object (list), and negation etc. is to be
-;; done with the filter list, not on the buffer level.
 
 (describe "Building filter terms: "
   (describe "lister-filter--expand-sexp: "
@@ -733,6 +730,10 @@ Optional argument INDENTATION adds an indentation level of n."
       (expect (lister-filter--expand-sexp #'ignore)
 	      :to-equal
 	      '(ignore data)))
+    (it "accepts a closure as a function"
+      (let ((my-fn (lambda (_) :test)))
+	(expect (lister-filter--expand-sexp my-fn)
+		:not :to-throw)))
     (it "expands the sexp '(not fn) to its lisp equivalent"
       (expect (lister-filter--expand-sexp '(not ignore))
 	      :to-equal
@@ -748,7 +749,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "eliminates double negation when expanding '(not it) with `it' value being '(not ....)"
       (expect (lister-filter--expand-sexp '(not it) '(not (ignore data)))
 	      :to-equal
-	      (ignore data)))
+	      '(ignore data)))
     (it "expands the sexp '(and x1 x2) to its lisp equivalent"
       (expect (lister-filter--expand-sexp '(and x1 x2))
 	      :to-equal
@@ -784,6 +785,33 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "returns a callable function object"
       (let ((fn (lister-filter--build-function 'identity)))
 	(expect (funcall fn "hallo") :to-equal "hallo")))))
+
+(describe "Using filter:"
+  :var (buf some-items)
+  (before-each
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("AAAAA" "ABBBBBB"
+		       "BAAAA" "BBBBBB"
+		       "CAAAA" "CBBBBB"))
+    (lister-add-sequence buf some-items))
+  (after-each
+    (kill-buffer buf))
+
+  (describe "lister-set-filter"
+    (it "does nothing if it is called with nil in a new buffer"
+      (spy-on 'lister-filter-all-items)
+      (spy-on 'lister-show-all-items)
+      (lister-set-filter buf nil)
+      (expect 'lister-filter-all-items :not :to-have-been-called)
+      (expect 'lister-show-all-items :not :to-have-been-called))
+    (it "hides all items matching the passed filter"
+      (let ((filter-fn (lambda (data)
+			 (string-match-p "\\`A" data))))
+	(lister-set-filter buf filter-fn)))))
+	;; (expect buf
+	;; 	:to-have-as-visible-content
+	;; 	(lister-test-expected-content
+	;; 	 (cl-remove-if 'filter-fn some-items)))))))
 
 (xdescribe "Filtering:"
   :var (buf some-items)

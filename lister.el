@@ -818,10 +818,25 @@ be substituted by VAL.
 Invalid forms throw an error."
   (pcase sexp
     ('it   val)
+    ;;
+    ;; function:
+    ;;
+    ;; #'fn-name
     (`(function ,fn)      `(,fn data))
+    ;; closures:
+    ((and (pred functionp)
+	 fn
+	 (guard (not (symbolp fn))))
+    `(,fn data))
+    ;; unquoted symbols:
     ((and (pred symbolp)
 	  (pred identity))
      `(,sexp data))
+    ;; quoted symbols:
+    (`(quote ,x)    (lister-filter--expand-sexp x val))
+    ;;
+    ;; operators:
+    ;;
     ((and `(,op . ,x)
 	  (pred cdr)
 	  (or (app car 'and)  ;; "APPly CAR and test for pattern AND"
@@ -833,37 +848,13 @@ Invalid forms throw an error."
 		      (`(not ,x) x)
 		      (_        `(not ,val))))
     (`(not ,x)      `(not ,(lister-filter--expand-sexp x val)))
-    (`(quote ,x)    `(,x data))
     (_               (error "invalid filter expression '%s'" sexp))))
 
-(defun lister-filter--build-function (filter-term)
+(defun lister-filter--build-function (filter-term &optional val)
   "Return the expanded FILTER-TERM as a callable function."
-  `(lambda (data) ,(lister-filter--expand-sexp filter-term)))
+  `(lambda (data) ,(lister-filter--expand-sexp filter-term val)))
 
 ;; * The actual filtering:
-
-(defun lister-filter-all-items (lister-buf filter-fn)
-  "In LISTER-BUF, set visibility of each item according to FILTER-FN.
-FILTER-FN must accept one argument, the item's data. If FILTER-FN
-returns nil, hide the item; else show it.
-
-As special case, if FILTER-FN is nil, hide all items; if
-FILTER-FN is t, show all items."
-  (lister-with-locked-cursor lister-buf 
-    (let* ((items (buffer-local-value 'lister-local-marker-list lister-buf))
-	   (fn    (if (functionp filter-fn)
-		      filter-fn
-		    (lambda (data) (not filter-fn))))
-	   (data  nil))
-      (cl-dolist (item items)
-	(setq data (lister-get-data lister-buf item))
-	(lister-set-item-invisibility lister-buf
-				      item
-				      (not (funcall fn data)))))))
-
-(defun lister-show-all-items (lister-buf)
-  "Make all items in LISTER-BUF visible again."
-  (lister-filter-all-items lister-buf t))
 
 ;; REVIEW Maybe this could be moved completely into the insert
 ;;        function. Is it used anywhere else?
@@ -879,20 +870,30 @@ either hide or show an item, use `lister-set-item-invisibility'."
     (unless (funcall fn data)
       (lister-hide-item lister-buf marker-or-pos))))
 
-(defun lister-update-with-filter (lister-buf filter-fn)
-  "Update all items using FILTER-FN and store it in the buffer."
-  (with-current-buffer lister-buf
-    (setq lister-local-filter-fn filter-fn))
-  (if filter-fn 
-      ;; apply the filter per item
-	(lister-walk-all lister-buf (lambda (data)
-				      (lister-set-item-invisibility lister-buf
-								    (point)
-								    (not (funcall filter-fn data)))))
-    ;; if there is no filter, show all items
-    (lister-show-all-items lister-buf)))
+(defun lister-filter-all-items (lister-buf filter-fn)
+  "In LISTER-BUF, set visibility of each item according to FILTER-FN.
+FILTER-FN must accept one argument, the item's data. If FILTER-FN
+returns nil, hide the item; else show it.
 
-(defun lister-set-apply-filter (lister-buf filter-sexpr &optional it-sexpr)
+As special case, if FILTER-FN is nil, hide all items; if
+FILTER-FN is t, show all items."
+  (lister-with-locked-cursor lister-buf 
+    (let* ((items (buffer-local-value 'lister-local-marker-list lister-buf))
+	   (fn    (if (functionp filter-fn)
+		      filter-fn
+		    `(lambda (_) (not ,filter-fn))))
+	   (data  nil))
+      (cl-dolist (item items)
+	(setq data (lister-get-data lister-buf item))
+	(lister-set-item-invisibility lister-buf
+				      item
+				      (not (funcall fn data)))))))
+
+(defun lister-show-all-items (lister-buf)
+  "Make all items in LISTER-BUF visible again."
+  (lister-filter-all-items lister-buf t))
+
+(defun lister-set-filter (lister-buf filter-sexpr &optional it-sexpr)
   "Expand FILTER-SEXPR into a filter function and apply it.
 
 If FILTER-SEXPR is nil, clear the current filter and update the
@@ -920,12 +921,18 @@ Example for using the optional argument:
 
  ;; This effectively negates 'previous filter':
  (let ((previous-filter #'f1))
-   (lister-set-apply-filter buf '(not it) previous-filter)"
+   (lister-set-filter buf '(not it) previous-filter)
+"
   (with-current-buffer lister-buf
     ;; do not act if there is no filter passed and no filter active
     (when (or filter-sexpr lister-local-filter-fn)
-      (lister-update-with-filter lister-buf
-			       (lister-filter--build-function filter-sexpr)))))
+      ;; else update all items
+      (let ((filter-fn  (lister-filter--build-function filter-sexpr it-sexpr)))
+	(if (setq lister-local-filter-fn filter-fn)
+	    ;; that is: either apply the filter per item
+	    (lister-filter-all-items lister-buf filter-fn)
+	  ;; or simply show all items if there is no filter anymore
+    (lister-show-all-items lister-buf))))))
 
 ;;; -----------------------------------------------------------
 ;;; * Insert, add, remove or replace list items
@@ -1730,7 +1737,7 @@ Return BUF."
     (when data-list
       (lister-set-list buf data-list))
     ;; apply filter:
-    (lister-set-apply-filter buf filter-sexpr)
+    (lister-set-filter buf filter-sexpr)
     ;; move to first item:
     (if (lister-visible-items buf)
 	(lister-goto buf :first)
