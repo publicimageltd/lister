@@ -493,11 +493,11 @@ BUF is a lister buffer. Note that this function does NOT make BUF
 current."
   (declare (indent 1) (debug (sexp body)))
   ;;
-  (let* ((cursor-line-var (make-symbol "cursor-line"))
+  (let* ((line-idx-var    (make-symbol "line-idx"))
 	 (buffer-var      (make-symbol "buffer"))
 	 (result-var      (make-symbol "result"))
 	 (get-point      `(with-current-buffer ,buffer-var (point)))
-	 (get-line       `(lister-index-position ,buffer-var ,get-point)))
+	 (get-line-idx   `(lister-index-position ,buffer-var ,get-point)))
     ;;
     `(cl-labels ((body-fn () ,@body))
        (if lister-cursor-locked
@@ -511,10 +511,24 @@ current."
 	   (let* ((lister-cursor-locked t)         ;; don't nest
 		  (lister-inhibit-cursor-action t) ;; no actions
 		  (cursor-sensor-inhibit t)        ;; no sensor
-		  (,cursor-line-var ,get-line))    ;; current line
+		  (,line-idx-var ,get-line-idx))   ;; current line
 	     (setq ,result-var (body-fn))
-	     (lister-goto ,buffer-var (or (lister-index-marker ,buffer-var ,cursor-line-var)
-					  :last)))
+	     ;; we can't use lister-goto, since target line might be
+	     ;; hidden now
+	     (let (new-pos)
+	       ;; jump only to visible lines if filter is active:
+	       (if (buffer-local-value 'lister-local-filter-fn ,buffer-var)
+		   (let ((vis-items (lister-visible-items ,buffer-var)))
+		     (setq new-pos (or (elt vis-items ,line-idx-var)
+				       (car (last vis-items)))))
+		 ;; else, jump to same line or the last element:
+		 (setq new-pos (or (lister-index-marker ,buffer-var
+							,line-idx-var)
+				   (lister-eval-pos-or-symbol ,buffer-var
+							      :last))))
+	       (with-current-buffer ,buffer-var
+		 (goto-char (or new-pos
+				(lister-item-min ,buffer-var))))))
 	   (lister-sensor-enter ,buffer-var)
 	   ,result-var)))))
 
