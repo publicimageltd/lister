@@ -724,31 +724,66 @@ Optional argument INDENTATION adds an indentation level of n."
 ;; done with the filter list, not on the buffer level.
 
 (describe "Building filter terms: "
-  (it "turns a quoted symbol to a lisp function call with arg DATA"
-    (expect (lister-filter--expand-sexp 'ignore)
-	    :to-equal
-	    '(ignore data)))
-  (it "expands the sexp '(not 'fn) to its lisp equivalent"
-    (expect (lister-filter--expand-sexp '(not 'ignore))
-	    :to-equal
-	    '(not (ignore data))))
-  (it "expands the sexp '(and x1 x2) to its lisp equivalent"
-    (expect (lister-filter--expand-sexp '(and x1 x2))
-	    :to-equal
-	    '(and (x1 data) (x2 data))))
-  (it "expands the sexp '(or x1 x2) to its lisp equivalent"
-    (expect (lister-filter--expand-sexp '(or x1 x2))
-	    :to-equal
-	    '(or (x1 data) (x2 data))))
-  (it "throws an error if sexp '(and ...) has no arguments"
-    (expect (lister-filter--expand-sexp '(and))
-	    :to-throw))
-  (it "throws an error if sexp '(or ...) has no arguments"
-    (expect (lister-filter--expand-sexp '(or))
-	    :to-throw))
-  (it "throws an error if sexp begins with an unknown operator"
-    (expect (lister-filter--expand-sexp '(operator))
-	    :to-throw)))
+  (describe "lister-filter--expand-sexp: "
+    (it "turns a quoted symbol to a lisp function call with arg DATA"
+      (expect (lister-filter--expand-sexp 'ignore)
+	      :to-equal
+	      '(ignore data)))
+    (it "turns a quoted function to a lisp function call with arg DATA"
+      (expect (lister-filter--expand-sexp #'ignore)
+	      :to-equal
+	      '(ignore data)))
+    (it "expands the sexp '(not fn) to its lisp equivalent"
+      (expect (lister-filter--expand-sexp '(not ignore))
+	      :to-equal
+	      '(not (ignore data))))
+    (it "expands the sexp '(not 'fn) to its lisp equivalent"
+      (expect (lister-filter--expand-sexp '(not 'ignore))
+	      :to-equal
+	      '(not (ignore data))))
+    (it "expands the sexp '(not #'fn) to its lisp equivalent"
+      (expect (lister-filter--expand-sexp '(not #'ignore))
+	      :to-equal
+	      '(not (ignore data))))
+    (it "eliminates double negation when expanding '(not it) with `it' value being '(not ....)"
+      (expect (lister-filter--expand-sexp '(not it) '(not (ignore data)))
+	      :to-equal
+	      (ignore data)))
+    (it "expands the sexp '(and x1 x2) to its lisp equivalent"
+      (expect (lister-filter--expand-sexp '(and x1 x2))
+	      :to-equal
+	      '(and (x1 data) (x2 data))))
+    (it "expands the sexp '(and 'x1 #'x2) to its lisp equivalent"
+      (expect (lister-filter--expand-sexp '(and 'x1 #'x2))
+	      :to-equal
+	      '(and (x1 data) (x2 data))))
+    (it "expands the sexp '(or x1 x2) to its lisp equivalent"
+      (expect (lister-filter--expand-sexp '(or x1 x2))
+	      :to-equal
+	      '(or (x1 data) (x2 data))))
+    (it "replaces the symbol it with the value of the optional argument"
+      (expect (lister-filter--expand-sexp '(and it x2) '(ignore data))
+	      :to-equal
+	      '(and (ignore data) (x2 data))))
+    (it "throws an error if nil is passed as sexp"
+      (expect (lister-filter--expand-sexp nil) :to-throw))
+    (it "throws an error if sexp '(and ...) has no arguments"
+      (expect (lister-filter--expand-sexp '(and))
+	      :to-throw))
+    (it "throws an error if sexp '(or ...) has no arguments"
+      (expect (lister-filter--expand-sexp '(or))
+	      :to-throw))
+    (it "throws an error if sexp begins with an unknown operator"
+      (expect (lister-filter--expand-sexp '(operator))
+	      :to-throw)))
+  (describe "lister-filter--build-function: "
+    (it "expands the filter term and wraps it within a lambda"
+      (expect (lister-filter--build-function 'ignore)
+	      :to-equal
+	      '(lambda (data) (ignore data))))
+    (it "returns a callable function object"
+      (let ((fn (lister-filter--build-function 'identity)))
+	(expect (funcall fn "hallo") :to-equal "hallo")))))
 
 (xdescribe "Filtering:"
   :var (buf some-items)
@@ -767,7 +802,6 @@ Optional argument INDENTATION adds an indentation level of n."
      (expect buf :to-have-as-visible-content (lister-test-expected-content some-items)))
    (it "applying #'ignore hides all visible items"
      (lister-add-filter buf (lambda (it) (ignore it)))
-     (lister-apply-filter buf)
      (expect buf :to-have-as-visible-content "")))
 
   (describe "lister-negate-filter "
@@ -775,31 +809,26 @@ Optional argument INDENTATION adds an indentation level of n."
       (expect (lister-negate-filter buf) :to-throw))
     (it "changes nothing if negation is not activated yet"
       (lister-add-filter buf (lambda (it) (ignore it)))
-      (lister-apply-filter buf)
       (lister-negate-filter buf)
       (expect buf :to-have-as-visible-content ""))))
 
 
   ;; (it "Filter everything, then remove the filter."
   ;;   (lister-add-filter buf (lambda (data) (ignore data)))
-  ;;   (lister-apply-filter buf)
   ;;   (lister-clear-filter buf)
   ;;   (lister-update-filter buf)
   ;;   (expect (lister-get-visible-data buf) :to-equal datalist))
   ;; (it "Apply filter which matches only some data."
   ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-  ;;   (lister-apply-filter buf)
   ;;   (expect (lister-get-visible-data buf) :to-equal  '("AA" "AB")))
   ;; (it "Apply filter chain."
   ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
   ;;   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
-  ;;   (lister-apply-filter buf)
   ;;   (expect (lister-get-visible-data buf) :to-equal  '("AB")))
   ;; (it "Negate a filter chain."
   ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
   ;;   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
   ;;   (lister-negate-filter buf)
-  ;;   (lister-apply-filter buf)
   ;;   (expect (lister-get-visible-data buf) :to-equal  '("AA" "BA" "BB"))))
 
 ;; REVIEW Rewrite with new matcher
