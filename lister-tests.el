@@ -35,19 +35,6 @@
 
 ;; * Utility functions 
 
-(defun lister-test-new-buffer ()
-  (generate-new-buffer "*LISTER*"))
-
-(defun lister-test-buffer-content (buf)
-  (with-current-buffer buf
-    (buffer-substring-no-properties (point-min) (point-max))))
-
-(defun lister-test-buffer-content-with-properties (buf)
-  (with-current-buffer buf (buffer-string)))
-
-(defun lister-test-point (buf)
-  (with-current-buffer buf (point)))
-
 (defun lister-test-setup-minimal-buffer ()
   "Set up a minimal buffer, with no margins and a list mapper.
 Return the buffer object"
@@ -676,7 +663,22 @@ Optional argument INDENTATION adds an indentation level of n."
 	(with-current-buffer buf
 	  (goto-char int-pos))
 	(lister-goto buf :point)
-	(expect buf :to-have-point-value-of (elt positions n))))))
+	(expect buf :to-have-point-value-of (elt positions n))))
+    (it "throws an error if going to an invisible item"
+      (let ((pos (elt positions 2)))
+	(lister-hide-item buf pos)
+	(expect (lister-goto buf pos) :to-throw))))
+
+  (describe "lister-with-locked-cursor: "
+    (it "moves cursor if body has shrunk the list"
+      (let ((expected-last-item  (elt positions (- (length some-items) 2))))
+	(lister-goto buf :last)
+	(expect (with-current-buffer buf (point))
+		:not :to-be expected-last-item)
+	(lister-with-locked-cursor buf
+	  (lister-remove buf :last))
+	(expect (with-current-buffer buf (point))
+		:to-be expected-last-item)))))
 
 (describe "Indexes:"
   :var (buf some-items positions)
@@ -719,79 +721,13 @@ Optional argument INDENTATION adds an indentation level of n."
 
 
 ;; TODO Rewrite
-
-(describe "Building filter terms: "
-  (describe "lister-filter--expand-sexp: "
-    (it "turns a quoted symbol to a lisp function call with arg DATA"
-      (expect (lister-filter--expand-sexp 'ignore)
-	      :to-equal
-	      '(ignore data)))
-    (it "turns a quoted function to a lisp function call with arg DATA"
-      (expect (lister-filter--expand-sexp #'ignore)
-	      :to-equal
-	      '(ignore data)))
-    (it "accepts a closure as a function"
-      (let ((my-fn (lambda (_) :test)))
-	(expect (lister-filter--expand-sexp my-fn)
-		:not :to-throw)))
-    (it "expands the sexp '(not fn) to its lisp equivalent"
-      (expect (lister-filter--expand-sexp '(not ignore))
-	      :to-equal
-	      '(not (ignore data))))
-    (it "expands the sexp '(not 'fn) to its lisp equivalent"
-      (expect (lister-filter--expand-sexp '(not 'ignore))
-	      :to-equal
-	      '(not (ignore data))))
-    (it "expands the sexp '(not #'fn) to its lisp equivalent"
-      (expect (lister-filter--expand-sexp '(not #'ignore))
-	      :to-equal
-	      '(not (ignore data))))
-    (it "eliminates double negation when expanding '(not it) with `it' value being '(not ....)"
-      (expect (lister-filter--expand-sexp '(not it) '(not (ignore data)))
-	      :to-equal
-	      '(ignore data)))
-    (it "expands the sexp '(and x1 x2) to its lisp equivalent"
-      (expect (lister-filter--expand-sexp '(and x1 x2))
-	      :to-equal
-	      '(and (x1 data) (x2 data))))
-    (it "expands the sexp '(and 'x1 #'x2) to its lisp equivalent"
-      (expect (lister-filter--expand-sexp '(and 'x1 #'x2))
-	      :to-equal
-	      '(and (x1 data) (x2 data))))
-    (it "expands the sexp '(or x1 x2) to its lisp equivalent"
-      (expect (lister-filter--expand-sexp '(or x1 x2))
-	      :to-equal
-	      '(or (x1 data) (x2 data))))
-    (it "replaces the symbol it with the value of the optional argument"
-      (expect (lister-filter--expand-sexp '(and it x2) '(ignore data))
-	      :to-equal
-	      '(and (ignore data) (x2 data))))
-    (it "throws an error if nil is passed as sexp"
-      (expect (lister-filter--expand-sexp nil) :to-throw))
-    (it "throws an error if sexp '(and ...) has no arguments"
-      (expect (lister-filter--expand-sexp '(and))
-	      :to-throw))
-    (it "throws an error if sexp '(or ...) has no arguments"
-      (expect (lister-filter--expand-sexp '(or))
-	      :to-throw))
-    (it "throws an error if sexp begins with an unknown operator"
-      (expect (lister-filter--expand-sexp '(operator))
-	      :to-throw)))
-  (describe "lister-filter--build-function: "
-    (it "expands the filter term and wraps it within a lambda"
-      (expect (lister-filter--build-function 'ignore)
-	      :to-equal
-	      '(lambda (data) (ignore data))))
-    (it "returns a callable function object"
-      (let ((fn (lister-filter--build-function 'identity)))
-	(expect (funcall fn "hallo") :to-equal "hallo")))))
-
 (describe "Using filter:"
   :var (buf some-items)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer))
     (setq some-items '("AAAAA" "ABBBBBB"
 		       "BAAAA" "BBBBBB"
+		       "SOMETHING"
 		       "CAAAA" "CBBBBB"))
     (lister-add-sequence buf some-items))
   (after-each
@@ -807,64 +743,25 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "hides all items matching the passed filter"
       (let ((filter-fn (lambda (data)
 			 (string-match-p "\\`A" data))))
-	(lister-set-filter buf filter-fn)))))
-	;; (expect buf
-	;; 	:to-have-as-visible-content
-	;; 	(lister-test-expected-content
-	;; 	 (cl-remove-if 'filter-fn some-items)))))))
+	(lister-set-filter buf filter-fn)
+	(expect buf
+		:to-have-as-visible-content
+		(lister-test-expected-content
+		 (seq-filter filter-fn some-items)))))
+    (it "clears the filter when called with nil in a buffer with active filter"
+      (let ((filter-fn (lambda (data)
+			 (string-match-p "\\`A" data))))
+	(lister-set-filter buf filter-fn)
+	(lister-set-filter buf nil)
+	(expect buf :to-have-as-visible-content
+		(lister-test-expected-content some-items))))))
 
-(xdescribe "Filtering:"
-  :var (buf some-items)
-  (before-each
-    (setq buf (lister-test-setup-minimal-buffer))
-    (setq some-items '("AAAAA" "ABBBBBB"
-		       "BAAAA" "BBBBBB"
-		       "CAAAA" "CBBBBB"))
-    (lister-add-sequence buf some-items))
-  (after-each
-    (kill-buffer buf))
-
-  (describe "lister-add-filter: "
-   (it "does nothing if called on its own, awaiting activation"
-     (lister-add-filter buf (lambda (it) (ignore it)))
-     (expect buf :to-have-as-visible-content (lister-test-expected-content some-items)))
-   (it "applying #'ignore hides all visible items"
-     (lister-add-filter buf (lambda (it) (ignore it)))
-     (expect buf :to-have-as-visible-content "")))
-
-  (describe "lister-negate-filter "
-    (it "throws an error if called in a buffer with no filter"
-      (expect (lister-negate-filter buf) :to-throw))
-    (it "changes nothing if negation is not activated yet"
-      (lister-add-filter buf (lambda (it) (ignore it)))
-      (lister-negate-filter buf)
-      (expect buf :to-have-as-visible-content ""))))
-
-
-  ;; (it "Filter everything, then remove the filter."
-  ;;   (lister-add-filter buf (lambda (data) (ignore data)))
-  ;;   (lister-clear-filter buf)
-  ;;   (lister-update-filter buf)
-  ;;   (expect (lister-get-visible-data buf) :to-equal datalist))
-  ;; (it "Apply filter which matches only some data."
-  ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-  ;;   (expect (lister-get-visible-data buf) :to-equal  '("AA" "AB")))
-  ;; (it "Apply filter chain."
-  ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-  ;;   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
-  ;;   (expect (lister-get-visible-data buf) :to-equal  '("AB")))
-  ;; (it "Negate a filter chain."
-  ;;   (lister-add-filter buf (lambda (data) (string-match-p "\\`A" data)))
-  ;;   (lister-add-filter buf (lambda (data) (string-match-p "B" data)))
-  ;;   (lister-negate-filter buf)
-  ;;   (expect (lister-get-visible-data buf) :to-equal  '("AA" "BA" "BB"))))
 
 ;; REVIEW Rewrite with new matcher
 (describe "Use hierarchies and indentation:"
   :var (buf datalist)
   (before-each
-    (setq buf (lister-setup (lister-test-new-buffer)
-			    #'list))
+    (setq buf (lister-test-setup-minimal-buffer))
     (setq datalist '("Item1" "Item2"
 		     ("Subitem1" "Subitem2")
 		     "Item3")))
@@ -908,7 +805,7 @@ Optional argument INDENTATION adds an indentation level of n."
 (describe "Walk items:"
   :var (buf data)
   (before-each
-    (setq buf (lister-setup (lister-test-new-buffer)
+    (setq buf (lister-setup (generate-new-buffer "*LISTER*") 
 			    (apply-partially #'format "%d")))
     (setq data  '(1 2 3 4 5 6 7 8 9 10))
     (lister-add-sequence buf data))
@@ -935,15 +832,16 @@ Optional argument INDENTATION adds an indentation level of n."
     (length (seq-filter #'cl-evenp data))))
 
 (describe "Use a callback function:"
-  :var (value buf callbackfn)
+  :var (value buf callbackfn some-items)
   (before-each
-    (setq buf (lister-setup (lister-test-new-buffer)
-			    #'list
-			    '("A" "B" "C" "D")))
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("A" "B" "C" "D"))
+    (lister-add-sequence buf some-items)
     (switch-to-buffer buf) ;; we need the window to be set.
-    (setq callbackfn (lambda ()  (setq value (lister-get-data
-					      buf
-					      :point))))
+    (setq callbackfn (lambda ()
+		       (setq value (lister-get-data
+				    buf
+				    :point))))
     (setq value nil))
   (after-each
     (kill-buffer buf))
@@ -972,10 +870,9 @@ Optional argument INDENTATION adds an indentation level of n."
 (describe "Mark and unmark items"
   :var (buf data)
   (before-each
+    (setq buf (lister-test-setup-minimal-buffer))
     (setq data '("A" "B" "C" "D"))
-    (setq buf (lister-setup (lister-test-new-buffer)
-			    #'list
-			    data)))
+    (lister-add-sequence buf data))
   (after-each
     (kill-buffer buf))
   ;;

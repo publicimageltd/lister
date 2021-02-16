@@ -797,63 +797,6 @@ buffer current, you might as well that function directly."
 		  (text-property-any m (1+ m) 'invisible nil))
 		lister-local-marker-list)))
 
-;; * Building filter terms
-
-;; A "filter term" is simply a sexpr with some special operators.
-;; Applying a filter term, here, means to first expand this sexp to a
-;; valid lambda expression with "data" as its sole argument, and then
-;; to call it.
-
-(defun lister-filter--expand-sexp (sexp &optional val)
-  "Expand SEXP to a valid filter term expression.
-All symbols are treated as function names and expanded into the
-list form \(fn data\). Boolean operators `and', `or' and `not'
-are converted into their lisp equivalent. Quoted symbols are
-interpreted as function names, i.e., they also expand to \(fn
-data\). 
-
-The special symbol `it', when encountered within the sexp, will
-be substituted by VAL.
-
-Invalid forms throw an error."
-  (pcase sexp
-    ('it   val)
-    ;;
-    ;; function:
-    ;;
-    ;; #'fn-name
-    (`(function ,fn)      `(,fn data))
-    ;; closures:
-    ((and (pred functionp)
-	 fn
-	 (guard (not (symbolp fn))))
-    `(,fn data))
-    ;; unquoted symbols:
-    ((and (pred symbolp)
-	  (pred identity))
-     `(,sexp data))
-    ;; quoted symbols:
-    (`(quote ,x)    (lister-filter--expand-sexp x val))
-    ;;
-    ;; operators:
-    ;;
-    ((and `(,op . ,x)
-	  (pred cdr)
-	  (or (app car 'and)  ;; "APPly CAR and test for pattern AND"
-	      (app car 'or)))
-     `(,op ,@(mapcar (lambda (arg)
-		       (lister-filter--expand-sexp arg val))
-		     x)))
-    (`(not it)      (pcase val
-		      (`(not ,x) x)
-		      (_        `(not ,val))))
-    (`(not ,x)      `(not ,(lister-filter--expand-sexp x val)))
-    (_               (error "invalid filter expression '%s'" sexp))))
-
-(defun lister-filter--build-function (filter-term &optional val)
-  "Return the expanded FILTER-TERM as a callable function."
-  `(lambda (data) ,(lister-filter--expand-sexp filter-term val)))
-
 ;; * The actual filtering:
 
 ;; REVIEW Maybe this could be moved completely into the insert
@@ -872,67 +815,46 @@ either hide or show an item, use `lister-set-item-invisibility'."
 
 (defun lister-filter-all-items (lister-buf filter-fn)
   "In LISTER-BUF, set visibility of each item according to FILTER-FN.
-FILTER-FN must accept one argument, the item's data. If FILTER-FN
-returns nil, hide the item; else show it.
 
-As special case, if FILTER-FN is nil, hide all items; if
-FILTER-FN is t, show all items."
-  (lister-with-locked-cursor lister-buf 
-    (let* ((items (buffer-local-value 'lister-local-marker-list lister-buf))
-	   (fn    (if (functionp filter-fn)
-		      filter-fn
-		    `(lambda (_) (not ,filter-fn))))
-	   (data  nil))
-      (cl-dolist (item items)
-	(setq data (lister-get-data lister-buf item))
-	(lister-set-item-invisibility lister-buf
-				      item
-				      (not (funcall fn data)))))))
+FILTER-FN must accept one argument, the item's data. It is called
+with point on the item examined. If FILTER-FN returns t, hide
+the item; else show it.
+
+As special case, if FILTER-FN is t, hide all items; if
+FILTER-FN is nil, show all items."
+  (let* ((w-fn (if (functionp filter-fn)
+		   (lambda (data)
+		     (lister-set-item-invisibility (current-buffer)
+						   (point)
+						   (not (funcall filter-fn data))))
+		 ;; else filter is not a function:
+		 (if filter-fn
+		     (lambda (_) (lister-hide-item (current-buffer) (point)))
+		   (lambda (_) (lister-show-item (current-buffer) (point)))))))
+    (lister-walk-all lister-buf w-fn)))
 
 (defun lister-show-all-items (lister-buf)
   "Make all items in LISTER-BUF visible again."
-  (lister-filter-all-items lister-buf t))
+  (lister-filter-all-items lister-buf nil))
 
-(defun lister-set-filter (lister-buf filter-sexpr &optional it-sexpr)
-  "Expand FILTER-SEXPR into a filter function and apply it.
+(defun lister-set-filter (lister-buf filter-fn)
+  "Activate FILTER-FN, replacing any previous filter settings.
 
-If FILTER-SEXPR is nil, clear the current filter and update the
-display. If FILTER-SEXPR is a sexpr, build a filter function from
-it and update the display.
+In LISTER-BUF, only show items where FILTER-FN, called with
+the item's data, returns non-nil values. Subsequent insertions of
+new items will respect this filter.
 
-FILTER-SEXPR can be a symbol or function, designating a function
-which has to return t when the item can be displayed. The
-function name must be known at runtime. The function must accept
-one single argument, the item's data. It is also possible to
-combine functions using the boolean operators `and', `or' and
-`not'.
-
-IT-SEXPR, if passed, will replace the symbol `it' when building
-the filter function.
-
-Examples for valid filter s-expressions:
-
- #'identity
- 'ignore
- (not #'identity)
- (and f1 f2)
-
-Example for using the optional argument:
-
- ;; This effectively negates 'previous filter':
- (let ((previous-filter #'f1))
-   (lister-set-filter buf '(not it) previous-filter)
-"
+If FILTER-FN is nil, restore visibility for all items and delete
+the filter."
   (with-current-buffer lister-buf
     ;; do not act if there is no filter passed and no filter active
-    (when (or filter-sexpr lister-local-filter-fn)
+    (when (or filter-fn lister-local-filter-fn)
       ;; else update all items
-      (let ((filter-fn  (lister-filter--build-function filter-sexpr it-sexpr)))
-	(if (setq lister-local-filter-fn filter-fn)
-	    ;; that is: either apply the filter per item
-	    (lister-filter-all-items lister-buf filter-fn)
-	  ;; or simply show all items if there is no filter anymore
-    (lister-show-all-items lister-buf))))))
+      (if (setq lister-local-filter-fn filter-fn)
+	  ;; that is: either apply the filter per item
+	  (lister-filter-all-items lister-buf filter-fn)
+	;; or simply show all items if there is no filter anymore
+    (lister-show-all-items lister-buf)))))
 
 ;;; -----------------------------------------------------------
 ;;; * Insert, add, remove or replace list items
