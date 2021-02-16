@@ -720,11 +720,11 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister-index-marker buf n-max) :to-be nil)))))
 
 
-;; TODO Rewrite
 (describe "Using filter:"
   :var (buf some-items)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer))
+    ;; don't change the items, filters rely on the content
     (setq some-items '("AAAAA" "ABBBBBB"
 		       "BAAAA" "BBBBBB"
 		       "SOMETHING"
@@ -754,7 +754,47 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-filter buf filter-fn)
 	(lister-set-filter buf nil)
 	(expect buf :to-have-as-visible-content
-		(lister-test-expected-content some-items))))))
+		(lister-test-expected-content some-items)))))
+  (describe "lister-with-locked-cursor "
+    ;; -set-filter calls -walk, which in turn is wrapping its body in
+    ;; lister-with-locked-cursor. So just calling set-filter is enough
+    ;; to test that macro.
+    (it "keeps the visual line if the item is filtered away in its body"
+      ;; we move point to the first item, filter the first two items
+      ;; of the list, and then expect point to be on the third item,
+      ;; which is visually the first visible item.
+      (let* ((filter-fn (lambda (data) ;; do not display the first two
+			  (not
+			   (string-match-p "\\`A" data))))
+	     (expected-pos (elt (lister-test-positions-of some-items) 2)))
+	(lister-goto buf :first) ;; this first item will be  matched by filter-fn
+	(expect buf :not :to-have-point-value-of expected-pos)
+	(lister-set-filter buf filter-fn)
+	(expect buf :to-have-point-value-of expected-pos)))
+    (it "jumps to the last visible line if the current line has been filtered away in the body"
+      ;; we move to the last line, filter the last element, and then
+      ;; expect cursor to have moved
+      (let* ((filter-fn (lambda (data) ;; do not display the last two
+			  (not
+			   (string-match-p "\\`C" data))))
+	     (filtered-items (seq-filter filter-fn some-items))
+	     (expected-pos (elt (lister-test-positions-of some-items)
+				(- (length some-items)
+				   ;; subtract the number of removed items
+				   (- (length some-items) (length filtered-items))
+				   ;; and subtract one since the index
+				   ;; is zero-based
+				   1))))
+	(lister-goto buf :last)
+	(expect buf :not :to-have-point-value-of expected-pos)
+	(lister-set-filter buf filter-fn)
+	(expect buf :to-have-point-value-of expected-pos)))
+    (it "jumps to the first line if the body filters everything away"
+      (let ((expected-pos (elt (lister-test-positions-of some-items) 0)))
+	(lister-goto buf :last)
+	(expect buf :not :to-have-point-value-of expected-pos)
+	(lister-set-filter buf (lambda (_) nil))
+	(expect buf :to-have-point-value-of expected-pos))))) 
 
 
 ;; REVIEW Rewrite with new matcher
