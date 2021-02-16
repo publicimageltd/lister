@@ -48,10 +48,12 @@ Zettelkasten page.
   - [[#accessing-the-data][Accessing the data]]
   - [[#marking--unmarking][Marking / unmarking]]
   - [[#walking-the-list][Walking the list]]
+  - [[#filtering][Filtering]]
   - [[#cursor-sensor-functions][Cursor sensor functions]]
   - [[#low-level-functions][Low-level functions]]
 - [[#changelog][Changelog]]
   - [[#changes-to-the-current-version-no-new-release][Changes to the current version (no new release)]]
+  - [[#05][0.5]]
 :END:
 
 * Project still in progress
@@ -392,6 +394,22 @@ All the following functions respect =lister-local-marking-predicate=:
 | lister-walk-all  | Do something on each item.                                        |
 |------------------+-------------------------------------------------------------------|
 
+** Filtering
+
+A filter is a function which receives one argument, the item's data.
+If this filter function returns a non-nil value, the item will be
+displayed, else it will be hidden. Think of it parallel to
+`seq-filter`.
+
+If a filter is set, subsequent insertions will honor the filter; i.e.,
+newly inserted items will only be visible if they match the filter.
+
+| Function          | Description                   |
+|-------------------+-------------------------------|
+| lister-set-filter | Set or remove filter function |
+|-------------------+-------------------------------|
+
+
 ** Cursor sensor functions
 
 =lister= uses =cursor-sensor-mode=. Thus an event is caused by every
@@ -427,6 +445,8 @@ Some of the most useful low-level functions:
 * Changelog
 ** Changes to the current version (no new release)
 
+** 0.5
+ + Simplified filtering.
  + Extend the documentation.
  + /Quite/ some internal cleanup of the code base.
  + Use =org-make-toc= for the README.org
