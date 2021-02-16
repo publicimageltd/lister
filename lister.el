@@ -1404,11 +1404,15 @@ skipped.
 Return the number of actions executed."
   (lister-with-locked-cursor lister-buf
     (with-current-buffer lister-buf
-      (let ((n 0))
+      (let ((n 0)
+	    (min (lister-item-min lister-buf))
+	    (max (lister-item-max lister-buf)))
 	(cl-dolist (item item-positions)
-	  (when (get-text-property item 'item)
+	  (goto-char item)
+	  (when (and (>= item min)
+		     (<= item max)
+		     (get-text-property item 'item))
 	    (let ((data (lister-get-data lister-buf item)))
-	      (goto-char item)
 	      (when (or (null predicate)
 			(funcall predicate data))
 		(setq n (1+ n))

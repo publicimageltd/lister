@@ -865,7 +865,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-remove-this-level buf (lister-index-marker buf 2))
       (expect (lister-get-all-data-tree buf)
 	      :to-equal
-	      (lister-test-remove-elt-by-index some-items 2)))
+	      (lister-test-remove-elt-by-index some-items 2))))
 
   (describe "lister-remove-sublist-below"
     (it "removes all indented items below an item"
@@ -874,37 +874,52 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-remove-sublist-below buf (lister-index-marker buf 1))
       (expect (lister-get-all-data-tree buf)
 	      :to-equal
-	      (lister-test-remove-elt-by-index some-items 2))))))
+	      (lister-test-remove-elt-by-index some-items 2)))))
 
-;; REVIEW Maybe rewrite; check at least
 (describe "Walk items:"
-  :var (buf data)
+  :var (buf data walk-positions walk-path)
   (before-each
-    (setq buf (lister-setup (generate-new-buffer "*LISTER*") 
-			    (apply-partially #'format "%d")))
-    (setq data  '(1 2 3 4 5 6 7 8 9 10))
-    (lister-add-sequence buf data))
+    (setq buf  (lister-setup (generate-new-buffer "*LISTER*") 
+			     (apply-partially #'format "%d")))
+    ;; item at index 0 has value 0, at 1 has 1, etc.
+    (setq data (number-sequence 0 10))
+    ;; define a subset of items
+    (setq walk-path '(3 6 8 9))
+    ;; find the positions of this subset
+    (lister-add-sequence buf data)
+    (setq walk-positions (mapcar (apply-partially 'lister-index-marker buf) walk-path))
+    (setq acc nil))
   (after-each
     (kill-buffer buf))
-  ;;
-  (it "Walk all items:"
-    (expect 
-     (lister-walk-all buf #'identity)
-     :to-be
-     (length data))
-    (let ((acc 0))
-      (lister-walk-all buf (lambda (data)
-			     (setq acc (+ acc data))))
-      (expect
-       acc
-       :to-be
-       (apply #'+ data))))
-  ;;
-  (it "Walk all items using predicate:"
-    (expect 
-     (lister-walk-all buf #'identity #'cl-evenp))
-    :to-be
-    (length (seq-filter #'cl-evenp data))))
+
+  (describe "lister-walk-some"
+    (it "walks those items passed as marker list"
+      (let (acc)
+	(lister-walk-some buf walk-positions
+			  (lambda (data)
+			    (setq acc (append acc (list data)))))
+	(expect acc :to-equal walk-path)))
+    (it "returns the number of walked items"
+      (expect (lister-walk-some buf walk-positions #'ignore)
+	      :to-be (length walk-path)))
+    (it "silently skips positions out of bound"
+      (expect (lister-walk-some buf
+				(append walk-positions '(23000 26000 234000))
+				#'ignore)
+	      :to-be (length walk-path)))
+    (it "silently skips positions which are not on the cursor gap"
+      (expect (lister-walk-some buf
+				(append walk-positions (mapcar #'1+ walk-positions))
+				#'ignore)
+	      :to-be (length walk-path)))
+    (it "skips positions where predicate is not matching"
+      (let (acc)
+	(lister-walk-some buf walk-positions
+			  (lambda (data)
+			    (setq acc (append acc (list data))))
+			  #'cl-evenp)
+	(expect acc :to-equal (seq-filter #'cl-evenp walk-path))))))
+      
 
 (describe "Use a callback function:"
   :var (value buf callbackfn some-items)
