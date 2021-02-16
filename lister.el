@@ -85,7 +85,7 @@ Set this to nil if no left margin is wanted.")
 
 (defvar-local lister-local-top-margin nil
   "Add this top margin when inserting an item.
-Set this to nil if no top margin is wanted. 
+Set this to nil if no top margin is wanted.
 
 NOTE: This feature seems quite useless, it will probably be
 removed soon.")
@@ -391,7 +391,7 @@ does not check whether the position found is valid."
 							    (lister-item-min lister-buf))))
 	      (1- last-pos)))
 	   (t
-	    (error "unknown value for POSITION-OR-SYMBOL: %s"
+	    (error "Unknown value for POSITION-OR-SYMBOL: %s"
 		   position-or-symbol)))))
     (and pos
 	 (lister-pos-as-marker lister-buf pos))))
@@ -951,7 +951,7 @@ markers."
 	   (last-pos       nil)
 	   (seq-type     (type-of seq)))
       (unless (member seq-type '(vector cons))
-	(error "Sequence must be a vector or a list."))
+	(error "Sequence must be a vector or a list"))
       (lister-sensor-leave lister-buf)
       (let* ((lister-inhibit-cursor-action t)
 	     (lister-inhibit-marker-list t)
@@ -1439,7 +1439,7 @@ Throw an error if the item is not visible."
 		(lister-next-free-position lister-buf))))
     (with-lister-buffer lister-buf
       (if (invisible-p m)
-	  (error "lister-goto: item not visible.")
+	  (error "Item not visible")
 	(goto-char m)
 	(lister-sensor-leave lister-buf)
 	(lister-sensor-enter lister-buf)

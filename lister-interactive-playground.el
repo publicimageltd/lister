@@ -1,6 +1,6 @@
 ;;; lister-interactive-playground.el --- test lister functions interactively  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020  
+;; Copyright (C) 2020-2021
 
 ;; Author:  <joerg@joergvolbers.de>
 ;; Keywords: org-roam, lister, convenience
