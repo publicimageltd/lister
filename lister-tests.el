@@ -753,10 +753,8 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-set-filter"
     (it "does nothing if it is called with nil in a new buffer"
       (spy-on 'lister-filter-all-items)
-      (spy-on 'lister-show-all-items)
       (lister-set-filter buf nil)
-      (expect 'lister-filter-all-items :not :to-have-been-called)
-      (expect 'lister-show-all-items :not :to-have-been-called))
+      (expect 'lister-filter-all-items :not :to-have-been-called))
     (it "hides all items matching the passed filter"
       (let ((filter-fn (lambda (data)
 			 (string-match-p "\\`A" data))))
@@ -772,6 +770,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-filter buf nil)
 	(expect buf :to-have-as-visible-content
 		(lister-test-expected-content some-items)))))
+  
   (describe "lister-with-locked-cursor "
     ;; -set-filter calls -walk, which in turn is wrapping its body in
     ;; lister-with-locked-cursor. So just calling set-filter is enough
@@ -806,12 +805,18 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect buf :not :to-have-point-value-of expected-pos)
 	(lister-set-filter buf filter-fn)
 	(expect buf :to-have-point-value-of expected-pos)))
-    (it "jumps to the first line if the body filters everything away"
+    (it "jumps to the first line if the body filters all items"
       (let ((expected-pos (elt (lister-test-positions-of some-items) 0)))
 	(lister-goto buf :last)
 	(expect buf :not :to-have-point-value-of expected-pos)
 	(lister-set-filter buf (lambda (_) nil))
-	(expect buf :to-have-point-value-of expected-pos))))) 
+	(expect buf :to-have-point-value-of expected-pos)))
+    (it "stays at the first item if everything is shown again"
+      (let ((expected-pos (elt (lister-test-positions-of some-items) 0)))
+	(lister-goto buf :first)
+	(lister-set-filter buf (lambda (_) nil))
+	(lister-set-filter buf (lambda (_) t))
+	(expect buf :to-have-point-value-of expected-pos)))))
 
 
 ;; * Levels and indentation

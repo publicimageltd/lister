@@ -511,19 +511,19 @@ current."
 	   (let* ((lister-cursor-locked t)         ;; don't nest
 		  (lister-inhibit-cursor-action t) ;; no actions
 		  (cursor-sensor-inhibit t)        ;; no sensor
-		  (,line-idx-var ,get-line-idx))   ;; current line
+		  ;; current line: if nil, assume first pos:
+		  (,line-idx-var (or ,get-line-idx 0)))
 	     (setq ,result-var (body-fn))
 	     ;; we can't use lister-goto, since target line might be
 	     ;; hidden now
 	     (let (new-pos)
 	       ;; jump only to visible lines if filter is active:
-	       (if (buffer-local-value 'lister-local-filter-fn ,buffer-var)
-		   (let ((vis-items (lister-visible-items ,buffer-var)))
-		     (setq new-pos (or (elt vis-items ,line-idx-var)
+	       (if (buffer-local-value 'lister-local-filter-fn ,buffer-var)		   
+		   (setq new-pos (when-let ((vis-items (lister-visible-items ,buffer-var)))				   
+				   (or (elt vis-items ,line-idx-var)
 				       (car (last vis-items)))))
 		 ;; else, jump to same line or the last element:
-		 (setq new-pos (or (lister-index-marker ,buffer-var
-							,line-idx-var)
+		 (setq new-pos (or (lister-index-marker ,buffer-var ,line-idx-var)
 				   (lister-eval-pos-or-symbol ,buffer-var
 							      :last))))
 	       (with-current-buffer ,buffer-var
@@ -813,29 +813,21 @@ either hide or show an item, use `lister-set-item-invisibility'."
     (unless (funcall fn data)
       (lister-hide-item lister-buf marker-or-pos))))
 
-(defun lister-filter-all-items (lister-buf filter-fn)
+(defun lister-filter--all-items (lister-buf filter-fn)
   "In LISTER-BUF, set visibility of each item according to FILTER-FN.
 
 FILTER-FN must accept one argument, the item's data. It is called
-with point on the item examined. If FILTER-FN returns t, hide
-the item; else show it.
+with point on the item examined. If FILTER-FN returns t, show
+the item; else hide it.
 
-As special case, if FILTER-FN is t, hide all items; if
-FILTER-FN is nil, show all items."
-  (let* ((w-fn (if (functionp filter-fn)
-		   (lambda (data)
-		     (lister-set-item-invisibility (current-buffer)
-						   (point)
-						   (not (funcall filter-fn data))))
-		 ;; else filter is not a function:
-		 (if filter-fn
-		     (lambda (_) (lister-hide-item (current-buffer) (point)))
-		   (lambda (_) (lister-show-item (current-buffer) (point)))))))
+This is an internal function which does NOT store the filter in
+the buffer. For setting or removing the filter, use
+`lister-set-filter' instead."
+  (let* ((w-fn (lambda (data)
+		 (lister-set-item-invisibility (current-buffer)
+					       (point)
+					       (not (funcall filter-fn data))))))
     (lister-walk-all lister-buf w-fn)))
-
-(defun lister-show-all-items (lister-buf)
-  "Make all items in LISTER-BUF visible again."
-  (lister-filter-all-items lister-buf nil))
 
 (defun lister-set-filter (lister-buf filter-fn)
   "Activate FILTER-FN, replacing any previous filter settings.
@@ -844,17 +836,20 @@ In LISTER-BUF, only show items where FILTER-FN, called with
 the item's data, returns non-nil values. Subsequent insertions of
 new items will respect this filter.
 
-If FILTER-FN is nil, restore visibility for all items and delete
-the filter."
+If FILTER-FN is nil, delete the filter and restore visibility for
+all items."
   (with-current-buffer lister-buf
     ;; do not act if there is no filter passed and no filter active
     (when (or filter-fn lister-local-filter-fn)
       ;; else update all items
       (if (setq lister-local-filter-fn filter-fn)
 	  ;; that is: either apply the filter per item
-	  (lister-filter-all-items lister-buf filter-fn)
-	;; or simply show all items if there is no filter anymore
-    (lister-show-all-items lister-buf)))))
+	  (lister-filter--all-items lister-buf filter-fn)
+	;; or show all items again if there is no filter anymore
+	(lister-walk-all lister-buf
+			 (lambda (_)
+			   (lister-show-item (current-buffer)
+					     (point))))))))
 
 ;;; -----------------------------------------------------------
 ;;; * Insert, add, remove or replace list items
