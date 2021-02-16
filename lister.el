@@ -1383,9 +1383,10 @@ END is nil, use the position of the first or last item."
 
 (defun lister-walk-some (lister-buf item-positions action
 				       &optional predicate)
-  "In LISTER-BUF, execute ACTION for each of ITEM-POSITIONS.
+  "For all ITEM-POSITIONS in LISTER-BUF, execute ACTION and accumulate the result.
+
 ITEM-POSITIONS is a list consisting of either integer positions
-or markers. 
+or markers.
 
 ACTION will be called with the item's associated data. The
 optional argument PREDICATE can be used to further restrict the
@@ -1401,7 +1402,7 @@ item (and optionally, if PREDICATE further returns a non-nil
 value); positions not pointing to an item will be silently
 skipped.
 
-Return the number of actions executed."
+Retun the accumulated results of all executed actions."
   (lister-with-locked-cursor lister-buf
     (with-current-buffer lister-buf
       (let ((n 0)
