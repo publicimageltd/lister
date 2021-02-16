@@ -195,6 +195,9 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-insert-lines buf (marker-position marker) test-item 3)
       (expect buf :to-have-as-content (lister-test-expected-content test-item nil nil 3)))))
 
+;; * CORE: lister-insert, lister-next-free-position, lister-item-min,
+;;         lister-item-max
+
 (describe "Some low level item functions:"
   :var (buf)
   (before-each
@@ -305,6 +308,8 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		(lister-test-positions-of some-items))))))
 
+;; * CORE: lister-marker-at
+
 (describe "lister-marker-at:"
   :var (buf some-items some-positions)
   (before-each
@@ -344,6 +349,8 @@ Optional argument INDENTATION adds an indentation level of n."
     (let* ((position (elt some-positions 3))
 	   (m (lister-marker-at buf position)))
       (expect (marker-position m) :to-equal position))))
+
+;; * Setting and removing header/footer
 
 (describe "Header and footer:"
   :var (buf header footer data)
@@ -444,6 +451,8 @@ Optional argument INDENTATION adds an indentation level of n."
 	 (lister-set-footer buf nil)
 	 (expect buf :to-have-as-content (lister-test-expected-content some-items))))))
 
+;; * Adding and replacing items
+
 (describe "Adding and replacing items"
   :var (buf some-items)
   (before-each
@@ -539,7 +548,9 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-hide-item buf (lister-add buf item)))
     (expect (lister-get-all-data buf) :to-equal some-items)))
 
-(describe "linster-insert-sequence:"
+;; * Insert Sequence
+
+(describe "lister-insert-sequence:"
   :var (buf)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer)))
@@ -592,6 +603,8 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-add-sequence buf (make-list 5000 "Item"))
       (lister-remove-this-level buf (lister-item-min buf)))))
 
+;; * Showing / Hiding items
+
 (describe "Hiding items:"
   :var (buf some-items)
   (before-each
@@ -634,6 +647,7 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		(lister-test-remove-elt-by-index some-items n))))))
 
+;; * Movement / Navigation
 
 (describe "Navigation:"
   :var (buf some-items positions)
@@ -680,6 +694,8 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (with-current-buffer buf (point))
 		:to-be expected-last-item)))))
 
+;; * Index
+
 (describe "Indexes:"
   :var (buf some-items positions)
   (before-each
@@ -719,6 +735,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (let ((n-max (+ (length some-items) 20)))
 	(expect (lister-index-marker buf n-max) :to-be nil)))))
 
+;; * Filter
 
 (describe "Using filter:"
   :var (buf some-items)
@@ -797,49 +814,67 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect buf :to-have-point-value-of expected-pos))))) 
 
 
-;; REVIEW Rewrite with new matcher
-(describe "Use hierarchies and indentation:"
-  :var (buf datalist)
+;; * Levels and indentation
+
+(describe "Levels and indentation:"
+  :var (buf some-items)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer))
-    (setq datalist '("Item1" "Item2"
-		     ("Subitem1" "Subitem2")
-		     "Item3")))
+    ;; don't change the list, it is used in the specs below
+    (setq some-items '("Item1" "Item2"
+		       ("Subitem1" "Subitem2")
+		       "Item3"
+		       ("Another Subitem1" "Another Subitem2"))))
   (after-each
     (kill-buffer buf))
   ;;
-  (it "Add hierarchical list and get data tree:"
-    (lister-add-sequence buf datalist)
-    (expect (lister-get-all-data-tree buf) :to-equal datalist))
-  (it "Return the indentation level"
-    (let* ((m1  (lister-add buf "Item1"))
-	   (m2  (lister-add buf "Item2" 1))
-	   (m3  (lister-add buf "Item3" 2)))
-      (expect (lister-level-at buf m1) :to-be 0)
-      (expect (lister-level-at buf m2) :to-be 1)
-      (expect (lister-level-at buf m3) :to-be 2)))
-  (it "Return data tree:"
-    (lister-add buf "Item1")
-    (lister-add buf "Item2")
-    (lister-add buf "Subitem1" 1)
-    (lister-add buf "Subitem2" 1) 
-    (lister-add buf "Item3" 0)
-    (expect (lister-get-all-data-tree buf)  :to-equal datalist))
-  (it "Fail to insert top item with level > 0:"
-    (lister-add buf "Item1" 1)
-    (with-current-buffer buf
-      (lister-goto buf :first)
-      (expect (lister-get-prop buf (point) 'level) :to-be   0)))
-  (it "Delete a subtree:"
-    (lister-add-sequence buf datalist)
-    (with-current-buffer buf
-      (lister-goto buf (elt lister-local-marker-list 2))
-      (lister-remove-this-level buf (point)))
-    (expect (lister-get-all-data-tree buf) :to-equal '("Item1" "Item2" "Item3")))
-  (it "Delete a subtree below an item:"
-    (lister-add-sequence buf datalist)
-    (lister-remove-sublist-below buf (lister-index-marker buf 1))
-    (expect (lister-get-all-data-tree buf)  :to-equal '("Item1" "Item2" "Item3"))))
+  (describe "lister-add-sequence "
+    (it "assigns nested lists a higher level"
+      (lister-add-sequence buf some-items)
+      (let (acc)
+	(lister-walk-all buf (lambda (_) (push (lister-level-at buf (point)) acc)))
+	(setq acc (reverse acc))
+	(expect acc :to-equal '(0 0 1 1 0 1 1)))))
+  (describe "lister-get-all-data-tree "
+    (it "returns the nested list"
+      (lister-add-sequence buf some-items)
+      (expect (lister-get-all-data-tree buf)) :to-equal some-items))
+  (describe "lister-add"
+    (it "sets level as told by optional argument"
+      (lister-add buf "Item1")
+      (lister-add buf "Subitem1" 1)
+      (lister-add buf "Item2" 0)
+      (expect (lister-get-all-data-tree buf)
+	      :to-equal '("Item1" ("Subitem1") "Item2")))
+    (it "silently corrects level of top item if > 0:"
+      (lister-add buf "Item1" 1)
+      (expect (lister-level-at buf :first) :to-be 0))
+    (it "silently corrects level of inserted item so that it only indents one more"
+      (lister-add buf "Item1" 0)
+      (let ((m (lister-add buf "Item2" 3)))
+	(expect (lister-level-at buf m) :to-be 1)))
+    (it "does not change the level of the new item if it only indents one more"
+      (lister-add buf "Item1" 0)
+      (let ((m (lister-add buf "Item2" 1)))
+	(expect (lister-level-at buf m) :to-be 1))))
+
+  (describe "lister-remove-this-level"
+    (it "removes all subsequent items sharing the same level"
+      (lister-add-sequence buf some-items)
+      ;; remove from within the first nested element = #3 in the list
+      (lister-remove-this-level buf (lister-index-marker buf 2))
+      (expect (lister-get-all-data-tree buf)
+	      :to-equal
+	      (lister-test-remove-elt-by-index some-items 2)))
+
+  (describe "lister-remove-sublist-below"
+    (it "removes all indented items below an item"
+      (lister-add-sequence buf some-items)
+      ;; remove below the last 0-level item, which is #2 in the list 
+      (lister-remove-sublist-below buf (lister-index-marker buf 1))
+      (expect (lister-get-all-data-tree buf)
+	      :to-equal
+	      (lister-test-remove-elt-by-index some-items 2))))))
 
 ;; REVIEW Maybe rewrite; check at least
 (describe "Walk items:"
