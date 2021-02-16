@@ -1268,12 +1268,11 @@ LISTER-BUF has to be a valid lister buffer."
   "In LISTER-BUF, apply ACTION on each marked item.
 The function ACTION is executed on each marked item, with point
 on the item's cursor gap. It receives the item's data object as
-its sole argument.
+its sole argument. The accumulated results will be passed as the
+return value.
 
 Optionally further restrict action on only those marked items
-matching PRED.
-
-Return the number of items actually visited."
+matching PRED."
   (lister-walk-some lister-buf
 		    (lister-all-marked-items lister-buf)
 		    action pred))
@@ -1382,7 +1381,7 @@ END is nil, use the position of the first or last item."
 ;; * Walk the lister buffer
 
 (defun lister-walk-some (lister-buf item-positions action
-				       &optional predicate)
+				    &optional predicate)
   "For all ITEM-POSITIONS in LISTER-BUF, execute ACTION and accumulate the result.
 
 ITEM-POSITIONS is a list consisting of either integer positions
@@ -1402,10 +1401,10 @@ item (and optionally, if PREDICATE further returns a non-nil
 value); positions not pointing to an item will be silently
 skipped.
 
-Retun the accumulated results of all executed actions."
+Return the accumulated results of all executed actions."
   (lister-with-locked-cursor lister-buf
     (with-current-buffer lister-buf
-      (let ((n 0)
+      (let ((acc nil)
 	    (min (lister-item-min lister-buf))
 	    (max (lister-item-max lister-buf)))
 	(cl-dolist (item item-positions)
@@ -1416,9 +1415,11 @@ Retun the accumulated results of all executed actions."
 	    (let ((data (lister-get-data lister-buf item)))
 	      (when (or (null predicate)
 			(funcall predicate data))
-		(setq n (1+ n))
-		(funcall action data)))))
-	n))))
+		(setq acc (cons (funcall action data) acc))))))
+	;; NOTE This could slow things down if we are traversing very
+	;; long lists. For such cases, accumulation should be
+	;; optional.
+	(reverse acc)))))
 
 (defun lister-walk-all (lister-buf action &optional pred)
   "In LISTER-BUF, execute ACTION for each item matching PRED.

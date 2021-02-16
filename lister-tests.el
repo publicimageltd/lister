@@ -876,6 +876,8 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-equal
 	      (lister-test-remove-elt-by-index some-items 2)))))
 
+;; * Walk items
+
 (describe "Walk items:"
   :var (buf data walk-positions walk-path)
   (before-each
@@ -888,37 +890,26 @@ Optional argument INDENTATION adds an indentation level of n."
     ;; find the positions of this subset
     (lister-add-sequence buf data)
     (setq walk-positions (mapcar (apply-partially 'lister-index-marker buf) walk-path))
-    (setq acc nil))
   (after-each
     (kill-buffer buf))
 
   (describe "lister-walk-some"
     (it "walks those items passed as marker list"
-      (let (acc)
-	(lister-walk-some buf walk-positions
-			  (lambda (data)
-			    (setq acc (append acc (list data)))))
-	(expect acc :to-equal walk-path)))
-    (it "returns the number of walked items"
-      (expect (lister-walk-some buf walk-positions #'ignore)
-	      :to-be (length walk-path)))
+      (expect (lister-walk-some buf walk-positions #'identity)
+	      :to-equal walk-path))
     (it "silently skips positions out of bound"
       (expect (lister-walk-some buf
 				(append walk-positions '(23000 26000 234000))
-				#'ignore)
-	      :to-be (length walk-path)))
+				#'identity)
+	      :to-equal walk-path))
     (it "silently skips positions which are not on the cursor gap"
       (expect (lister-walk-some buf
 				(append walk-positions (mapcar #'1+ walk-positions))
-				#'ignore)
-	      :to-be (length walk-path)))
+				#'identity)
+	      :to-equal walk-path))
     (it "skips positions where predicate is not matching"
-      (let (acc)
-	(lister-walk-some buf walk-positions
-			  (lambda (data)
-			    (setq acc (append acc (list data))))
-			  #'cl-evenp)
-	(expect acc :to-equal (seq-filter #'cl-evenp walk-path))))))
+      (expect (lister-walk-some buf walk-positions #'identity  #'cl-evenp)
+	      :to-equal (seq-filter #'cl-evenp walk-path))))))
       
 
 (describe "Use a callback function:"
