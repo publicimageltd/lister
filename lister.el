@@ -720,7 +720,9 @@ Return the marker of the inserted item."
 			   'static nil))
 
 (defun lister-set-header (lister-buf header)
-  "Insert or replace HEADER before the first item in LISTER-BUF."
+  "Insert or replace HEADER before the first item in LISTER-BUF.
+HEADER can be a string or a list of strings. If HEADER is nil,
+remove any existing header."
   (with-current-buffer lister-buf
     (and 
      (setq lister-local-header-marker
@@ -730,7 +732,9 @@ Return the marker of the inserted item."
      (lister-make-header-or-footer lister-buf lister-local-header-marker))))
 
 (defun lister-set-footer (lister-buf footer)
-  "Insert or replace FOOTER after the last item of LISTER-BUF."
+  "Insert or replace FOOTER after the last item of LISTER-BUF.
+FOOTER can be a string or a list of strings. If FOOTER is nil,
+remove any existing footer."
   (with-current-buffer lister-buf
     (and 
      (setq lister-local-footer-marker

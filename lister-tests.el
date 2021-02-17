@@ -157,11 +157,14 @@ Optional argument INDENTATION adds an indentation level of n."
   ;; For constructing the expected content, each item's line is
   ;; treated as a separate item: The item ("1" "2") prints the same
   ;; result as a list of two single items ("1") and ("2").
-  
-  (it "Flatten an item list."    
-    (expect (lister-strflat "test")         :to-equal '("test"))
-    (expect (lister-strflat '("1" nil "3")) :to-equal '("1" "3"))
-    (expect (lister-strflat '(("1") ("2"))) :to-equal '("1" "2")))
+
+  (describe "lister-strflat"
+    (it "wraps a string into a list"    
+      (expect (lister-strflat "test")         :to-equal '("test")))
+    (it "removes nil values in a list"
+      (expect (lister-strflat '("1" nil "3")) :to-equal '("1" "3")))
+    (it "flattens nested list items"
+      (expect (lister-strflat '(("1") ("2"))) :to-equal '("1" "2"))))
   
   (it "Insert item using a marker position."
     (let* ((marker     (with-current-buffer buf (point-max-marker)))
