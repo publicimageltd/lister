@@ -105,8 +105,7 @@ cleaning up the code. The basic API probably won't change anymore.
 - In =lister-mode=, using isearch works out of the box.
 - Items can be marked and unmarked. There are functions which make it
   easy to work with these marked items.
-- There is a filtering mechanism, but it is not tested or used yet. It
-  is "under the hood", but not active.
+- There is a filter mechanism to visually hide items.
 
 ** Overview of files
 
