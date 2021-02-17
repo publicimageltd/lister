@@ -27,7 +27,7 @@ Zettelkasten page.
 :END:
 
 :CONTENTS:
-- [[#project-still-in-progress][Project still in progress]]
+- [[#project-status][Project status]]
 - [[#design-and-basic-features][Design and Basic Features]]
   - [[#design-principles][Design Principles]]
   - [[#additional-features][Additional Features]]
@@ -56,22 +56,23 @@ Zettelkasten page.
   - [[#05][0.5]]
 :END:
 
-* Project still in progress
+* Project status
 
-=Lister= does work. I use it every day, and sometimes I work heavily on
-improving it. But since I have rarely time at all for this kind of
-work, it will take some time to declare it stable.
+=Lister= does work. A first release has been done, "0.5", assuming the
+code to be fairly stable already. Currently, most work being done is
+cleaning up the code. The basic API probably won't change anymore.
 
-| Feature                                    | State      | Automated tests? |
-|--------------------------------------------+------------+------------------|
-| build simple or large lists                | stable     | yes              |
-| build nested lists                         | stable     | yes              |
-| retrieve data, possibly with hierarchies   | stable     | yes              |
-| walk the list                              | seems okay | no               |
-| provide API for marking or unmarking items | seems okay | partially        |
-| use cursor sensor functions                | stable     | yes              |
-| filter items                               | unknown    | no               |
-|--------------------------------------------+------------+------------------|
+
+| Feature                                    | State  | Automated tests? |
+|--------------------------------------------+--------+------------------|
+| build simple or large lists                | stable | yes              |
+| build nested lists                         | stable | yes              |
+| retrieve data, possibly with hierarchies   | stable | yes              |
+| walk the list                              | stable | yes              |
+| provide API for marking or unmarking items | stable | yes              |
+| use cursor sensor functions                | stable | yes              |
+| filter items                               | works  | yes              |
+|--------------------------------------------+--------+------------------|
 
 
 * Design and Basic Features
