@@ -1212,20 +1212,24 @@ is no item at POS-OR-SYMBOL."
 
 ;; Marking a single item
 
+;; TODO Write a test
+(defun lister-markable-p (lister-buf position-or-symbol)
+  "Checks if item at POSITION-OR-SYMBOL can be marked."
+  (let ((pred-fn (buffer-local-value 'lister-local-marking-predicate lister-buf)))
+    (or (null pred-fn)
+	;; implicitly also checks if the item is valid
+	(when-let ((data (lister-get-data lister-buf position-or-symbol)))
+	  (funcall pred-fn data)))))
+
 (defun lister-mark-item (lister-buf position-or-symbol value)
-  "According to VALUE, either mark or unmark the item at POSITION-OR-SYMBOL.
+  "According to VALUE, mark or unmark the item at POSITION-OR-SYMBOL.
 VALUE must be a boolean value. POSITION-OR-SYMBOL can be a
 marker, a buffer position, or one of the symbols `:point',
 `:first' or `:last'. LISTER-BUF is a lister buffer.
 
-After (un)marking the item, update the visible display of its
-current mark state.
-
-Return t if the item's state has been changed, else nil."
-  (let* ((m (lister-marker-at lister-buf position-or-symbol))
-	 (f (buffer-local-value 'lister-local-marking-predicate lister-buf)))
-    (when (or (null f)
-	      (funcall f (lister-get-data lister-buf m)))
+Return t if the item's state has been set to VALUE, else nil."
+  (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
+    (when (lister-markable-p lister-buf m)
       (lister-add-props lister-buf m 'mark value)
       (lister-display-mark-state lister-buf m)
       t)))
