@@ -1228,8 +1228,10 @@ marker, a buffer position, or one of the symbols `:point',
 `:first' or `:last'. LISTER-BUF is a lister buffer.
 
 Return t if the item's state has been set to VALUE, else nil."
-  (when-let* ((m (lister-marker-at lister-buf position-or-symbol)))
-    (when (lister-markable-p lister-buf m)
+  (let (m)
+    (when (and position-or-symbol
+	       (setq m (lister-marker-at lister-buf position-or-symbol))
+	       (lister-markable-p lister-buf m))
       (lister-add-props lister-buf m 'mark value)
       (lister-display-mark-state lister-buf m)
       t)))
