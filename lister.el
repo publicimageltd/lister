@@ -968,13 +968,13 @@ markers."
 	  ;; Accessing the last inserted marker via (car) is muuuuch
 	  ;; faster than using (car (last)), since the latter has to
 	  ;; traverse the whole list.
-	  (setq new-marker (append
+	  (setq new-marker (nconc
 			     (if (eq (type-of item) seq-type)
-				 (reverse (lister-insert-sequence lister-buf pos item (1+ new-level)))
+				 (nreverse (lister-insert-sequence lister-buf pos item (1+ new-level)))
 			       (list (lister-insert lister-buf pos item new-level)))
 			    new-marker))
 	  (setq pos (lister-end-of-lines lister-buf (setq last-pos (car new-marker))))))
-      (setq new-marker (reverse new-marker))
+      (setq new-marker (nreverse new-marker))
       (lister-add-item-marker lister-buf new-marker)
       (lister-sensor-enter lister-buf last-pos)
       new-marker)))
