@@ -316,16 +316,6 @@ LISTER-BUF is a lister buffer."
 
 ;; Add marker to the buffer local marker list
 
-(defun lister-merge (target new)
-  "Merge incrementally sorted marker list NEW into TARGET."
-  (if-let ((target-pos (cl-position (car new) target :test #'<)))
-      (append (seq-subseq target 0 target-pos)
-	      new
-	      (seq-subseq target target-pos))
-    (append target new)))
-
-;; REVIEW Still probably too cumbersome and not fast enough.
-;;        Do a test for the variants.
 (defun lister-add-item-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
 MARKER-OR-POS can be a marker or a pos, or a sorted homogenous
@@ -346,20 +336,15 @@ condition (2.) is always true when adding markers representing
 the new text."
   (unless (or lister-inhibit-marker-list
 	      (not marker-or-pos))
-    ;; NOTE Actually the whole stuff below might seem totally useless.
-    ;; Simply updating the marker list by setting its value to the
-    ;; result of `lister-rescan-item-markers` works as well and does not take
-    ;; more time (!). 
-    (let* ((m-o-p-list    (if (listp marker-or-pos)
-			      marker-or-pos
-			    (list marker-or-pos)))
-	   (marker-as-list (if (markerp (car m-o-p-list))
-			       m-o-p-list
-			     (mapcar (apply-partially #'lister-pos-as-marker lister-buf)
-				     m-o-p-list))))
-      (with-current-buffer lister-buf
-	(setq lister-local-marker-list
-	      (lister-merge lister-local-marker-list marker-as-list))))))
+    (with-current-buffer lister-buf
+      (setq lister-local-marker-list
+	    (cl-sort (nconc lister-local-marker-list
+			    (mapcar
+			     (apply-partially #'lister-pos-as-marker lister-buf)
+			     (if (listp marker-or-pos)
+				 marker-or-pos
+				(list marker-or-pos))))
+		     #'<)))))
 
 ;; Finding positions
 
