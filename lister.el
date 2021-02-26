@@ -339,6 +339,12 @@ LISTER-BUF is a lister buffer."
 	     (setcdr tail (cons el (cdr tail))))
     (cdr padded-list)))
 
+;; TODO Check who calls this function with a list as its argument.
+;; It's only lister-insert-sequence, I guess, so why don't we just
+;; accept the argument REVERSED? We would not need to reverse the list
+;; in lister--list-insert-at. However, that would make the latter
+;; function quite special (better rename it to ....insert-reversed-at
+;; to make if manifest).
 (defun lister-add-item-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS, or a list of these, to LISTER-BUF.
 Do nothing if `lister-inhibit-marker-list' is t.
