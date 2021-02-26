@@ -316,35 +316,79 @@ LISTER-BUF is a lister buffer."
 
 ;; Add marker to the buffer local marker list
 
-(defun lister-add-item-marker (lister-buf marker-or-pos)
-  "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
-MARKER-OR-POS can be a marker or a pos, or a sorted homogenous
-list of only markers or only positions.
+(cl-defun lister--list-pos-in (l new-value &optional (n 0))
+  "Binary search a position for NEW-VALUE."
+  (let* ((max    (length l))
+	 (middle (/ max 2))
+	 (cand   (elt l middle)))
+    ;; (princ (format "Iteration: max=%d n=%d middle=%d cand=%S \t %S\n"
+    ;; 		   max n middle cand l))
+    (if (= 0 middle)
+	(if (<= new-value cand) n (1+ n))
+      (if (<= new-value cand)
+	  (lister--list-pos-in (butlast l (- max middle)) new-value n)
+	(lister--list-pos-in (nthcdr middle l) new-value (+ n middle))))))
 
+(defun lister--list-insert-at (target-list l n)
+  "Insert list L into TARGET-LIST at position N."
+  ;; https://stackoverflow.com/questions/20821295/how-can-i-insert-into-the-middle-of-a-list-in-elisp
+  (let* ((padded-list (cons nil target-list))
+	 (tail        (nthcdr n padded-list)))
+    (cl-loop for el in (reverse l)
+	     do
+	     (setcdr tail (cons el (cdr tail))))
+    (cdr padded-list)))
+
+(defun lister-add-item-marker (lister-buf marker-or-pos)
+  "Add MARKER-OR-POS, or a list of these, to LISTER-BUF.
 Do nothing if `lister-inhibit-marker-list' is t.
 
-Some special assumptions apply for reasons of speed: (1.) Both
-the buffer local marker list and MARKER-OR-POS are already sorted
-incrementally. (2.) There is no overlapping item in both lists,
-that is, all markers are different from each other. This way, the
-two lists can be simply merged, and it not necessary to sort the
-resulting list (even though using 'sort' actually is not that
-much slower).
-
-Since markers move when some new text is inserted before them,
-condition (2.) is always true when adding markers representing
-the new text."
-  (unless (or lister-inhibit-marker-list
-	      (not marker-or-pos))
+MARKER-OR-POS, if a list, has to sorted in ascending order."
+(unless (or lister-inhibit-marker-list
+	    (not marker-or-pos))
+  ;; transform marker-or-pos to a list of markers:
+  (let ((m-list (mapcar (apply-partially #'lister-make-marker lister-buf)
+			(if (listp marker-or-pos)
+			    marker-or-pos
+			  (list marker-or-pos)))))
+    ;; insert list in buffer local list:
     (with-current-buffer lister-buf
       (setq lister-local-marker-list
-	    (cl-sort (nconc lister-local-marker-list
-			    (mapcar
-			     (apply-partially #'lister-pos-as-marker lister-buf)
-			     (if (listp marker-or-pos)
-				 marker-or-pos
-				(list marker-or-pos))))
-		     #'<)))))
+	    (if (null lister-local-marker-list)
+		m-list
+	      (lister--list-insert-at lister-local-marker-list
+				      m-list
+				      (lister--list-pos-in lister-local-marker-list (car m-list)))))))))
+
+;; (defun lister-add-item-marker (lister-buf marker-or-pos)
+;;   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
+;; MARKER-OR-POS can be a marker or a pos, or a sorted homogenous
+;; list of only markers or only positions.
+
+;; Do nothing if `lister-inhibit-marker-list' is t.
+
+;; Some special assumptions apply for reasons of speed: (1.) Both
+;; the buffer local marker list and MARKER-OR-POS are already sorted
+;; incrementally. (2.) There is no overlapping item in both lists,
+;; that is, all markers are different from each other. This way, the
+;; two lists can be simply merged, and it not necessary to sort the
+;; resulting list (even though using 'sort' actually is not that
+;; much slower).
+
+;; Since markers move when some new text is inserted before them,
+;; condition (2.) is always true when adding markers representing
+;; the new text."
+;;   (unless (or lister-inhibit-marker-list
+;; 	      (not marker-or-pos))
+;;     (with-current-buffer lister-buf
+;;       (setq lister-local-marker-list
+;; 	    (cl-sort (nconc lister-local-marker-list
+;; 			    (mapcar
+;; 			     (apply-partially #'lister-pos-as-marker lister-buf)
+;; 			     (if (listp marker-or-pos)
+;; 				 marker-or-pos
+;; 				(list marker-or-pos))))
+;; 		     #'<)))))
 
 ;; Finding positions
 
@@ -941,12 +985,15 @@ markers."
 	   (seq-type     (type-of seq)))
       (unless (member seq-type '(vector cons))
 	(error "Sequence must be a vector or a list"))
+
       (lister-sensor-leave lister-buf)
+
       (let* ((lister-inhibit-cursor-action t)
 	     (lister-inhibit-marker-list t)
 	     (cursor-sensor-inhibit t)
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
+
 	(seq-doseq (item seq)
 	  ;; For reasons of speed, we build the new marker list in the
 	  ;; 'wrong' decremental order and reverse it afterwards.
