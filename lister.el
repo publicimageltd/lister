@@ -1507,6 +1507,16 @@ Throw an error if the item is not visible."
   (interactive (list (current-buffer) (point)))
   (lister--move-item-vertically buf pos 'down))
 
+(defun lister-move-item-left (buf pos)
+  "Decrease identation, moving item to the left."
+  (interactive (list (current-buffer) (point)))
+  (lister--move-item-horizontally buf pos 'left))
+
+(defun lister-move-item-right (buf pos)
+  "Increase identation, moving item to the right."
+  (interactive (list (current-buffer) (point)))
+  (lister--move-item-horizontally buf pos 'left))
+
 (defun lister-next-item-in-direction (buf pos direction)
   "In BUF, return the next item in DIRECTION.
 Return the position of the next item above or below POS. If there
@@ -1535,7 +1545,7 @@ moved. DIRECTION is either the symbol `up' or `down'."
 	      (= next-pos end-pos))
       (user-error (format "Item cannot be moved further %s" direction)))
     ;; make sure that moving the item retains the level:
-    (let* ((level-current (lister-level-at buf :point))
+    (let* ((level-current (lister-level-at buf pos))
 	   (level-next    (lister-level-at buf next-pos)))
       (when (not (= level-current level-next))
 	(user-error "Items can only be moved within their indentation level."))
@@ -1546,6 +1556,25 @@ moved. DIRECTION is either the symbol `up' or `down'."
 	(setq next-pos (lister-next-item-in-direction buf pos direction))
 	(lister-insert buf next-pos item level-current)
 	(lister-mark-item buf next-pos mark-state)))))
+
+(defun lister--move-item-horizontally (buf pos direction)
+  "Move item left or right, changing its indentation level.
+BUF is a lister buffer. POS is the position of the item to be
+moved. DIRECTION is either the symbol `left' or `right'."
+  (unless (lister-item-p buf pos)
+    (user-error "There is no item at point"))
+  (let* ((level-current (lister-level-at buf pos))
+	 (level-new     (if (eq direction 'right)
+			    (lister-determine-level buf pos (1+ level-current))
+			  (max 0 (1- level-current)))))
+    (if (= level-new level-current)
+	(user-error (format "Cannot move item further %s" direction))
+      ;; the actual movement:     
+      (let* ((mark-state (lister-get-mark-state buf pos))
+	     (data       (lister-get-data buf pos)))
+	(lister-replace buf pos data level-new)))))
+
+
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function
@@ -1693,6 +1722,10 @@ whole list."
     (define-key map "u" 'lister-key-unmark-all-items)
     (define-key map "n" 'next-line)
     (define-key map "p" 'previous-line)
+    (define-key map (kbd "<M-up>")    'lister-move-item-up)
+    (define-key map (kbd "<M-down>")  'lister-move-item-down)
+    (define-key map (kbd "<M-right>") 'lister-move-item-right)
+    (define-key map (kbd "<M-left>")  'lister-move-item-left)
     (define-key map (kbd "RET") #'lister-key-action)
     map)
   "Key map for `lister-mode'.")
