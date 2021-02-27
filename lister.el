@@ -1599,7 +1599,8 @@ moved. DIRECTION is either the symbol `left' or `right'."
       ;; the actual movement:     
       (let* ((mark-state (lister-get-mark-state buf pos))
 	     (data       (lister-get-data buf pos)))
-	(lister-replace buf pos data level-new)))))
+	(lister-replace buf pos data level-new)
+	(lister-mark-item buf pos mark-state)))))
 
 
 
