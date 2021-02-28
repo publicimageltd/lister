@@ -1529,7 +1529,9 @@ moved. DIRECTION is either the symbol `up' or `down'."
   ;; later, we need to rescan this position since we have removed an
   ;; item, which changes all item positions below this item.
   (let* ((next-pos (lister-next-item-in-direction buf pos direction))
-	 (end-pos  (if (eq direction 'up) (lister-item-max buf) (lister-item-min buf))))
+	 (end-pos  (if (eq direction 'up)
+		       (lister-item-min buf)
+		     (lister-item-max buf))))
     (when (or (null next-pos)
 	      ;; NOTE lister-looking-at-prop is buggy, it returns
 	      ;; the position (instead of nil) if point is at eob:
