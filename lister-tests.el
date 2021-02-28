@@ -561,13 +561,13 @@ Optional argument INDENTATION adds an indentation level of n."
     (kill-buffer buf))
   ;;
   (it "insert a list in the right order"
-    (let ((the-sequence '("A" "B" "C" "D")))
-      (lister-insert-sequence buf (lister-marker-at buf :first) the-sequence)
-      (expect (lister-get-all-data buf) :to-equal the-sequence)))
-  (it "inserts vector in the right order"
-    (let ((the-sequence ["A" "B" "C" "D"]))
-      (lister-insert-sequence buf (lister-marker-at buf :first) the-sequence)
-      (expect (lister-get-all-data buf) :to-equal (seq-into the-sequence 'list)))))
+    (let ((some-items '("A" "B" "C" "D")))
+      (lister-insert-sequence buf (lister-marker-at buf :first) some-items)
+      (expect (lister-get-all-data buf) :to-equal some-items)))
+  (it "inserts nested lists"
+    (let ((some-items '("A" "B" ("C" "D" ("E" "F")) "G" "H")))
+      (lister-insert-sequence buf (lister-marker-at buf :first) some-items)
+      (expect (lister-get-all-data-tree buf) :to-equal some-items))))
 
 (describe "lister-add-sequence"
   :var (buf)
@@ -580,31 +580,8 @@ Optional argument INDENTATION adds an indentation level of n."
     (let ((the-sequence '("A" "B" "C" "D")))
       (lister-add-sequence buf the-sequence)
       (lister-add-sequence buf the-sequence)
-      (expect (lister-get-all-data buf) :to-equal (append the-sequence the-sequence))))
+      (expect (lister-get-all-data buf) :to-equal (append the-sequence the-sequence)))))
 
-  ;; this is just for time measurement:
-  (xdescribe "takes its time when it"
-    (it "adds a list with 1.000 items"
-      (lister-add-sequence buf (make-list 1000 "Item")))
-    (it "adds a list with 2.000 items:"
-      (lister-add-sequence buf (make-list 2000 "I am an item")))
-    (it "adds a with 5.000 items:"
-      (lister-add-sequence buf (make-list 5000 "I am an item")))
-    (it "adds a vector with 1.000 items:"
-      (lister-add-sequence buf (make-vector 1000 "Item")))
-    (it "adds a vector with 2.000 items:"
-      (lister-add-sequence buf (make-vector 2000 "I am an item")))
-    (it "adds a vector with 5.000 items:"
-      (lister-add-sequence buf (make-vector 5000 "I am an item")))
-    (it "adds and removes a list with 1.000 items:"
-      (lister-add-sequence buf  (make-list 1000 "Item"))
-      (lister-remove-this-level buf (lister-item-min buf)))
-    (it "adds and removes a list with 2.000 items:"
-      (lister-add-sequence buf (make-list 2000 "Item"))
-      (lister-remove-this-level buf (lister-item-min buf)))
-    (it "adds and removes a list with 5.000 items:"
-      (lister-add-sequence buf (make-list 5000 "Item"))
-      (lister-remove-this-level buf (lister-item-min buf)))))
 
 ;; * Showing / Hiding items
 
@@ -836,34 +813,28 @@ Optional argument INDENTATION adds an indentation level of n."
   (after-each
     (kill-buffer buf))
   ;;
-  (describe "lister-add-sequence "
+  (describe "lister-add-sequence"
     (it "assigns nested lists a higher level"
       (lister-add-sequence buf some-items)
-      (let (acc)
-	(lister-walk-all buf (lambda (_) (push (lister-level-at buf (point)) acc)))
-	(setq acc (reverse acc))
-	(expect acc :to-equal '(0 0 1 1 0 1 1)))))
-  (describe "lister-get-all-data-tree "
+      (let ((res (lister-walk-all buf (lambda (_) (lister-level-at buf (point))))))
+	(expect res :to-equal '(0 0 1 1 0 1 1)))))
+  (describe "lister-get-all-data-tree"
     (it "returns the nested list"
       (lister-add-sequence buf some-items)
       (expect (lister-get-all-data-tree buf)) :to-equal some-items))
   (describe "lister-add"
-    (it "sets level as told by optional argument"
+    (it "inserts according to requested level"
       (lister-add buf "Item1")
       (lister-add buf "Subitem1" 1)
       (lister-add buf "Item2" 0)
       (expect (lister-get-all-data-tree buf)
 	      :to-equal '("Item1" ("Subitem1") "Item2")))
-    (it "silently corrects level of top item if > 0:"
+    (it "silently forces level of top item to be 0"
       (lister-add buf "Item1" 1)
       (expect (lister-level-at buf :first) :to-be 0))
-    (it "silently corrects level of inserted item so that it only indents one more"
+    (it "silently aligns exceeding indentation"
       (lister-add buf "Item1" 0)
       (let ((m (lister-add buf "Item2" 3)))
-	(expect (lister-level-at buf m) :to-be 1)))
-    (it "does not change the level of the new item if it only indents one more"
-      (lister-add buf "Item1" 0)
-      (let ((m (lister-add buf "Item2" 1)))
 	(expect (lister-level-at buf m) :to-be 1))))
 
   (describe "lister-remove-this-level"
@@ -920,7 +891,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-equal (seq-filter #'cl-evenp walk-path))))))
       
 
-(describe "Use a callback function:"
+(describe "Callback function"
   :var (value buf callbackfn some-items)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer))
@@ -934,17 +905,17 @@ Optional argument INDENTATION adds an indentation level of n."
     (setq value nil))
   (after-each
     (kill-buffer buf))
-  ;;
-  (it "Call the callback when entering item."
+
+  (it "Call the callback when entering item"
     (lister-add-enter-callback buf callbackfn)
     (lister-goto buf :last)
     (expect value :to-equal "D"))
-  (it "Call the callback when leaving item."
+  (it "Call the callback when leaving item"
     (lister-add-leave-callback buf callbackfn)
     (lister-goto buf :last)
     (lister-goto buf :first)
     (expect value :to-equal "D"))
-  (it "Do not call callback within `lister-with-locked-cursor'"
+  (it "Inhibit callback with `lister-with-locked-cursor'"
     (lister-add-enter-callback buf callbackfn)
     (let (in-between-value)
       (lister-goto buf :first)
