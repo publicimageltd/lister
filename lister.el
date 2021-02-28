@@ -1398,7 +1398,7 @@ recursively and should be nil."
 		  (setq push-item item
 			walk (cdr walk))
 		(setq push-item (lister-group-by-level walk (1+ level))
-		      walk (nthcdr (length push-item) walk)))
+		      walk (nthcdr (length (lister--flatten push-item)) walk)))
 	      (push push-item res)
 	      walk))))
     (nreverse res)))
