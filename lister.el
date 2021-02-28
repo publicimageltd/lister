@@ -1378,48 +1378,12 @@ levels or hierarchies."
 
 ;; Get data as tree:
 
-;; ;; TODO add option to also build a vector list
-;; (cl-defun lister-group-by-level (l level-fn &optional (map-fn #'identity))
-;;   "Build a tree from the flat list L.
-;; L is a flat list. LEVEL-FN is called with each element and has to
-;; return the intended nesting level (as an integer). Elements with
-;; the same associated level are treated as one list; elements with
-;; higher levels are stored into sublists of this list.
-
-;; MAP-FN can be used to additionally transform the elements when
-;; building the tree.
-
-;; Example:
-;;   ;; use the cadr of each item as the level (level-fn);
-;;   ;; use the car as the item itself (map-fn)  
-;;   (lister-group-by-level '((a 0) (b 1) (c 1) (d 0)) #'cl-second #'cl-first)
-;;  -> (a (b c) d)"
-;;   (let* ((push-item  nil)
-;; 	 (item       (car l))
-;; 	 (level      (funcall level-fn item))
-;; 	 (res        (list (funcall map-fn item))) ;; change this for vectors
-;; 	 (walk       (cdr l)))
-;;     (while walk
-;;       (let* ((new-item  (car walk))
-;; 	     (new-level (funcall level-fn new-item)))
-;; 	(if (> level new-level)
-;; 	    (setq walk nil)
-;; 	  (if (= level new-level)
-;; 	      (setq push-item (funcall map-fn new-item)
-;; 		    walk (cdr walk))
-;; 	    (setq push-item (lister-group-by-level walk level-fn map-fn)
-;; 		  walk (seq-drop walk (length push-item))))
-;; 	  ;; change this for vectors
-;; 	  (push push-item res))))
-;;     (reverse res)))
-
-
 (defun lister-group-by-level (l &optional start-level)
   "Map L to a tree.
 L is a list of cons cells, each pairing the item and its
-associated nesting level, e.g. (a 0). Nesting begins with 0.
-START-LEVEL is used to construct the list recursively and should
-be nil."
+associated nesting level, e.g. ((a 0) (b 0) (c 1)). Nesting
+begins with 0. START-LEVEL is used to construct the list
+recursively and should be nil."
   (let (push-item
 	res
 	(level (or start-level 0))
@@ -1601,7 +1565,6 @@ moved. DIRECTION is either the symbol `left' or `right'."
 	     (data       (lister-get-data buf pos)))
 	(lister-replace buf pos data level-new)
 	(lister-mark-item buf pos mark-state)))))
-
 
 
 ;; -----------------------------------------------------------
