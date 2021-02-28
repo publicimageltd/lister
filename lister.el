@@ -1455,7 +1455,7 @@ Return the accumulated results of all executed actions."
 	;; NOTE This could slow things down if we are traversing very
 	;; long lists. For such cases, accumulation should be
 	;; optional.
-	(reverse acc)))))
+	(nreverse acc)))))
 
 (defun lister-walk-all (lister-buf action &optional pred)
   "In LISTER-BUF, execute ACTION for each item matching PRED.
