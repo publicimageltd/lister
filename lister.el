@@ -1470,12 +1470,12 @@ Throw an error if the item is not visible."
 (defun lister-move-item-up (buf pos)
   "Move item up."
   (interactive (list (current-buffer) (point)))
-  (lister--move-item-vertically buf pos 'up))
+  (lister--move-item-vertically buf pos 'previous))
 
 (defun lister-move-item-down (buf pos)
   "Move item down."
   (interactive (list (current-buffer) (point)))
-  (lister--move-item-vertically buf pos 'down))
+  (lister--move-item-vertically buf pos 'next))
 
 (defun lister-move-item-left (buf pos)
   "Decrease identation, moving item to the left."
@@ -1487,45 +1487,29 @@ Throw an error if the item is not visible."
   (interactive (list (current-buffer) (point)))
   (lister--move-item-horizontally buf pos 'left))
 
-(defun lister-next-item-in-direction (buf pos direction)
-  "In BUF, return the next item in DIRECTION.
-Return the position of the next item above or below POS. If there
-is no such item, return the position of the first or last item
-instead. DIRECTION can be the symbol `up' or `down'."
-  (or (lister-looking-at-prop buf pos 'item
-			      (if (eq direction 'up) 'previous 'next))
-      (if (eq direction 'up)
-	  (lister-item-min buf)
-	(lister-item-max buf))))
-
 (defun lister--move-item-vertically (buf pos direction)
   "Move item up or down.
 BUF is a lister buffer. POS is the position of the item to be
-moved. DIRECTION is either the symbol `up' or `down'."
+moved. DIRECTION is either the symbol `previous' or `next'."
   (unless (lister-item-p buf pos)
     (user-error "There is no item at point"))
-  ;; we first check if there is an item above or below.
-  ;; later, we need to rescan this position since we have removed an
-  ;; item, which changes all item positions below this item.
-  (let* ((next-pos (lister-next-item-in-direction buf pos direction))
-	 (end-pos  (if (eq direction 'up)
-		       (lister-item-min buf)
-		     (lister-item-max buf))))
-    (when (or (null next-pos)
-	      ;; NOTE lister-looking-at-prop is buggy, it returns
-	      ;; the position (instead of nil) if point is at eob:
-	      (= next-pos end-pos))
-      (user-error (format "Item cannot be moved further %s" direction)))
+  ;; first check if there is an item above or below.
+  (let* ((next-pos (lister-looking-at-prop buf pos 'item direction)))
+    (unless next-pos
+      (user-error (format "Item cannot be moved in that direction")))
     ;; make sure that moving the item retains the level:
     (let* ((level-current (lister-level-at buf pos))
 	   (level-next    (lister-level-at buf next-pos)))
       (when (not (= level-current level-next))
-	(user-error "Items can only be moved within their indentation level."))
+	(user-error "Items can only be moved within their indentation level"))
       ;; the actual movement:
       (let* ((item       (lister-get-data buf pos))
 	     (mark-state (lister-get-mark-state buf pos)))
 	(lister-remove buf pos)
-	(setq next-pos (lister-next-item-in-direction buf pos direction))
+	(setq next-pos (pcase direction
+			 ('previous  next-pos)
+			 ('next      (or (lister-looking-at-prop buf pos 'item 'next)
+					 (lister-next-free-position buf)))))
 	(lister-insert buf next-pos item level-current)
 	(lister-mark-item buf next-pos mark-state)))))
 
