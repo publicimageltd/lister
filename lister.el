@@ -886,41 +886,24 @@ all items."
 
 ;; Utilities for insertion 
 
-;; REVIEW Who calls this function? Is it any other function than
-;;        insert-lines?
-;;
 (defun lister-determine-level (lister-buf pos-or-marker level)
-  "Determine the indentation level for new items at POS-OR-MARKER.
-LEVEL can be nil, an integer or the symbols `:previous' or `:current'.
+  "Return the indentation level for new items at POS-OR-MARKER.
+LEVEL can be nil or an integer. 
 
-It is assumed that the return value will be used to insert a new
-item at POS-OR-MARKER.
+If LEVEL is nil, return the level of the previous item or 0.
 
-If LEVEL is an integer, check it against the level of the
-previous (visible or invisible) item. If LEVEL is below or equal
-this previous item's level, return it unchanged. If LEVEL is
-greater, return the previous items's level + 1, thus making sure
-that no 'level gap' is introduced when inserting. 
-
-If LEVEL is nil or the symbol `:previous', return the level of
-the previous item, thus preserving its indentation for the new
-item.
-
-If LEVEL is the symbol `:current', return the level of the item
-at point or 0 if there is no such item.
-
-If the result value is below 0, always return 0.
+If LEVEL is an integer, return it unchanged if it is below or
+equal the previous item's level, else return the previous item's
+level + 1.
 
 LISTER-BUF is a lister buffer."
-  (let* ((item-level (get-text-property pos-or-marker 'level lister-buf))
-	 (prev-pos   (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous))
-	 (prev-level (and prev-pos (get-text-property prev-pos 'level lister-buf))))
-    (max 0 
+  (let* ((prev-pos       (lister-looking-at-prop lister-buf pos-or-marker 'level 'previous))
+	 (prev-level     (and prev-pos (get-text-property prev-pos 'level lister-buf))))
+
+    (max 0
 	 (cond
-	  ((null prev-level)      0) ;; there's no previous level, thus no indentation
+	  ((null prev-pos)        0)  ;; no previous level
 	  ((null level)           prev-level)
-	  ((eq level :previous)   prev-level)
-	  ((eq level :current)    (or item-level 0))
 	  ((> level prev-level)   (1+ prev-level))
 	  (t                      level)))))
 
