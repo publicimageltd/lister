@@ -931,7 +931,7 @@ add an item to the end of the list, use `lister-add'."
 	   (marker        (lister-insert-lines lister-buf
 					       marker-or-pos
 					       (funcall (buffer-local-value 'lister-local-mapper lister-buf) data)
-					       (lister-determine-level lister-buf marker-or-pos (or level 0)))))
+					       (lister-determine-level lister-buf marker-or-pos level))))
       ;;
       (lister-set-data lister-buf marker data)
       (lister-add-props lister-buf marker
