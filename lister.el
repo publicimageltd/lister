@@ -218,21 +218,15 @@ field is used. See `remove-text-properties', which is called."
 
 (defun lister-looking-at-prop (lister-buf pos-or-marker prop direction)
   "Looking at the previous or next item, return position of PROP.
-If there is no property, return nil.
-
-DIRECTION can be the symbol `previous' or the symbol `next'.
-
-This function assumes that POS-OR-MARKER is pointing to the
-cursor gap of an item, and that PROP is restricted to the cursor
-gap of the next or previous item.
+DIRECTION can be the symbol `previous' or the symbol `next'. If
+there is no property in the requested direction, return nil.
 
 LISTER-BUF is a lister buffer."
-  (and
-   (get-text-property pos-or-marker prop lister-buf)
-   (pcase direction
-     ('next     (next-single-property-change (1+ pos-or-marker) prop lister-buf))
-     ('previous (when-let ((res (previous-single-property-change pos-or-marker  prop lister-buf)))
-		  (1- res))))))
+  (pcase direction
+    ('next     (unless (eobp)
+		 (next-single-property-change (1+ pos-or-marker) prop lister-buf)))
+    ('previous (when-let ((res (previous-single-property-change pos-or-marker  prop lister-buf)))
+		 (1- res)))))
 
 
 ;; -----------------------------------------------------------
