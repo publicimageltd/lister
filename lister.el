@@ -223,38 +223,17 @@ If there is no property, return nil.
 DIRECTION can be the symbol `previous' or the symbol `next'.
 
 This function assumes that POS-OR-MARKER is pointing to the
-cursor gap of an item.
+cursor gap of an item, and that PROP is restricted to the cursor
+gap of the next or previous item.
 
 LISTER-BUF is a lister buffer."
-  (let (pos)
-    (if (eq direction 'previous)
-	;; looking back:
-	(let* ((limit (lister-item-min lister-buf)))
-	  (if (= limit pos-or-marker)
-	      (setq pos nil)
-	    (setq pos (previous-single-property-change
-		       pos-or-marker
-		       prop
-		       lister-buf
-		       limit))
-	    (setq pos (and pos (max 1 (1- pos))))))
-      ;; looking towards the end:
-      (let* ((limit (lister-item-max lister-buf)))
-	(if (= limit pos-or-marker)
-	    (setq pos nil)
-	  (setq pos (next-single-property-change
-		     pos-or-marker
-		     prop
-		     lister-buf
-		     limit))
-	  (setq pos (and pos
-			 (next-single-property-change
-			  pos
-			  prop
-			  lister-buf
-			  limit))))))
-    ;;
-    pos))
+  (and
+   (get-text-property pos-or-marker prop lister-buf)
+   (pcase direction
+     ('next     (next-single-property-change (1+ pos-or-marker) prop lister-buf))
+     ('previous (when-let ((res (previous-single-property-change pos-or-marker  prop lister-buf)))
+		  (1- res))))))
+
 
 ;; -----------------------------------------------------------
 ;; * Safety checks
