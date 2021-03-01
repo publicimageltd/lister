@@ -655,21 +655,19 @@ inserted."
     (lister-remove-lines buf marker-or-pos)
     (lister-insert-lines buf marker-or-pos new-lines level)))
 
-(defun lister-end-of-lines (buf marker-or-pos &optional no-error)
+(defun lister-end-of-lines (buf marker-or-pos &optional no-error) 
   "Get the end position of the 'lines' element at MARKER-OR-POS in BUF.
-A 'lines' element can be the header, a list item or the footer.
+A 'lines' element can be a list item or a static item, such as a
+header or footer.
 
 Effectively, the value returned is the position of the cursor gap
-of the next item (if there is any).
+of the next (possible) item after the item at POS-OR-MARKER.
 
-Internally, the text property symbol `nchars' is used to
-determine the size of the item. An error will be thrown if this
-text property is not avaible. You can turn that off by setting
-NO-ERROR."
+An error will be thrown if there is no item at POS-OR-MARKER. If
+NO-ERROR is non-nil, return nil in that case."
   (if-let* ((nchars (lister-get-prop buf marker-or-pos 'nchars)))
       (+ marker-or-pos nchars)
-    (if no-error
-        (lister-pos-as-integer marker-or-pos)
+    (unless no-error
       (error "Did not find text property 'nchars at buffer position %d"
 	     (lister-pos-as-integer marker-or-pos)))))
 
