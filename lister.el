@@ -932,7 +932,7 @@ add an item to the end of the list, use `lister-add'."
 					       marker-or-pos
 					       (funcall (buffer-local-value 'lister-local-mapper lister-buf) data)
 					       (lister-determine-level lister-buf marker-or-pos level))))
-      ;;
+
       (lister-set-data lister-buf marker data)
       (lister-add-props lister-buf marker
 			'cursor-sensor-functions
