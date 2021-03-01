@@ -1485,7 +1485,7 @@ Throw an error if the item is not visible."
 (defun lister-move-item-right (buf pos)
   "Increase identation, moving item to the right."
   (interactive (list (current-buffer) (point)))
-  (lister--move-item-horizontally buf pos 'left))
+  (lister--move-item-horizontally buf pos 'right))
 
 (defun lister--move-item-vertically (buf pos direction)
   "Move item up or down.
@@ -1520,9 +1520,9 @@ moved. DIRECTION is either the symbol `left' or `right'."
   (unless (lister-item-p buf pos)
     (user-error "There is no item at point"))
   (let* ((level-current (lister-level-at buf pos))
-	 (level-new     (if (eq direction 'right)
-			    (lister-determine-level buf pos (1+ level-current))
-			  (max 0 (1- level-current)))))
+	 (level-new     (pcase direction
+			  ('right (lister-determine-level buf pos (1+ level-current)))
+			  ('left  (max 0 (1- level-current))))))
     (if (= level-new level-current)
 	(user-error (format "Cannot move item further %s" direction))
       ;; the actual movement:     
