@@ -993,15 +993,11 @@ markers."
 
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
   "Insert SEQ as an indented sublist below the item at POS-OR-MARKER."
-  (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
-	      ;; we don't want the cursor to pop up at the end of the
-	      ;; inserted list, since this calls the sensor functions.
-	      ;; So we handle this on our own instead of letting
-	      ;; lister-insert-sequence do it:
-	      (lister-inhibit-cursor-action t))
-    (lister-insert-sequence lister-buf next-item seq (1+ (lister-level-at lister-buf pos-or-marker)))
-    ;; lister-goto calls both sensor-leave and sensor-enter
-    (lister-goto lister-buf pos-or-marker)))
+  (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker t)))
+    (lister-with-locked-cursor lister-buf
+      (lister-insert-sequence lister-buf next-item seq (1+ (lister-level-at lister-buf pos-or-marker))))))
+
+;;    (lister-goto lister-buf pos-or-marker)))
 
 ;; Add single item to the end of the list
 
