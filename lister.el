@@ -1185,7 +1185,6 @@ is no item at POS-OR-SYMBOL."
 
 ;; Marking a single item
 
-;; TODO Write a test
 (defun lister-markable-p (lister-buf position-or-symbol)
   "Checks if item at POSITION-OR-SYMBOL can be marked."
   (let ((pred-fn (buffer-local-value 'lister-local-marking-predicate lister-buf)))

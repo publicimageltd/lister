@@ -48,16 +48,16 @@ Return the buffer object"
 
 (defun lister-test-positions-of (l &optional indentation)
   "Return a list of expected positions for inserting L.
-L has to be a list of strings. The results are only valid in a
-buffer with no margins, and if the items are inserted with no
-indentation level.
+L has to be a list of items which can be printed with format
+'%s'. The results are only valid in a buffer with no margins, and
+if the items are inserted with no indentation level.
 
 Optional argument INDENTATION adds an indentation level of n."
   (let (acc (last-pos 1))
     (cl-dolist (item l)
       (push last-pos acc)
       (setq last-pos (+ last-pos (or indentation 0)
-			(1+ (length item)))))
+			(1+ (length (format "%s" item))))))
     (reverse acc)))
 
 (defun lister-test-expected-content (l &optional header footer indentation)
@@ -1011,33 +1011,43 @@ Optional argument INDENTATION adds an indentation level of n."
       (expect value :to-equal "A")
       (expect in-between-value :to-equal "A"))))
 
-;; REVIEW 
 (describe "Mark and unmark items"
   :var (buf data)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer))
-    (setq data '("A" "B" "C" "D"))
+    (setq data '("A" "B" 1 2 3 "C" "D"))
     (lister-add-sequence buf data))
   (after-each
     (kill-buffer buf))
   ;;
-  (it "Mark a single item and check text properties"
-    (let* ((m (seq-random-elt
-	       (with-current-buffer buf lister-local-marker-list))))
-      (lister-mark-item buf m t)
-      (expect (get-text-property m 'mark buf) :to-be  t)
-      (expect (lister-get-mark-state buf m)   :to-be  t)))
-  (it "Mark a single item, unmark it, check text properties"
-    (let* ((m (seq-random-elt
-	       (with-current-buffer buf lister-local-marker-list))))
-      (lister-mark-item buf m t)
-      (lister-mark-item buf m nil)
-      (expect (get-text-property m 'mark buf) :to-be  nil)
-      (expect (lister-get-mark-state buf m)   :to-be  nil)))
-  (xit "Mark all items, return marked values"
-    (lister-mark-all-items buf t)
-    (expect  (lister-all-marked-items buf)
-	     :to-equal (lister-get-all-data buf))))
+  (describe "lister-mark-item:"
+    (it "marks a single item"
+      (let* ((m (seq-random-elt
+		 (with-current-buffer buf lister-local-marker-list))))
+	(lister-mark-item buf m t)
+	(expect (get-text-property m 'mark buf) :to-be  t)
+	(expect (lister-get-mark-state buf m)   :to-be  t)))
+    (it "unmarks a single item"
+      (let* ((m (seq-random-elt
+		 (with-current-buffer buf lister-local-marker-list))))
+	(lister-mark-item buf m t)
+	(lister-mark-item buf m nil)
+	(expect (get-text-property m 'mark buf) :to-be  nil)
+	(expect (lister-get-mark-state buf m)   :to-be  nil))))
+
+  (describe "lister-markable-p:"
+    (it "identifies markable items according to buffer local predicate"
+      (with-current-buffer buf
+	(setq lister-local-marking-predicate #'numberp))
+      (expect (mapcar (lambda (pos) (lister-markable-p buf pos))
+		      (lister-test-positions-of data))
+	      :to-equal
+	      (mapcar #'numberp data)))))
+    
+  ;; (xit "Mark all items, return marked values"
+  ;;   (lister-mark-all-items buf t)
+  ;;   (expect  (lister-all-marked-items buf)
+  ;; 	     :to-equal (lister-get-all-data buf))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
