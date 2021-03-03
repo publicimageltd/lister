@@ -223,9 +223,9 @@ there is no property in the requested direction, return nil.
 
 LISTER-BUF is a lister buffer."
   (pcase direction
-    ('next     (unless (eobp)
+    ('next     (unless (= pos-or-marker (point-max))
 		 (next-single-property-change (1+ pos-or-marker) prop lister-buf)))
-    ('previous (when-let ((res (previous-single-property-change pos-or-marker  prop lister-buf)))
+    ('previous (when-let ((res (previous-single-property-change pos-or-marker prop lister-buf)))
 		 (1- res)))))
 
 
