@@ -995,8 +995,6 @@ markers."
     (lister-with-locked-cursor lister-buf
       (lister-insert-sequence lister-buf next-item seq (1+ (lister-level-at lister-buf pos-or-marker))))))
 
-;;    (lister-goto lister-buf pos-or-marker)))
-
 ;; Add single item to the end of the list
 
 (defun lister-add (lister-buf data &optional level)
