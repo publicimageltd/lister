@@ -339,36 +339,6 @@ MARKER-OR-POS, if a list, has to sorted in ascending order."
 				      m-list
 				      (lister--list-pos-in lister-local-marker-list (car m-list)))))))))
 
-;; (defun lister-add-item-marker (lister-buf marker-or-pos)
-;;   "Add MARKER-OR-POS to the local marker list of LISTER-BUF.
-;; MARKER-OR-POS can be a marker or a pos, or a sorted homogenous
-;; list of only markers or only positions.
-
-;; Do nothing if `lister-inhibit-marker-list' is t.
-
-;; Some special assumptions apply for reasons of speed: (1.) Both
-;; the buffer local marker list and MARKER-OR-POS are already sorted
-;; incrementally. (2.) There is no overlapping item in both lists,
-;; that is, all markers are different from each other. This way, the
-;; two lists can be simply merged, and it not necessary to sort the
-;; resulting list (even though using 'sort' actually is not that
-;; much slower).
-
-;; Since markers move when some new text is inserted before them,
-;; condition (2.) is always true when adding markers representing
-;; the new text."
-;;   (unless (or lister-inhibit-marker-list
-;; 	      (not marker-or-pos))
-;;     (with-current-buffer lister-buf
-;;       (setq lister-local-marker-list
-;; 	    (cl-sort (nconc lister-local-marker-list
-;; 			    (mapcar
-;; 			     (apply-partially #'lister-pos-as-marker lister-buf)
-;; 			     (if (listp marker-or-pos)
-;; 				 marker-or-pos
-;; 				(list marker-or-pos))))
-;; 		     #'<)))))
-
 ;; Finding positions
 
 (defun lister-eval-pos-or-symbol (lister-buf position-or-symbol)
