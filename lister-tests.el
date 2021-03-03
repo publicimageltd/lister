@@ -294,13 +294,24 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "looks at previous item and returns nil if there is none"
       (expect (lister-looking-at-prop buf 1 'item 'previous) :to-be nil))
     (it "looks at previous item and returns its position"
-      (lister-add buf "A") ;; = pos 1
-      (lister-add buf "A") ;; = pos 3
-      (expect (lister-looking-at-prop buf 1 'item 'next)     :to-be 3))
+      (let* ((some-items     '("ABER" "DAS" "IST" "SINNLOS"))
+	     (some-positions (lister-test-positions-of some-items)))
+	(cl-dolist (item  some-items)
+	  (lister-add buf item))
+	(let ((n 2))	  
+	  (expect (lister-looking-at-prop buf (elt some-positions n) 'item 'previous)
+		  :to-be (elt some-positions (1- n))))))
     (it "looks at next item and returns its position"
-      (lister-add buf "A") ;; = pos 1
-      (lister-add buf "A") ;; = pos 3
-      (expect (lister-looking-at-prop buf 3 'item 'previous) :to-be 1)))
+      (let* ((some-items     '("ABER" "DAS" "IST" "SINNLOS"))
+	     (some-positions (lister-test-positions-of some-items)))
+	(expect some-positions :to-equal '(1 6 10 14))
+	(cl-dolist (item  some-items)
+	  (lister-add buf item))
+	(expect (lister-get-all-data buf) :to-equal some-items)
+	(expect (elt some-positions 2) :to-be 10)
+	(let ((n 2))
+	  (expect (lister-looking-at-prop buf (elt some-positions n) 'item 'next)
+		  :to-be (elt some-positions (1+ n)))))))
 
   (describe "lister-rescan-item-markers:"
     (it "returns the correct positions for all items:"
@@ -673,6 +684,41 @@ Optional argument INDENTATION adds an indentation level of n."
 	  (lister-remove buf :last))
 	(expect (with-current-buffer buf (point))
 		:to-be expected-last-item)))))
+
+;; * Editing
+
+(describe "Editing:"
+  :var (buf some-items)
+  (before-each
+    (setq buf (lister-test-setup-minimal-buffer))
+    (setq some-items '("1" "2" "3" "4" "5" "6" "7"))
+    (lister-add-sequence buf some-items))
+  (after-each
+    (kill-buffer buf))
+
+  (describe "lister-move-item-up"
+    (it "throws error if called on top item"
+      (lister-goto buf :first)
+      (with-current-buffer buf
+	(expect (lister-move-item-up (current-buffer) (point)) :to-throw)))
+    (it "moves last item up"
+      (lister-goto buf :last)
+      (with-current-buffer buf 
+	(lister-move-item-up (current-buffer) (point))
+	(expect (lister-get-all-data buf) :to-equal '("1" "2" "3" "4" "5" "7" "6"))))
+    (it "moves item from bottom to top"
+      (lister-goto buf :last)
+      (with-current-buffer buf 
+	(cl-loop for i from 1 below (length some-items)
+		 do
+		 (lister-move-item-up (current-buffer) (point)))
+	(expect (lister-get-all-data buf) :to-equal '("7" "1" "2" "3" "4" "5" "6")))))
+
+  (describe "lister-move-item-down"
+    (it "throws error if called on bottom item"
+       (lister-goto buf :last)
+       (with-current-buffer buf
+	 (expect (lister-move-item-down (current-buffer) (point)) :to-throw)))))
 
 ;; * Index
 
