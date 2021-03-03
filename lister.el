@@ -973,10 +973,9 @@ Return the marker of the added item's cursor gap position."
 
 (defun lister-add-sequence (lister-buf seq &optional level)
   "Add SEQ as items to LISTER-BUF with indentation LEVEL.
-SEQ must be either a vector or a list.  Traverse SEQ and store its
-elements as data into the newly created list items.  Any element of
-the same type as SEQ will be interpreted as a nested list,
-i.e. (item1 item2 (subitem1 subitem2) item3).
+Despite its name, SEQ must be a list. Traverse SEQ and store its
+elements as data into the newly created list items. Nested lists
+will be represented as sublists.
 
 LEVEL determines the level of indentation. When LEVEL is nil,
 insert SEQ at the level defined by the item at point. For all
