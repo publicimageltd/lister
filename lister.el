@@ -290,12 +290,14 @@ LISTER-BUF is a lister buffer."
 ;; Add marker to the buffer local marker list
 
 (cl-defun lister--list-pos-in (l new-value &optional (n 0))
-  "Binary search a position for NEW-VALUE."
+  "Find index position to insert NEW-VALUE in an ordered list.
+L has to be a list of numbers or markers sorted in ascending
+order. The return value is the zero-based index position of L,
+pointing to an item which is either equal or smaller than
+NEW-VALUE."
   (let* ((max    (length l))
 	 (middle (/ max 2))
 	 (cand   (elt l middle)))
-    ;; (princ (format "Iteration: max=%d n=%d middle=%d cand=%S \t %S\n"
-    ;; 		   max n middle cand l))
     (if (= 0 middle)
 	(if (<= new-value cand) n (1+ n))
       (if (<= new-value cand)
@@ -303,7 +305,9 @@ LISTER-BUF is a lister buffer."
 	(lister--list-pos-in (nthcdr middle l) new-value (+ n middle))))))
 
 (defun lister--list-insert-at (target-list l n)
-  "Insert list L into TARGET-LIST at position N."
+  "Destructively insert list L into TARGET-LIST at position N.
+This function returns the modified list, but also modifies
+TARGET-LIST."
   ;; https://stackoverflow.com/questions/20821295/how-can-i-insert-into-the-middle-of-a-list-in-elisp
   (let* ((padded-list (cons nil target-list))
 	 (tail        (nthcdr n padded-list)))
@@ -312,12 +316,6 @@ LISTER-BUF is a lister buffer."
 	     (setcdr tail (cons el (cdr tail))))
     (cdr padded-list)))
 
-;; TODO Check who calls this function with a list as its argument.
-;; It's only lister-insert-sequence, I guess, so why don't we just
-;; accept the argument REVERSED? We would not need to reverse the list
-;; in lister--list-insert-at. However, that would make the latter
-;; function quite special (better rename it to ....insert-reversed-at
-;; to make if manifest).
 (defun lister-add-item-marker (lister-buf marker-or-pos)
   "Add MARKER-OR-POS, or a list of these, to LISTER-BUF.
 Do nothing if `lister-inhibit-marker-list' is t.

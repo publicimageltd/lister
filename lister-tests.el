@@ -147,6 +147,45 @@ Optional argument INDENTATION adds an indentation level of n."
 ;; -----------------------------------------------------------
 ;; The tests.
 
+(describe "Utility functions:"
+  (describe "lister--list-pos-in:"
+    (it "returns the gap positions between sorted items"
+      (let* ((pos-list (number-sequence 0 20 2))
+	     (new-list (number-sequence 1 20 2)))
+	(expect
+	 (mapcar (lambda (it) (elt pos-list it))
+		 (mapcar (lambda (it)
+			   (lister--list-pos-in pos-list it))
+			 new-list))
+	 :to-equal (cdr pos-list))))
+    (it "returns the item positions if new values matches the items"
+      (let* ((pos-list (number-sequence 0 20 2)))
+	(expect (mapcar (lambda (it) (elt pos-list it))
+			(mapcar (lambda (it)
+				  (lister--list-pos-in pos-list it))
+				pos-list))
+		:to-equal pos-list)))
+    (it "returns (length l) if new value is bigger than all items"
+      (let* ((pos-list (number-sequence 0 20)))
+	(expect (lister--list-pos-in pos-list 20000)
+		:to-be (length pos-list)))))
+
+  (describe "lister--list-insert-at:"
+    (it "inserts a new list at specified position"
+      (let* ((old-list (number-sequence 0 10))
+	     (new-list '("A" "B" "C")))
+	(expect (lister--list-insert-at old-list new-list 4)
+		:to-equal
+		'(0 1 2 3 "A" "B" "C" 4 5 6 7 8 9 10))))
+    (it "modifies the first argument"
+      (let* ((old-list (number-sequence 0 10))
+	     (old-list-copy (append old-list nil))
+	     (new-list '("A" "B" "C")))
+	(lister--list-insert-at old-list new-list (length old-list))
+	(expect old-list
+		:to-equal
+		(append old-list-copy new-list))))))
+
 (describe "lister-insert-lines:"
   :var (buf)
   (before-each
