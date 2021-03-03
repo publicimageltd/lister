@@ -1112,8 +1112,6 @@ Preserve the indentation level or use NEW-LEVEL."
       (lister-remove lister-buf pos-marker)
       (lister-insert lister-buf pos-marker data level))))
 
-;; NOTE There is currently no function to replace sublists
-
 ;; * Replace the whole buffer list (set the list)
 
 (defun lister-set-list (lister-buf seq)
@@ -1133,8 +1131,6 @@ SEQ can be nested to insert hierarchies."
 
 ;; -----------------------------------------------------------
 ;; * Marking and unmarking items
-
-;; REVIEW A more appropriate semantics would to 'highlight' the item.
 
 ;; Visually reflect the mark state
 
@@ -1352,10 +1348,7 @@ Return the accumulated results of all executed actions."
 	    (let ((data (lister-get-data lister-buf item)))
 	      (when (or (null predicate)
 			(funcall predicate data))
-		(setq acc (cons (funcall action data) acc))))))
-	;; NOTE This could slow things down if we are traversing very
-	;; long lists. For such cases, accumulation should be
-	;; optional.
+		(push (funcall action data) acc)))))
 	(nreverse acc)))))
 
 (defun lister-walk-all (lister-buf action &optional pred)
