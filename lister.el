@@ -896,10 +896,14 @@ add an item to the end of the list, use `lister-add'."
 	(unless (funcall fn data)
 	  (lister-hide-item lister-buf marker-or-pos)))
 
+      ;; add marker to marker list:
       (lister-add-item-marker lister-buf marker)
+
+      ;; update display
       (with-current-buffer lister-buf
 	(goto-char marker))
       (lister-sensor-enter lister-buf)
+
       marker)))
 
 ;; Insert sequences of items
