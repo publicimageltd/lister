@@ -795,20 +795,6 @@ buffer current, you might as well that function directly."
 
 ;; * The actual filtering:
 
-;; REVIEW Maybe this could be moved completely into the insert
-;;        function. Is it used anywhere else?
-(defun lister-maybe-hide-item (lister-buf marker-or-pos data)
-  "Hide item at MARKER-OR-POS if it matches the local filter.
-
-Hide item if the result of applying the local filter function
-returns nil; else leave it untouched.
-
-Since is for hiding items after inserting it. If you want to
-either hide or show an item, use `lister-set-item-invisibility'."
-  (when-let ((fn (buffer-local-value 'lister-local-filter-fn lister-buf)))
-    (unless (funcall fn data)
-      (lister-hide-item lister-buf marker-or-pos))))
-
 (defun lister-filter--all-items (lister-buf filter-fn)
   "In LISTER-BUF, set visibility of each item according to FILTER-FN.
 
@@ -899,11 +885,17 @@ add an item to the end of the list, use `lister-add'."
 					       (funcall (buffer-local-value 'lister-local-mapper lister-buf) data)
 					       (lister-determine-level lister-buf marker-or-pos level))))
 
+      ;; set item properties:
       (lister-set-data lister-buf marker data)
       (lister-add-props lister-buf marker
 			'cursor-sensor-functions
 			'(lister-sensor-function))
-      (lister-maybe-hide-item lister-buf marker data)
+
+      ;; maybe hide item:
+      (when-let ((fn (buffer-local-value 'lister-local-filter-fn lister-buf)))
+	(unless (funcall fn data)
+	  (lister-hide-item lister-buf marker-or-pos)))
+
       (lister-add-item-marker lister-buf marker)
       (with-current-buffer lister-buf
 	(goto-char marker))
