@@ -914,23 +914,17 @@ add an item to the end of the list, use `lister-add'."
 
 (defun lister-insert-sequence (lister-buf pos-or-marker seq &optional level)
   "Insert SEQ at POS-OR-MARKER in LISTER-BUF.
-Insert SEQ above the item marked by POS-OR-MARKER. If
+Insert the list SEQ above the item marked by POS-OR-MARKER. If
 POS-OR-MARKER is nil, add it to the end of the list.
 
 LEVEL determines the level of hierarchical indentation. See
 `lister-determine-level' for all possible values for LEVEL.
 
-SEQ must be either a vector or a list. Nested sequences will be
-inserted with added indentation.
-
 Return an incrementally sorted list of the newly inserted
 markers."
   (when seq
     (let* ((new-marker     nil)
-	   (last-pos       nil)
-	   (seq-type     (type-of seq)))
-      (unless (member seq-type '(vector cons))
-	(error "Sequence must be a vector or a list"))
+	   (last-pos       nil))
 
       (lister-sensor-leave lister-buf)
 
@@ -940,14 +934,14 @@ markers."
 	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
 
-	(seq-doseq (item seq)
+	(cl-dolist (item seq)
 	  ;; For reasons of speed, we build the new marker list in the
 	  ;; 'wrong' decremental order and reverse it afterwards.
 	  ;; Accessing the last inserted marker via (car) is muuuuch
 	  ;; faster than using (car (last)), since the latter has to
 	  ;; traverse the whole list.
 	  (setq new-marker (nconc
-			     (if (eq (type-of item) seq-type)
+			     (if (eq (type-of item) 'cons)
 				 (nreverse (lister-insert-sequence lister-buf pos item (1+ new-level)))
 			       (list (lister-insert lister-buf pos item new-level)))
 			    new-marker))
@@ -958,7 +952,7 @@ markers."
       new-marker)))
 
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
-  "Insert SEQ as an indented sublist below the item at POS-OR-MARKER."
+  "Insert SEQ with indentation below the item at POS-OR-MARKER."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker t)))
     (lister-with-locked-cursor lister-buf
       (lister-insert-sequence lister-buf next-item seq (1+ (lister-level-at lister-buf pos-or-marker))))))
@@ -1178,8 +1172,6 @@ is no item at POS-OR-SYMBOL."
 
 (defun lister-all-marked-items (lister-buf)
   "Get all markers pointing to marked items in LISTER-BUF."
-  ;; alternative: (lister-rescan-item-markers lister-buf 'mark)
-  ;; Probably faster. 
   (seq-filter (apply-partially #'lister-get-mark-state lister-buf)
 	      (buffer-local-value 'lister-local-marker-list lister-buf)))
 

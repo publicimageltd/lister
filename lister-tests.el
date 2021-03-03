@@ -1043,11 +1043,6 @@ Optional argument INDENTATION adds an indentation level of n."
 		      (lister-test-positions-of data))
 	      :to-equal
 	      (mapcar #'numberp data)))))
-    
-  ;; (xit "Mark all items, return marked values"
-  ;;   (lister-mark-all-items buf t)
-  ;;   (expect  (lister-all-marked-items buf)
-  ;; 	     :to-equal (lister-get-all-data buf))))
-
+ 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
