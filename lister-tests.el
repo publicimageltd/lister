@@ -165,16 +165,16 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		'((top1 (top2 (top3 (top4 (s1) (s2) (s3))))))))))
 
-  (describe "lister--sort-list"
+  (describe "lister--sort-wrapped-list"
     (it "sorts a flat list"
-      (let ((the-list '(7 5 1 8 3 2)))
-	(expect (lister--sort-list the-list #'<)
+      (let ((the-list '((7) (5) (1) (8) (3) (2))))
+	(expect (lister--sort-wrapped-list the-list #'<)
 		:to-equal
 		'(1 2 3 5 7 8))))
 
-    (it "sorts nested lists keeping sublist tied to their predecessor"
+    (it "sorts wrapped nested lists"
       (let ((the-list '(8 6 4 (43 40 (401 402 408 405) 48) 1 9 7 3)))
-	(expect (lister--sort-list the-list #'<)
+	(expect (lister--sort-wrapped-list (lister--wrap-list the-list) #'<)
 		:to-equal
 		'(1 3 4 (40 (401 402 405 408) 43 48) 6 7 8 9)))))
   

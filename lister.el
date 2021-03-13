@@ -172,19 +172,17 @@ Alternatively, the value can be the name of a face.")
 	(setq walk (cdr walk))))
     (nreverse acc)))
 
-(defun lister--sort-list (l pred &optional dont-wrap)
+(defun lister--sort-wrapped-list (l pred)
   "Sort L according to PRED, keeping sublist structure.
-DONT-WRAP is used internally for recursion."
+L has to be a wrapped list as returned by `lister--wrap-list'."
   (declare (pure t) (side-effect-free t))
-  (let* ((l-wrapped (if dont-wrap l (lister--wrap-list l)))
-	 (walk      (cl-sort l-wrapped pred :key #'car))
-	 (acc       nil))
+  (let (acc (walk     (cl-sort l pred :key #'car)))
     (while
       (let ((item    (caar walk))
 	    (sublist (cdar walk)))
 	(push item acc)
 	(when (consp sublist)
-	  (push (lister--sort-list sublist pred t) acc))
+	  (push (lister--sort-wrapped-list sublist pred) acc))
 	(setq walk (cdr walk))))
     (nreverse acc)))
     
