@@ -62,16 +62,19 @@ Optional argument INDENTATION adds an indentation level of n."
 
 (defun lister-test-expected-content (l &optional header footer indentation)
   "Return a string of the expected buffer contents when inserting L.
-L has to be a list of strings. HEADER and FOOTER have to be nil
-or strings. The results are only valid in a minimal buffer with
-no margins, and if the items are inserted with no indentation.
+L has to be a list of items which can be printed with format '%s'.
+HEADER and FOOTER have to be nil or strings. The results are only
+valid in a minimal buffer with no margins, and if the items are
+inserted with no indentation.
 
 Optional argument INDENTATION adds an indentation level of n."
   (let ((indent-string (make-string (or indentation 0) ? )))
     (concat
      (when header (format "%s\n" header))
      (when l
-       (concat (string-join (mapcar (apply-partially #'concat indent-string) l)
+       (concat (string-join (mapcar (apply-partially #'concat indent-string)
+				    (mapcar (apply-partially #'format "%s")
+					    l))
 			    "\n")
 	       "\n"))
      (when footer (format "%s\n" footer)))))
