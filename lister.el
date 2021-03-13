@@ -206,7 +206,7 @@ field is used. See `remove-text-properties', which is called."
 	(remove-text-properties pos (1+ pos) props)))))
 
 (defun lister-get-prop (buf pos-or-marker prop)
-  "Get VALUE from POS-OR-MARKER."
+  "Get VALUE for PROP at POS-OR-MARKER."
   (let* ((pos (lister-pos-as-integer pos-or-marker)))
     (get-text-property pos prop buf)))
 
