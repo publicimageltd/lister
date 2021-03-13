@@ -481,22 +481,23 @@ to `item', meaning that this function matches all regular items."
 	(setq pos (next-single-char-property-change pos prop nil max)))
       (reverse res))))
 
-(defun lister-items-in-region (lister-buf beg end)
-  "Get all item markers between buffer positions BEG and END.
-If either BEG or END is nil, use the position of the first or
-last item, respectively. LISTER-BUF must be a lister buffer;"
+(defun lister-items-in-region (lister-buf first last)
+  "Get all item markers between buffer positions FIRST and LAST.
+If FIRST or LAST is nil, use the first or last item of the whole
+list as the respective boundary. LISTER-BUF must be a lister
+buffer;"
   (when-let* ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
-    (if (and (null beg) (null end))
+    (if (and (null first) (null last))
 	mlist
       (seq-subseq mlist
 		  ;; start
-		  (if beg (lister-index-position lister-buf beg) 0)
-		  ;; end or nil
-		  (when end
-		    ;; the manual says 'end is the last item', the
-		    ;; docstring says 'end is exclusive'. The docstring is
-		    ;; right.
-		    (1+ (lister-index-position lister-buf end)))))))
+		  (if first (lister-index-position lister-buf first) 0)
+		  ;; last or nil
+		  (when last
+		    ;; the manual of seq-subseq says 'end is the last
+		    ;; item', the docstring says 'end is exclusive'.
+		    ;; The docstring is right.
+		    (1+ (lister-index-position lister-buf last)))))))
 
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
