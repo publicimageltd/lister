@@ -1144,20 +1144,43 @@ Preserve the indentation level or use NEW-LEVEL."
 
 ;; * Replace the whole buffer list (set the list)
 
+(defun lister--pos-in-region-p (beg end m)
+  "Check if pos or marker M is between BEG and 1-END."
+  (and (>= m beg) (< m end)))
+
+(defun lister-replace-list (lister-buf seq first last)
+  "Replace the list between positions FIRST and LAST with SEQ.
+FIRST and LAST have to be item positions. If either is nil, use
+the position of the very first or last item instead."
+  (let ((item-span (lister-items-in-region lister-buf first last)))
+    ;; make sure first points to the first item of the region,
+    ;; and last to the first position after the region:
+    (setq first  (or (car item-span)
+		   (lister-item-min lister-buf)))
+    (setq last  (or (when item-span
+		     (lister-end-of-lines lister-buf (car (reverse item-span)) t))
+		   lister-local-footer-marker
+		   (with-current-buffer lister-buf (point-max))))
+    ;; delete old list:
+    (with-current-buffer lister-buf
+      (let* ((inhibit-read-only t)
+	     (cursor-sensor-inhibit t))
+	(setq lister-local-marker-list
+	      ;; FIXME Instead of traversing the whole list,
+	      ;; just cut off the upper and lower remainder.
+	      ;; REVIEW This could be also used be `lister-remove-this-level'
+	      (cl-remove-if (apply-partially #'lister--pos-in-region-p first last)
+			    lister-local-marker-list))
+	(if (lister--pos-in-region-p first last lister-sensor-last-item)
+	    (setq lister-sensor-last-item nil))
+	(delete-region first last)))
+    ;; insert new list:
+    (lister-insert-sequence lister-buf first seq)))
+
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
 SEQ can be nested to insert hierarchies."
-  ;; delete old list:
-  (with-lister-buffer lister-buf
-    (let ((inhibit-read-only t)
-	  (cursor-sensor-inhibit t))
-      (delete-region (lister-item-min lister-buf)
-		     (or lister-local-footer-marker
-			 (lister-item-max lister-buf))))
-    (setq lister-sensor-last-item nil)
-    (setq lister-local-marker-list nil))
-  ;; insert new list:
-  (lister-add-sequence lister-buf seq))
+  (lister-replace-list lister-buf seq nil nil))
 
 ;; -----------------------------------------------------------
 ;; * Marking and unmarking items
