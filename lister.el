@@ -3,7 +3,7 @@
 ;; Copyright (C) 2018-2021
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Version: 0.5
+;; Version: 0.6
 ;; Package-Requires: ((seq "2.20") (emacs "26.1"))
 ;; Keywords: hypermedia
 ;; URL: https://github.com/publicimageltd/lister
