@@ -234,7 +234,7 @@ LISTER-BUF is a lister buffer."
 
 (defun lister-item-p (lister-buf pos-or-symbol)
   "Check if POS-OR-SYMBOL points to a lister item in LISTER-BUF."
-  ;; lister-marker-at checks for text property 'item 
+  ;; lister-marker-at checks for text property 'item
   (not (null (lister-marker-at lister-buf pos-or-symbol))))
 
 (defun lister-buffer-p (buf)
@@ -512,8 +512,8 @@ current."
 	     ;; hidden now
 	     (let (new-pos)
 	       ;; jump only to visible lines if filter is active:
-	       (if (buffer-local-value 'lister-local-filter-fn ,buffer-var)		   
-		   (setq new-pos (when-let ((vis-items (lister-visible-items ,buffer-var)))				   
+	       (if (buffer-local-value 'lister-local-filter-fn ,buffer-var)
+		   (setq new-pos (when-let ((vis-items (lister-visible-items ,buffer-var)))
 				   (or (elt vis-items ,line-idx-var)
 				       (car (last vis-items)))))
 		 ;; else, jump to same line or the last element:
@@ -560,7 +560,7 @@ LISTER-BUF."
        strings
        (and lister-local-bottom-margin
 	    (make-list lister-local-bottom-margin "")))))
-  
+
 (cl-defun lister-insert-lines (buf marker-or-pos lines level)
   "Insert flattened list LINES with padding LEVEL at POS in BUF.
 MARKER-OR-POS can be either a marker object or a buffer position.
@@ -596,7 +596,7 @@ gap position."
 	;; item.
 	;;
 	;; Calling `Lister-set-props' adds too much overhead, we add
-	;; the properties directly: 
+	;; the properties directly:
 	(add-text-properties beg (1+ beg)
 			     (list 'item t
 				   'level (or level 0)
@@ -623,7 +623,7 @@ inserted."
     (lister-remove-lines buf marker-or-pos)
     (lister-insert-lines buf marker-or-pos new-lines level)))
 
-(defun lister-end-of-lines (buf marker-or-pos &optional no-error) 
+(defun lister-end-of-lines (buf marker-or-pos &optional no-error)
   "Get the end position of the 'lines' element at MARKER-OR-POS in BUF.
 A 'lines' element can be a list item or a static item, such as a
 header or footer.
@@ -716,7 +716,7 @@ Return the marker of the inserted item."
 HEADER can be a string or a list of strings. If HEADER is nil,
 remove any existing header."
   (with-current-buffer lister-buf
-    (and 
+    (and
      (setq lister-local-header-marker
 	   (if lister-local-header-marker
 	       (lister-replace-lines lister-buf lister-local-header-marker header)
@@ -728,7 +728,7 @@ remove any existing header."
 FOOTER can be a string or a list of strings. If FOOTER is nil,
 remove any existing footer."
   (with-current-buffer lister-buf
-    (and 
+    (and
      (setq lister-local-footer-marker
 	   (if lister-local-footer-marker
 	       (lister-replace-lines lister-buf lister-local-footer-marker footer)
@@ -836,11 +836,11 @@ all items."
 ;;; -----------------------------------------------------------
 ;;; * Insert, add, remove or replace list items
 
-;; Utilities for insertion 
+;; Utilities for insertion
 
 (defun lister-determine-level (lister-buf pos-or-marker level)
   "Return the indentation level for new items at POS-OR-MARKER.
-LEVEL can be nil or an integer. 
+LEVEL can be nil or an integer.
 
 If LEVEL is nil, return the level of the previous item or 0.
 
@@ -998,14 +998,14 @@ The automatic correction of point is turned off when
     (let* ((cursor-pos         (with-current-buffer lister-buf (point)))
 	   (pos                (marker-position pos-marker)))
       ;; call sensor functions for leaving the item at point:
-      (unless lister-inhibit-cursor-action 
+      (unless lister-inhibit-cursor-action
 	(when (= cursor-pos pos)
 	  (lister-sensor-leave lister-buf)))
       ;; remove associated marker from the local marker list
       (with-current-buffer lister-buf
 	(setq lister-local-marker-list
 	      (cl-remove pos lister-local-marker-list :test #'=)))
-      ;; remove the item 
+      ;; remove the item
       (lister-remove-lines lister-buf pos)
       ;; move point if it is not on an item anymore:
       (unless (or lister-inhibit-cursor-action
@@ -1103,7 +1103,7 @@ Do nothing if the next item is not a sublist."
 (defun lister-replace (lister-buf position-or-symbol data &optional new-level)
   "Replace the item at POSITION-OR-SYMBOL with one representing DATA.
 POSITION-OR-SYMBOL can be either a marker, a buffer position or
-the symbols `:point', `:first' or `:last'. 
+the symbols `:point', `:first' or `:last'.
 
 Preserve the indentation level or use NEW-LEVEL."
   (lister-with-locked-cursor lister-buf
@@ -1299,7 +1299,7 @@ recursively and should be nil."
 	      (push push-item res)
 	      walk))))
     (nreverse res)))
-  
+
 (defun lister-get-all-data-tree (lister-buf &optional beg end)
   "Collect all data values in LISTER-BUF, respecting its hierarchy.
 Optionally restrict the result to the items ranging from the
@@ -1322,7 +1322,7 @@ or markers.
 
 ACTION will be called with the item's associated data. The
 optional argument PREDICATE can be used to further restrict the
-items on which ACTION will be executed. 
+items on which ACTION will be executed.
 
 Both PREDICATE and ACTION are called with point on the item's
 cursor gap and the current buffer set to LISTER-BUF, making it
@@ -1354,14 +1354,14 @@ Return the accumulated results of all executed actions."
 (defun lister-walk-all (lister-buf action &optional pred)
   "In LISTER-BUF, execute ACTION for each item matching PRED.
 See `lister-walk-some' for more details."
-  (lister-walk-some lister-buf 
+  (lister-walk-some lister-buf
 		    (buffer-local-value 'lister-local-marker-list
 					lister-buf)
 		    action
 		    pred))
 
 ;; -----------------------------------------------------------
-;; * Moving point API 
+;; * Moving point API
 
 ;; Go to an item
 
@@ -1379,6 +1379,7 @@ Throw an error if the item is not visible."
 	(lister-sensor-leave lister-buf)
 	(lister-sensor-enter lister-buf)
 	m))))
+
 ;; -----------------------------------------------------------
 ;; * Editing the list
 
@@ -1440,12 +1441,11 @@ moved. DIRECTION is either the symbol `left' or `right'."
 			  ('left  (max 0 (1- level-current))))))
     (if (= level-new level-current)
 	(user-error (format "Cannot move item further %s" direction))
-      ;; the actual movement:     
+      ;; the actual movement:
       (let* ((mark-state (lister-get-mark-state buf pos))
 	     (data       (lister-get-data buf pos)))
 	(lister-replace buf pos data level-new)
 	(lister-mark-item buf pos mark-state)))))
-
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function
