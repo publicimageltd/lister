@@ -172,20 +172,24 @@ Alternatively, the value can be the name of a face.")
 	(setq walk (cdr walk))))
     (nreverse acc)))
 
-(defun lister--unwrap-list (l)
-  "Unwrap items in L.
-This is the inverse function for `lister--wrap-list'."
+(defun lister--sort-list (l pred &optional dont-wrap)
+  "Sort L according to PRED, keeping sublist structure.
+DONT-WRAP is used internally for recursion."
   (declare (pure t) (side-effect-free t))
-  (let (acc (walk l))
+  (let* ((l-wrapped (if dont-wrap l (lister--wrap-list l)))
+	 (walk      (cl-sort l-wrapped pred :key #'car))
+	 (acc       nil))
+    ;; FIXME I think "walk" can be left out if the following sexp
+    ;; returns "cdr walk"
     (while walk
       (let ((item    (caar walk))
 	    (sublist (cdar walk)))
 	(push item acc)
 	(when (consp sublist)
-	    (push (lister--unwrap-list sublist) acc))
+	  (push (lister--sort-list sublist pred t) acc))
 	(setq walk (cdr walk))))
     (nreverse acc)))
-
+    
 ;; -----------------------------------------------------------
 ;; * Working with text properties
 
@@ -1476,6 +1480,18 @@ moved. DIRECTION is either the symbol `left' or `right'."
 	     (data       (lister-get-data buf pos)))
 	(lister-replace buf pos data level-new)
 	(lister-mark-item buf pos mark-state)))))
+
+;; -----------------------------------------------------------
+;; * Sorting a list
+
+;; HEREAMI 
+(defun lister-sort (buf pred &optional begin end)
+  "Sort items between BEGIN and END according to PRED.
+If BEGIN and END are nil, use the beginning or the end of the
+list, respectively."
+  (when-let* ((old-list (lister-get-all-data-tree buf begin end)))
+    (let* ((wrapped-list (lister--wrap-list old-list))
+	   (sorted-list  (cl-sort wrapped-list pred #'car))))))
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function

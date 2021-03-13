@@ -165,19 +165,18 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		'((top1 (top2 (top3 (top4 (s1) (s2) (s3))))))))))
 
-  (describe "lister--unwrap-list"
-    (it "unwraps a flat list"
-      (let ((the-list '(a b c d e)))
-	(expect (lister--unwrap-list (lister--wrap-list the-list))
-		:to-equal the-list)))
-    (it "unwraps a nested list"
-      (let ((the-list '(a b top (s1 s2 s3) c d top (s1 s2 s3))))
-	(expect (lister--unwrap-list (lister--wrap-list the-list))
-		:to-equal the-list)))
-    (it "unwraps a cascade of sublists"
-      (let ((the-list '(t1 (t2 (t3 (t4 (s1 s2 s3)))))))
-	(expect (lister--unwrap-list (lister--wrap-list the-list))
-		:to-equal the-list))))
+  (describe "lister--sort-list"
+    (it "sorts a flat list"
+      (let ((the-list '(7 5 1 8 3 2)))
+	(expect (lister--sort-list the-list #'<)
+		:to-equal
+		'(1 2 3 5 7 8))))
+
+    (it "sorts nested lists keeping sublist tied to their predecessor"
+      (let ((the-list '(8 6 4 (43 40 (401 402 408 405) 48) 1 9 7 3)))
+	(expect (lister--sort-list the-list #'<)
+		:to-equal
+		'(1 3 4 (40 (401 402 405 408) 43 48) 6 7 8 9)))))
   
   (describe "lister--list-pos-in:"
     (it "returns the gap positions between sorted items"
