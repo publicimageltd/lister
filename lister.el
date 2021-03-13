@@ -162,7 +162,7 @@ Alternatively, the value can be the name of a face.")
   "Wrap all items in L in a list, with sub-lists as its cdr."
   (declare (pure t) (side-effect-free t))
   (let (acc (walk l))
-    (while walk
+    (while
       (let ((current (car walk))
 	    (next    (cadr walk)))
 	(unless (consp current)
@@ -179,9 +179,7 @@ DONT-WRAP is used internally for recursion."
   (let* ((l-wrapped (if dont-wrap l (lister--wrap-list l)))
 	 (walk      (cl-sort l-wrapped pred :key #'car))
 	 (acc       nil))
-    ;; FIXME I think "walk" can be left out if the following sexp
-    ;; returns "cdr walk"
-    (while walk
+    (while
       (let ((item    (caar walk))
 	    (sublist (cdar walk)))
 	(push item acc)
