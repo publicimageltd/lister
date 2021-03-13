@@ -57,7 +57,8 @@ front, letting the highlighting stand out."
   (let* ((inhibit-read-only t)
 	 (pos    (point))
 	 (end    (lister-end-of-lines (current-buffer) pos t)))
-    (when (/= pos end)
+    (when (and end
+	       (/= pos end))
       (lister-remove-face-property pos end
 				   lister-highlight-face-or-property))))
 
