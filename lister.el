@@ -155,6 +155,36 @@ or
   (:weight bold)
 
 Alternatively, the value can be the name of a face.")
+;; -----------------------------------------------------------
+;; * Side-effect free utilities
+
+(defun lister--wrap-list (l)
+  "Wrap all items in L in a list, with sub-lists as its cdr."
+  (declare (pure t) (side-effect-free t))
+  (let (acc (walk l))
+    (while walk
+      (let ((current (car walk))
+	    (next    (cadr walk)))
+	(unless (consp current)
+	  (push (cons current (when (consp next)
+				(lister--wrap-list next)))
+		acc))
+	(setq walk (cdr walk))))
+    (nreverse acc)))
+
+(defun lister--unwrap-list (l)
+  "Unwrap items in L.
+This is the inverse function for `lister--wrap-list'."
+  (declare (pure t) (side-effect-free t))
+  (let (acc (walk l))
+    (while walk
+      (let ((item    (caar walk))
+	    (sublist (cdar walk)))
+	(push item acc)
+	(when (consp sublist)
+	    (push (lister--unwrap-list sublist) acc))
+	(setq walk (cdr walk))))
+    (nreverse acc)))
 
 ;; -----------------------------------------------------------
 ;; * Working with text properties

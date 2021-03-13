@@ -148,6 +148,37 @@ Optional argument INDENTATION adds an indentation level of n."
 ;; The tests.
 
 (describe "Utility functions:"
+  (describe "lister--wrap-list"
+    (it "wraps a flat list in lists"
+      (let ((the-list '(a b c d)))
+	(expect (lister--wrap-list the-list)
+		:to-equal
+		(mapcar #'list the-list))))
+    (it "wraps a sublist in the item before it begins"
+      (let ((the-list '(a b top (sub-1 sub-2 sub-3))))
+	(expect (lister--wrap-list the-list)
+		:to-equal
+		'((a) (b) (top (sub-1) (sub-2) (sub-3))))))
+    (it "wraps a cascade of sublists"
+      (let ((the-list '(top1 (top2 (top3 (top4 (s1 s2 s3)))))))
+	(expect (lister--wrap-list the-list)
+		:to-equal
+		'((top1 (top2 (top3 (top4 (s1) (s2) (s3))))))))))
+
+  (describe "lister--unwrap-list"
+    (it "unwraps a flat list"
+      (let ((the-list '(a b c d e)))
+	(expect (lister--unwrap-list (lister--wrap-list the-list))
+		:to-equal the-list)))
+    (it "unwraps a nested list"
+      (let ((the-list '(a b top (s1 s2 s3) c d top (s1 s2 s3))))
+	(expect (lister--unwrap-list (lister--wrap-list the-list))
+		:to-equal the-list)))
+    (it "unwraps a cascade of sublists"
+      (let ((the-list '(t1 (t2 (t3 (t4 (s1 s2 s3)))))))
+	(expect (lister--unwrap-list (lister--wrap-list the-list))
+		:to-equal the-list))))
+  
   (describe "lister--list-pos-in:"
     (it "returns the gap positions between sorted items"
       (let* ((pos-list (number-sequence 0 20 2))
