@@ -600,7 +600,24 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-set-footer buf nil)
       (let ((new-data '("A" "B" "C")))
 	(lister-set-list buf new-data)
-	(expect buf :to-have-as-content (lister-test-expected-content new-data))))))
+	(expect buf :to-have-as-content (lister-test-expected-content new-data)))))
+
+  (describe "lister-replace-list"
+    (it "replaces a list within a region"
+      (let* ((the-items      (number-sequence 0 20))
+	     (the-positions  (lister-test-positions-of the-items))
+	     (first-n        5)
+	     (last-n         15)
+	     (first          (elt the-positions first-n))
+	     (last           (elt the-positions last-n)))
+	(lister-add-sequence buf the-items)
+	(lister-replace-list buf '("neu") first last)
+	(expect buf :to-have-as-content
+		(lister-test-expected-content (append (number-sequence 0 (1- first-n))
+						      '("neu")
+						      (number-sequence (1+ last-n) 20))))))))
+
+    
 
 (describe "lister-get-all-data"
   :var (buf some-items)
