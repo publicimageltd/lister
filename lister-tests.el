@@ -33,7 +33,7 @@
 
 (setq buttercup-stack-frame-style 'pretty)
 
-;; * Utility functions 
+;; * Utility functions
 
 (defun lister-test-setup-minimal-buffer ()
   "Set up a minimal buffer, with no margins and a list mapper.
@@ -91,20 +91,34 @@ Optional argument INDENTATION adds an indentation level of n."
     (let (acc)
       (while (not (eobp))
 	(let* ((invisible (get-text-property (point) 'invisible))
-               (next-change
+	       (next-change
 		(or (next-single-property-change (point) 'invisible)
-                    (point-max))))
+		    (point-max))))
 	  (unless invisible
 	    (setq acc
 		  (concat acc (buffer-substring-no-properties (point) next-change))))
-          (goto-char next-change)))
+	  (goto-char next-change)))
       acc)))
 
 ;;; * Custom Matchers
 
+;; to match marker lists:
+(buttercup-define-matcher :to-have-as-marker-positions (buf pos-list)
+  (let* ((ml (with-current-buffer (funcall buf)
+	       (mapcar #'marker-position lister-local-marker-list)))
+	 (expected-list (funcall pos-list)))
+    (buttercup--test-expectation
+	(equal ml expected-list)
+      :expect-match-phrase
+      (format "Expected marker list to be '%s', but instead it was '%s'"
+	      expected-list ml)
+      :expect-mismatch-phrase
+      (format "Expected marker list not to be '%s', but it was."
+	      expected-list))))
+
 ;; to match buffer contents:
 (buttercup-define-matcher :to-have-as-content (buf content-to-be)
-  (let* ((content (with-current-buffer (funcall buf)		      
+  (let* ((content (with-current-buffer (funcall buf)
 		    (buffer-substring-no-properties
 		     (point-min) (point-max))))
 	 (expected-content (funcall content-to-be)))
@@ -180,7 +194,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister--sort-wrapped-list (lister--wrap-list the-list) #'<)
 		:to-equal
 		'(1 3 4 (40 (401 402 405 408) 43 48) 6 7 8 9)))))
-  
+
   (describe "lister--list-pos-in:"
     (it "returns the gap positions between sorted items"
       (let* ((pos-list (number-sequence 0 20 2))
@@ -231,13 +245,13 @@ Optional argument INDENTATION adds an indentation level of n."
   ;; result as a list of two single items ("1") and ("2").
 
   (describe "lister-strflat"
-    (it "wraps a string into a list"    
+    (it "wraps a string into a list"
       (expect (lister-strflat "test")         :to-equal '("test")))
     (it "removes nil values in a list"
       (expect (lister-strflat '("1" nil "3")) :to-equal '("1" "3")))
     (it "flattens nested list items"
       (expect (lister-strflat '(("1") ("2"))) :to-equal '("1" "2"))))
-  
+
   (it "Insert item using a marker position."
     (let* ((marker     (with-current-buffer buf (point-max-marker)))
 	   (test-item '("1" "2")))
@@ -245,25 +259,25 @@ Optional argument INDENTATION adds an indentation level of n."
       (expect buf :to-have-as-content (lister-test-expected-content test-item))
       (expect (get-text-property marker 'item buf)   :to-be  t)
       (expect (get-text-property marker 'nchars buf) :to-be  4)))
-  
+
   (it "Insert item using an integer position."
     (let* ((marker     (with-current-buffer buf (point-max-marker)))
 	   (test-item '("1" "2")))
       (lister-insert-lines buf (marker-position marker) test-item 0)
       (expect buf :to-have-as-content (lister-test-expected-content test-item))))
-  
+
   (it "Insert item with indentation level 1."
     (let* ((marker    (with-current-buffer buf (point-max-marker)))
 	   (test-item '("1" "2")))
       (lister-insert-lines buf (marker-position marker) test-item 1)
       (expect buf :to-have-as-content (lister-test-expected-content test-item nil nil 1))))
-  
+
   (it "Insert item with indentation level 2."
     (let* ((marker    (with-current-buffer buf (point-max-marker)))
 	   (test-item '("1" "2")))
       (lister-insert-lines buf (marker-position marker) test-item 2)
       (expect buf :to-have-as-content (lister-test-expected-content test-item nil nil 2))))
-  
+
   (it "Insert item with indentation level 3."
     (let* ((marker    (with-current-buffer buf (point-max-marker)))
 	   (test-item '("1" "2")))
@@ -327,7 +341,7 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-be
 		(with-current-buffer buf (point-max))))))
 
-  ;; now we can use lister-add, which relies on lister-next-free-position:  
+  ;; now we can use lister-add, which relies on lister-next-free-position:
   (describe "lister-item-min"
     (it "returns the correct position if there is no item"
       (expect (lister-item-min buf) :to-be 1))
@@ -343,7 +357,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-add buf "A")
       (lister-add buf "A")
       (expect (lister-item-min buf) :to-be 1)))
-  
+
   (describe "lister-item-max"
     (it "returns the correct position if there is no item"
       (expect (lister-item-max buf) :to-be 1))
@@ -358,7 +372,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-add buf "A")
       (lister-add buf "A")
       (lister-add buf "A")
-      (expect (lister-item-max buf) :to-be 7)))    
+      (expect (lister-item-max buf) :to-be 7)))
 
   (describe "lister-looking-at-prop:"
     (it "looks at next item and returns nil if there is none"
@@ -370,7 +384,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	     (some-positions (lister-test-positions-of some-items)))
 	(cl-dolist (item  some-items)
 	  (lister-add buf item))
-	(let ((n 2))	  
+	(let ((n 2))
 	  (expect (lister-looking-at-prop buf (elt some-positions n) 'item 'previous)
 		  :to-be (elt some-positions (1- n))))))
     (it "looks at next item and returns its position"
@@ -406,7 +420,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (lister-add buf item)))
   (after-each
     (kill-buffer buf))
-  
+
   (it "premise: inserted lists has the right positions"
     (expect (mapcar #'marker-position (lister-rescan-item-markers buf))
 	    :to-equal
@@ -449,7 +463,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (kill-buffer buf))
   ;;
   (describe "Header and footer in empty lists:"
-    
+
     (describe "lister-set-header"
       (it "inserts a single header."
 	(lister-set-header buf header)
@@ -458,7 +472,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-header buf header)
 	(lister-set-header buf nil)
 	(expect buf :to-have-as-content (lister-test-expected-content nil))))
-    
+
     (describe "lister-set-footer"
       (it "inserts a single footer."
 	(lister-set-footer buf footer)
@@ -467,7 +481,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-footer buf header)
 	(lister-set-footer buf nil)
 	(expect buf   :to-have-as-content (lister-test-expected-content nil))))
-    
+
     (describe "set-header/set-footer combined: "
       (it "insert header and footer"
 	(lister-set-header buf header)
@@ -483,7 +497,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-footer buf footer)
 	(lister-set-header buf nil)
 	(expect buf :to-have-as-content (lister-test-expected-content nil nil footer))))
-    
+
     (describe "set-header/-footer with margins:"
       (it "insert header and footer with left margin"
 	(let ((margin 3))
@@ -575,7 +589,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-add buf item))
       (with-current-buffer buf
 	(let ((new-items '("RAS" "DWA" "TRI")))
-	  (goto-char (lister-item-min buf))	  
+	  (goto-char (lister-item-min buf))
 	  (cl-dolist (item new-items)
 	    (lister-replace buf :point item)
 	    (forward-line))
@@ -592,7 +606,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(let ((new-data '("A" "B" "C")))
 	  (lister-set-list buf new-data)
 	  (expect buf :to-have-as-content (lister-test-expected-content new-data header footer)))))
-    
+
     (it "replaces a whole list with no header or footer"
       (cl-dolist (item some-items)
 	(lister-add buf item))
@@ -609,15 +623,47 @@ Optional argument INDENTATION adds an indentation level of n."
 	     (first-n        5)
 	     (last-n         15)
 	     (first          (elt the-positions first-n))
-	     (last           (elt the-positions last-n)))
+	     (last           (elt the-positions last-n))
+	     (new-list       (append (number-sequence 0 (1- first-n))
+				     '("neu")
+				     (number-sequence (1+ last-n) 20))))
 	(lister-add-sequence buf the-items)
 	(lister-replace-list buf '("neu") first last)
 	(expect buf :to-have-as-content
-		(lister-test-expected-content (append (number-sequence 0 (1- first-n))
-						      '("neu")
-						      (number-sequence (1+ last-n) 20))))))))
+		(lister-test-expected-content new-list))
+	(expect buf :to-have-as-marker-positions
+		(lister-test-positions-of new-list))))
 
-    
+    (it "replaces a list from the beginning up to a an item"
+      (let* ((the-items      (number-sequence 0 20))
+	     (the-positions  (lister-test-positions-of the-items))
+	     (last-n         15)
+	     (last           (elt the-positions last-n))
+	     (new-list       (append '("neu")
+				     (number-sequence (1+ last-n) 20))))
+	(lister-add-sequence buf the-items)
+	(lister-replace-list buf '("neu") nil last)
+	(expect buf :to-have-as-content
+		(lister-test-expected-content new-list))
+	(expect buf :to-have-as-marker-positions
+		(lister-test-positions-of new-list))))
+
+
+    (it "replaces a list from an item up to the end"
+      (let* ((the-items      (number-sequence 0 20))
+	     (the-positions  (lister-test-positions-of the-items))
+	     (first-n        5)
+	     (first          (elt the-positions first-n))
+	     (new-list       (append (number-sequence 0 (1- first-n))
+				     '("neu"))))
+	(lister-add-sequence buf the-items)
+	(lister-replace-list buf '("neu") first nil)
+	(expect buf :to-have-as-content
+		(lister-test-expected-content new-list))
+	(expect buf :to-have-as-marker-positions
+		(lister-test-positions-of new-list))))))
+
+
 
 (describe "lister-get-all-data"
   :var (buf some-items)
@@ -626,7 +672,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (setq some-items '("A" "JHJH" "OUO" "KLL" "RZGVJ&&&%&%/")))
   (after-each
     (kill-buffer buf))
-  
+
   (it "returns nil if list is empty"
     (expect (lister-get-all-data buf) :to-be nil))
   (it "returns all data as a flat list"
@@ -675,7 +721,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (setq buf (lister-test-setup-minimal-buffer)))
   (after-each
     (kill-buffer buf))
-  
+
   (it "inserts two sequences one after another"
     (let ((the-sequence '("A" "B" "C" "D")))
       (lister-add-sequence buf the-sequence)
@@ -706,7 +752,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	     (n (random (length some-items))))
 	(lister-hide-item buf (elt positions n))
 	(expect buf :to-have-as-visible-content
-		(lister-test-expected-content 
+		(lister-test-expected-content
 		 (lister-test-remove-elt-by-index some-items n))))))
 
   (describe "lister-show-item"
@@ -721,7 +767,7 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-get-visible-data"
     (it "only returns visible item data"
       (let* ((positions (lister-test-positions-of some-items))
-	     (n (random (length some-items))))      
+	     (n (random (length some-items))))
 	(lister-hide-item buf (elt positions n))
 	(expect (lister-get-visible-data buf)
 		:to-equal
@@ -792,12 +838,12 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister-move-item-up (current-buffer) (point)) :to-throw)))
     (it "moves last item up"
       (lister-goto buf :last)
-      (with-current-buffer buf 
+      (with-current-buffer buf
 	(lister-move-item-up (current-buffer) (point))
 	(expect (lister-get-all-data buf) :to-equal '("1" "2" "3" "4" "5" "7" "6"))))
     (it "moves item from bottom to top"
       (lister-goto buf :last)
-      (with-current-buffer buf 
+      (with-current-buffer buf
 	(cl-loop for i from 1 below (length some-items)
 		 do
 		 (lister-move-item-up (current-buffer) (point)))
@@ -885,7 +931,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-filter buf nil)
 	(expect buf :to-have-as-visible-content
 		(lister-test-expected-content some-items)))))
-  
+
   (describe "lister-with-locked-cursor "
     ;; -set-filter calls -walk, which in turn is wrapping its body in
     ;; lister-with-locked-cursor. So just calling set-filter is enough
@@ -984,7 +1030,7 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-remove-sublist-below"
     (it "removes all indented items below an item"
       (lister-add-sequence buf some-items)
-      ;; remove below the last 0-level item, which is #2 in the list 
+      ;; remove below the last 0-level item, which is #2 in the list
       (lister-remove-sublist-below buf (lister-index-marker buf 1))
       (expect (lister-get-all-data-tree buf)
 	      :to-equal
@@ -995,7 +1041,7 @@ Optional argument INDENTATION adds an indentation level of n."
 (describe "Walk items:"
   :var (buf data walk-positions walk-path)
   (before-each
-    (setq buf  (lister-setup (generate-new-buffer "*LISTER*") 
+    (setq buf  (lister-setup (generate-new-buffer "*LISTER*")
 			     (apply-partially #'format "%d")))
     ;; item at index 0 has value 0, at 1 has 1, etc.
     (setq data (number-sequence 0 10))
@@ -1024,7 +1070,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "skips positions where predicate is not matching"
       (expect (lister-walk-some buf walk-positions #'identity  #'cl-evenp)
 	      :to-equal (seq-filter #'cl-evenp walk-path))))))
-      
+
 
 (describe "Callback function"
   :var (value buf callbackfn some-items)
@@ -1093,6 +1139,6 @@ Optional argument INDENTATION adds an indentation level of n."
 		      (lister-test-positions-of data))
 	      :to-equal
 	      (mapcar #'numberp data)))))
- 
+
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
