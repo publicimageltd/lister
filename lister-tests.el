@@ -41,9 +41,7 @@ Return the buffer object"
   (let ((new-buf (lister-setup (generate-new-buffer "*LISTER*")
 			       #'list)))
     (with-current-buffer new-buf
-      (setq lister-local-left-margin 0
-	    lister-local-top-margin 0
-	    lister-local-bottom-margin 0))
+      (setq lister-local-left-margin 0))
     new-buf))
 
 (defun lister-test-positions-of (l &optional indentation)
@@ -508,13 +506,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	  (let ((margined-header (concat (make-string 3 ? ) header))
 		(margined-footer (concat (make-string 3 ? ) footer)))
 	    (expect buf :to-have-as-content
-		    (lister-test-expected-content nil margined-header margined-footer)))))
-      (it "inserts header and footer with top margin."
-	(with-current-buffer buf
-	  (setq lister-local-top-margin 1))
-	(lister-set-header buf header)
-	(lister-set-footer buf footer)
-	(expect buf :to-have-as-content (concat "\n" header "\n" "\n" footer "\n")))))
+		    (lister-test-expected-content nil margined-header margined-footer))))))
 
   (describe "Header and footer in non-empty lists"
     (it "adds one item between header and footer"
@@ -549,7 +541,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	  (lister-add buf item))
 	(lister-set-header buf nil)
 	(lister-set-footer buf nil)
-	(expect buf :to-have-as-content (lister-test-expected-content some-items))))))
+	(expect buf :to-have-as-content (lister-test-expected-content some-items)))))))
 
 ;; * Adding and replacing items
 

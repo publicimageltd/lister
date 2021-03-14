@@ -83,20 +83,6 @@ return value is nil.")
   "Add this left margin when inserting a item.
 Set this to nil if no left margin is wanted.")
 
-(defvar-local lister-local-top-margin nil
-  "Add this top margin when inserting an item.
-Set this to nil if no top margin is wanted.
-
-NOTE: This feature seems quite useless, it will probably be
-removed soon.")
-
-(defvar-local lister-local-bottom-margin nil
-  "Add this bottom margin when inserting an item.
-Set this to nil if no bottom margin is wanted.
-
-NOTE: This feature seems quite useless, it will probably be
-removed soon.")
-
 (defvar-local lister-enter-item-hook nil
   "List of functions to call when point enters an existing item.
 Use `lister-add-enter-callback' to add a function to this buffer
@@ -581,19 +567,6 @@ will be passed to FORMAT-STRING, which defaults to \"%s\"."
   (mapcar (apply-partially #'format format-string)
 	  (lister--flatten l)))
 
-(defun lister-add-vertical-margins (lister-buf strings)
-  "Pad a list of STRINGS vertically by adding empty strings.
-Margins are taken from `lister-local-top-margin' and
-`lister-local-bottom-margin', buffer variables local to
-LISTER-BUF."
-  (with-current-buffer lister-buf
-    (append
-     (and lister-local-top-margin
-	  (make-list lister-local-top-margin ""))
-     strings
-     (and lister-local-bottom-margin
-	  (make-list lister-local-bottom-margin "")))))
-
 (cl-defun lister-insert-lines (buf marker-or-pos lines level)
   "Insert flattened list LINES with padding LEVEL at POS in BUF.
 MARKER-OR-POS can be either a marker object or a buffer position.
@@ -612,7 +585,7 @@ gap position."
   (when lines
     (with-current-buffer buf
       (let* ((padding           (make-string (+ (or lister-local-left-margin 0) (or level 0)) ? ))
-	     (item-list         (lister-add-vertical-margins buf (lister-strflat lines (concat padding "%s"))))
+	     (item-list         (lister-strflat lines (concat padding "%s")))
 	     (beg               (lister-pos-as-integer marker-or-pos))
 	     (inhibit-read-only t))
 	(goto-char beg)
