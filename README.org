@@ -38,6 +38,7 @@ the structure of a Zettelkasten page.
   - [[#doing-something-with-an-item][Doing something with an item]]
   - [[#overriding-lister-mode][Overriding lister mode]]
   - [[#lister-highlight-mode][Lister highlight mode]]
+  - [[#further-examples][Further examples]]
 - [[#functions-and-variables][Functions and Variables]]
   - [[#some-conventions][Some Conventions]]
   - [[#basic-setup][Basic Setup]]
@@ -84,8 +85,9 @@ Current stable release is =0.6=.
 - Every item is printed using a buffer local mapper function, which
   maps the associated data to a list of printable lines. It is
   possible to add a margins to each item.
-- Each item has its own "indentation level", making it possible to print
-  and operate on nested lists ("sublists").
+- Each item has its own "indentation level", making it possible to
+  print and operate on nested lists ("sublists"). High-level
+  operations, such as sorting, respect these sublists.
 - Navigation is done using Emacs' regular navigation commands. Each
   printed item is inserted with a cursor gap, on which alone point can
   rest. (The rest of the item is marked as intangible.)
@@ -93,30 +95,33 @@ Current stable release is =0.6=.
   positions to keep track of each item (=lister-local-marker-list=). So
   jumping to an item is as fast as jumping to the associated marker. If
   you move a list item, the marker will be moved with it.
-- There are hooks defined to be be called on entering or leaving an
-  item. This is showcased with a minor mode which highlights the item
-  at point and, of course, removes the highlighting on leaving it
-  (=lister-highlight-mode=).
+- On entering or leaving an item, hooks are run. This is showcased
+  with a minor mode which highlights the item at point and, of course,
+  removes the highlighting on leaving it (=lister-highlight-mode=).
 
 ** Additional Features
 
-- The list can have a header or a footer. 
+- The list can have a static header or a footer.
 - In =lister-mode=, using isearch works out of the box.
-- Items can be marked and unmarked. There are functions which make it
-  easy to work with these marked items.
+- Items can be marked and unmarked. There are helper functions to
+  easily do something with these marked items (e.g.
+  =lister-walk-marked-items=).
 - There is a filter mechanism to visually hide items.
+- You can sort a list, including its sublists.
+- Items can be moved and indented. (Remember: It's all about /editing/
+  lists.)
 
 ** Speed issues
 
 =Lister= relies heavily on text properties and on keeping a buffer local
 list with markers. My experience is that after a certain threshhold,
-having a buffer with many text properties slows down considerably the
-speed for basic navigation commands, and thus the 'snappiness' for the
-user. For my hardware, there is a limit at around 1.000 items. After
-that, movement becomes more and more unresponsive and unpleasant.
+having a buffer with that many text properties makes cursoe movement
+slow and uncomfortable to use. For me, this limit is at around 1.000
+items, but that will most certainly depend on you hardware and
+software configuration.
 
 So if you expect your list to have regularly more than 750 items or
-so, you should not use =lister=. 
+so, you should not use =lister=.
 
 * Keymap
 
@@ -224,6 +229,13 @@ Turning on this minor mode turns on highlighting of the item at point.
 The highlighting is done adding =lister-highlight-face-or-property= on
 the item. You can set this to a face spec or to the name of an
 existing face.
+
+** Further examples
+
+=Lister= is shipped with an extensive suite of =buttercup= tests. Thus see
+=lister-tests.el= for further examples of how to use a function.
+
+=Delve=, which is also hosted on githin, uses =lister=. 
 
 * Functions and Variables
 
@@ -399,11 +411,12 @@ The range to to be sorted can be restricted by specifiying boundaries
 
 ** Walking the list
 
-| Function         | Description                                                       |
-|------------------+-------------------------------------------------------------------|
-| lister-walk-some | Do something on each item on the list passed (list of positions). |
-| lister-walk-all  | Do something on each item.                                        |
-|------------------+-------------------------------------------------------------------|
+| Function                 | Description                                                       |
+|--------------------------+-------------------------------------------------------------------|
+| lister-walk-some         | Do something on each item on the list passed (list of positions). |
+| lister-walk-all          | Do something on each item.                                        |
+| lister-walk-marked-items | Do something with each marked item.                               |
+|--------------------------+-------------------------------------------------------------------|
 
 ** Filtering
 
@@ -445,11 +458,13 @@ use the homegrown functions:
 
 Some of the most useful low-level functions:
 
-| Function            | Description                                       |
-|---------------------+---------------------------------------------------|
-| lister-end-of-lines | Return the next cursor gap position /after/ an item |
-| lister-item-p       | Check is point is on an item                      |
-|---------------------+---------------------------------------------------|
+| Function                  | Description                                            |
+|---------------------------+--------------------------------------------------------|
+| lister-end-of-lines       | Return the next cursor gap position /after/ an item      |
+| lister-item-p             | Check if point is on an item                           |
+| lister-items-in-region    | Return a list of all items within specified boundaries |
+| lister-sublist-boundaries | Return the boundaries of the sublist                   |
+|---------------------------+--------------------------------------------------------|
 
 
 * Changelog
@@ -457,7 +472,7 @@ Some of the most useful low-level functions:
 
 ** 0.6
 
- + Add function to sort 
+ + Add sorting
  + Add keys to move items up and down, to indent and unindent.
  + Bugfixes
  + Simplified code base
