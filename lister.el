@@ -185,7 +185,7 @@ L has to be a wrapped list as returned by `lister--wrap-list'."
 	  (push (lister--sort-wrapped-list sublist pred) acc))
 	(setq walk (cdr walk))))
     (nreverse acc)))
-    
+
 ;; -----------------------------------------------------------
 ;; * Working with text properties
 
@@ -1503,14 +1503,14 @@ moved. DIRECTION is either the symbol `left' or `right'."
 ;; -----------------------------------------------------------
 ;; * Sorting a list
 
-;; HEREAMI 
-(defun lister-sort (buf pred &optional begin end)
-  "Sort items between BEGIN and END according to PRED.
-If BEGIN and END are nil, use the beginning or the end of the
-list, respectively."
-  (when-let* ((old-list (lister-get-all-data-tree buf begin end)))
-    (let* ((wrapped-list (lister--wrap-list old-list))
-	   (sorted-list  (cl-sort wrapped-list pred #'car))))))
+;; HEREAMI
+(defun lister-sort (buf pred &optional first last)
+  "Sort all items from FIRST to LAST according to PRED.
+If FIRST or LAST are nil, use the value of the beginning or the
+end of the list, respectively."
+  (when-let* ((old-list (lister-get-all-data-tree buf first last))
+	      (new-list (lister--sort-wrapped-list (lister--wrap-list old-list) pred)))
+    (lister-replace-list buf new-list first last)))
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function
