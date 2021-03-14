@@ -605,7 +605,9 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-footer buf footer)
 	(let ((new-data '("A" "B" "C")))
 	  (lister-set-list buf new-data)
-	  (expect buf :to-have-as-content (lister-test-expected-content new-data header footer)))))
+	  (expect buf
+		  :to-have-as-content
+		  (lister-test-expected-content new-data header footer)))))
 
     (it "replaces a whole list with no header or footer"
       (cl-dolist (item some-items)
