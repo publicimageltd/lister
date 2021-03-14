@@ -163,13 +163,13 @@ Alternatively, the value can be the name of a face.")
   (declare (pure t) (side-effect-free t))
   (let (acc (walk l))
     (while
-      (let ((current (car walk))
-	    (next    (cadr walk)))
-	(unless (consp current)
-	  (push (cons current (when (consp next)
-				(lister--wrap-list next)))
-		acc))
-	(setq walk (cdr walk))))
+	(let ((current (car walk))
+	      (next    (cadr walk)))
+	  (unless (consp current)
+	    (push (cons current (when (consp next)
+				  (lister--wrap-list next)))
+		  acc))
+	  (setq walk (cdr walk))))
     (nreverse acc)))
 
 (defun lister--sort-wrapped-list (l pred)
@@ -178,12 +178,12 @@ L has to be a wrapped list as returned by `lister--wrap-list'."
   (declare (pure t) (side-effect-free t))
   (let (acc (walk     (cl-sort l pred :key #'car)))
     (while
-      (let ((item    (caar walk))
-	    (sublist (cdar walk)))
-	(push item acc)
-	(when (consp sublist)
-	  (push (lister--sort-wrapped-list sublist pred) acc))
-	(setq walk (cdr walk))))
+	(let ((item    (caar walk))
+	      (sublist (cdar walk)))
+	  (push item acc)
+	  (when (consp sublist)
+	    (push (lister--sort-wrapped-list sublist pred) acc))
+	  (setq walk (cdr walk))))
     (nreverse acc)))
 
 ;; -----------------------------------------------------------
@@ -351,21 +351,21 @@ TARGET-LIST."
 Do nothing if `lister-inhibit-marker-list' is t.
 
 MARKER-OR-POS, if a list, has to sorted in ascending order."
-(unless (or lister-inhibit-marker-list
-	    (not marker-or-pos))
-  ;; transform marker-or-pos to a list of markers:
-  (let ((m-list (mapcar (apply-partially #'lister-make-marker lister-buf)
-			(if (listp marker-or-pos)
-			    marker-or-pos
-			  (list marker-or-pos)))))
-    ;; insert list in buffer local list:
-    (with-current-buffer lister-buf
-      (setq lister-local-marker-list
-	    (if (null lister-local-marker-list)
-		m-list
-	      (lister--list-insert-at lister-local-marker-list
-				      m-list
-				      (lister--list-pos-in lister-local-marker-list (car m-list)))))))))
+  (unless (or lister-inhibit-marker-list
+	      (not marker-or-pos))
+    ;; transform marker-or-pos to a list of markers:
+    (let ((m-list (mapcar (apply-partially #'lister-make-marker lister-buf)
+			  (if (listp marker-or-pos)
+			      marker-or-pos
+			    (list marker-or-pos)))))
+      ;; insert list in buffer local list:
+      (with-current-buffer lister-buf
+	(setq lister-local-marker-list
+	      (if (null lister-local-marker-list)
+		  m-list
+		(lister--list-insert-at lister-local-marker-list
+					m-list
+					(lister--list-pos-in lister-local-marker-list (car m-list)))))))))
 
 ;; Finding positions
 
@@ -584,12 +584,12 @@ Margins are taken from `lister-local-top-margin' and
 `lister-local-bottom-margin', buffer variables local to
 LISTER-BUF."
   (with-current-buffer lister-buf
-      (append
-       (and lister-local-top-margin
-	    (make-list lister-local-top-margin ""))
-       strings
-       (and lister-local-bottom-margin
-	    (make-list lister-local-bottom-margin "")))))
+    (append
+     (and lister-local-top-margin
+	  (make-list lister-local-top-margin ""))
+     strings
+     (and lister-local-bottom-margin
+	  (make-list lister-local-bottom-margin "")))))
 
 (cl-defun lister-insert-lines (buf marker-or-pos lines level)
   "Insert flattened list LINES with padding LEVEL at POS in BUF.
@@ -892,7 +892,7 @@ LISTER-BUF is a lister buffer."
 ;; Insert Single Items
 
 (defun lister-insert (lister-buf position-or-symbol data &optional level)
-    "Insert DATA as item at POSITION-OR-SYMBOL in LISTER-BUF.
+  "Insert DATA as item at POSITION-OR-SYMBOL in LISTER-BUF.
 POSITION-OR-SYMBOL must be a buffer position, a marker, or the
 symbols `:point', `:first' or `:last'. The indicated position
 will not be checked for validity.
@@ -967,9 +967,9 @@ markers."
 	  ;; faster than using (car (last)), since the latter has to
 	  ;; traverse the whole list.
 	  (setq new-marker (nconc
-			     (if (eq (type-of item) 'cons)
-				 (nreverse (lister-insert-sequence lister-buf pos item (1+ new-level)))
-			       (list (lister-insert lister-buf pos item new-level)))
+			    (if (eq (type-of item) 'cons)
+				(nreverse (lister-insert-sequence lister-buf pos item (1+ new-level)))
+			      (list (lister-insert lister-buf pos item new-level)))
 			    new-marker))
 	  (setq pos (lister-end-of-lines lister-buf (setq last-pos (car new-marker))))))
       (setq new-marker (nreverse new-marker))
@@ -1504,7 +1504,6 @@ moved. DIRECTION is either the symbol `left' or `right'."
 ;; -----------------------------------------------------------
 ;; * Sorting a list
 
-;; HEREAMI
 (defun lister-sort (buf pred &optional first last)
   "Sort all items from FIRST to LAST according to PRED.
 If FIRST or LAST are nil, use the value of the beginning or the
