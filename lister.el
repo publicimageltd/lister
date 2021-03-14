@@ -1156,26 +1156,29 @@ the position of the very first or last item instead."
     ;; make sure first points to the first item of the region,
     ;; and last to the first position after the region:
     (setq first  (or (car item-span)
-		   (lister-item-min lister-buf)))
+		     (lister-item-min lister-buf)))
     (setq last  (or (when item-span
-		     (lister-end-of-lines lister-buf (car (reverse item-span)) t))
-		   lister-local-footer-marker
-		   (with-current-buffer lister-buf (point-max))))
-    ;; delete old list:
-    (with-current-buffer lister-buf
-      (let* ((inhibit-read-only t)
-	     (cursor-sensor-inhibit t))
-	(setq lister-local-marker-list
-	      ;; FIXME Instead of traversing the whole list,
-	      ;; just cut off the upper and lower remainder.
-	      ;; REVIEW This could be also used be `lister-remove-this-level'
-	      (cl-remove-if (apply-partially #'lister--pos-in-region-p first last)
-			    lister-local-marker-list))
-	(if (lister--pos-in-region-p first last lister-sensor-last-item)
+		      (lister-end-of-lines lister-buf (car (reverse item-span)) t))
+		    lister-local-footer-marker
+		    (with-current-buffer lister-buf (point-max))))
+
+    (lister-with-locked-cursor lister-buf
+      ;; delete old list:
+      (with-current-buffer lister-buf
+	(let* ((inhibit-read-only t)
+	       (cursor-sensor-inhibit t))
+	  (setq lister-local-marker-list
+		;; FIXME Instead of traversing the whole list,
+		;; just cut off the upper and lower remainder.
+		;; REVIEW This could be also used be `lister-remove-this-level'
+		(cl-remove-if (apply-partially #'lister--pos-in-region-p first last)
+			      lister-local-marker-list))
+	  (when (and lister-sensor-last-item
+		     (lister--pos-in-region-p first last lister-sensor-last-item))
 	    (setq lister-sensor-last-item nil))
 	(delete-region first last)))
-    ;; insert new list:
-    (lister-insert-sequence lister-buf first seq)))
+      ;; insert new list:
+      (lister-insert-sequence lister-buf first seq))))
 
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
