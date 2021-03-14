@@ -482,10 +482,10 @@ to `item', meaning that this function matches all regular items."
       (reverse res))))
 
 (defun lister-items-in-region (lister-buf first last)
-  "Get all item markers between buffer positions FIRST and LAST.
-If FIRST or LAST is nil, use the first or last item of the whole
-list as the respective boundary. LISTER-BUF must be a lister
-buffer;"
+  "Get all item markers from FIRST to LAST.
+FIRST or LAST have to be item positions. If FIRST or LAST is nil,
+use the first or last item of the whole list as the respective
+boundary. LISTER-BUF must be a lister buffer;"
   (when-let* ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
     (if (and (null first) (null last))
 	mlist
