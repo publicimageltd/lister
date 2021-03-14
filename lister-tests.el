@@ -404,7 +404,43 @@ Optional argument INDENTATION adds an indentation level of n."
 	  (lister-add buf item))
 	(expect (mapcar #'marker-position (lister-rescan-item-markers buf))
 		:to-equal
-		(lister-test-positions-of some-items))))))
+		(lister-test-positions-of some-items)))))
+
+  (describe "lister-items-in-region"
+    :var (some-items some-positions)
+    (before-each
+      (setq some-items (number-sequence 0 20))
+      (setq some-positions (lister-test-positions-of some-items))
+      (lister-add-sequence buf some-items))
+
+    (it "returns the whole marker list if called with no boundaries"
+      (expect (lister-items-in-region buf nil nil)
+	      :to-equal
+	      (with-current-buffer buf lister-local-marker-list)))
+    (it "returns the upper part of a list"
+      (let ((n 5))
+	(expect (lister-items-in-region buf (elt some-positions n) nil)
+		:to-equal
+		(seq-subseq (with-current-buffer buf lister-local-marker-list)
+			n))))
+    (it "returns the lower part of a list"
+      (let ((n 15))
+	(expect (lister-items-in-region buf nil (elt some-positions n))
+		:to-equal
+		(seq-subseq (with-current-buffer buf lister-local-marker-list)
+			    0
+			    ;; in seq-subseq, "end" is exclusive 
+			    (1+ n)))))
+    (it "returns a part of a list"
+      (let ((first 10) (last 15))
+	(expect (lister-items-in-region buf
+					(elt some-positions first)
+					(elt some-positions  last))
+		:to-equal
+		(seq-subseq (with-current-buffer buf lister-local-marker-list)
+			    first
+			    ;; in seq-subseq, "end" is exclusive 
+			    (1+ last)))))))
 
 ;; * CORE: lister-marker-at
 
@@ -890,6 +926,7 @@ Optional argument INDENTATION adds an indentation level of n."
       (let ((n-max (+ (length some-items) 20)))
 	(expect (lister-index-marker buf n-max) :to-be nil)))))
 
+
 ;; * Filter
 
 (describe "Using filter:"
@@ -981,10 +1018,11 @@ Optional argument INDENTATION adds an indentation level of n."
   (before-each
     (setq buf (lister-test-setup-minimal-buffer))
     ;; don't change the list, it is used in the specs below
-    (setq some-items '("Item1" "Item2"
-		       ("Subitem1" "Subitem2")
-		       "Item3"
-		       ("Another Subitem1" "Another Subitem2"))))
+    (setq some-items '("Item1" "Item2"           ;; 0, 1
+		       ("Subitem1" "Subitem2")   ;; 2
+		       "Item3"                   ;; 3
+		       ("Another Subitem1" "Another Subitem2") ;; 4
+		       )))
   (after-each
     (kill-buffer buf))
   ;;
@@ -996,7 +1034,10 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-get-all-data-tree"
     (it "returns the nested list"
       (lister-add-sequence buf some-items)
-      (expect (lister-get-all-data-tree buf)) :to-equal some-items))
+      (expect (lister-get-all-data-tree buf) :to-equal some-items))
+    (it "returns nil if buffer is empty"
+      (expect (lister-get-all-data-tree buf) :to-be nil)))
+
   (describe "lister-add"
     (it "inserts according to requested level"
       (lister-add buf "Item1")
@@ -1015,11 +1056,19 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-remove-this-level"
     (it "removes all subsequent items sharing the same level"
       (lister-add-sequence buf some-items)
-      ;; remove from within the first nested element = #3 in the list
+      ;; remove from within the first nested element = line #3
       (lister-remove-this-level buf (lister-index-marker buf 2))
       (expect (lister-get-all-data-tree buf)
 	      :to-equal
-	      (lister-test-remove-elt-by-index some-items 2))))
+	      (lister-test-remove-elt-by-index some-items 2)))
+    (it "removes all subsequent items sharing the same level at the end of a list"
+      (lister-add-sequence buf some-items)
+      ;; remove from within the second nested element = line #5
+      (lister-remove-this-level buf (lister-index-marker buf 5))
+      (expect (lister-get-all-data-tree buf)
+	      :to-equal
+	      (lister-test-remove-elt-by-index some-items 4))))
+
 
   (describe "lister-remove-sublist-below"
     (it "removes all indented items below an item"

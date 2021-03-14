@@ -472,9 +472,9 @@ to `item', meaning that this function matches all regular items."
 
 (defun lister-items-in-region (lister-buf first last)
   "Get all item markers from FIRST to LAST.
-FIRST or LAST have to be item positions. If FIRST or LAST is nil,
-use the first or last item of the whole list as the respective
-boundary. LISTER-BUF must be a lister buffer;"
+FIRST or LAST have to be item buffer positions. If FIRST or LAST
+is nil, use the first or last item of the whole list as the
+respective boundary. LISTER-BUF must be a lister buffer;"
   (when-let* ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
     (if (and (null first) (null last))
 	mlist
@@ -1075,7 +1075,7 @@ LISTER-BUF is a lister buffer."
 (defun lister-remove-this-level (lister-buf pos-or-marker)
   "Remove all surrounding items matching the level of the item at POS-OR-MARKER.
 LISTER-BUF is a lister buffer."
-  (let* ((beg-end (lister-sublist-boundaries lister-buf pos-or-marker)))
+  (pcase-let ((`(,beg ,end ,beg-n ,end-n) (lister-sublist-boundaries lister-buf pos-or-marker)))
     (with-current-buffer lister-buf
       ;; split and recombine marker list:
       ;;
@@ -1084,16 +1084,15 @@ LISTER-BUF is a lister buffer."
       ;; list, or to weed out all invalid markers.
       (setq lister-local-marker-list
 	    (append (seq-subseq lister-local-marker-list
-				0 (cl-third beg-end))
+				0 beg-n)
 		    (seq-subseq lister-local-marker-list
 				(min (length lister-local-marker-list)
-				     (1+ (cl-fourth beg-end))))))
+				     (1+ end-n)))))
       ;; actual deletion:
       (let* ((inhibit-read-only t)
-	     (cursor-sensor-inhibit t)
-	     (beg       (lister-pos-as-integer (cl-first beg-end)))
-	     (end       (lister-end-of-lines lister-buf (cl-second beg-end))))
-	(delete-region beg end)))))
+	     (cursor-sensor-inhibit t))
+	(delete-region (lister-pos-as-integer beg)
+		       (lister-end-of-lines lister-buf end))))))
 
 (defun lister-sublist-below-p (lister-buf pos-or-marker)
   "Check if the next item is indented with respect to POS-OR-MARKER.
@@ -1330,6 +1329,7 @@ L is a list of cons cells, each pairing the item and its
 associated nesting level, e.g. ((a 0) (b 0) (c 1)). Nesting
 begins with 0. START-LEVEL is used to construct the list
 recursively and should be nil."
+  (declare (pure t) (side-effect-free t))
   (let (push-item
 	res
 	(level (or start-level 0))
@@ -1354,7 +1354,7 @@ recursively and should be nil."
 Optionally restrict the result to the items ranging from the
 buffer positions BEG and END (END is inclusive). If either BEG or
 END is nil, use the position of the first or last item."
-  (let* ((data-list (seq-map (lambda (pos)
+  (when-let* ((data-list (seq-map (lambda (pos)
 			       (lister-get-props-at lister-buf pos 'data 'level))
 			     (lister-items-in-region lister-buf beg end))))
     (lister-group-by-level data-list)))
