@@ -1038,6 +1038,39 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-equal
 	      (lister-test-remove-elt-by-index some-items 2)))))
 
+;; * Sort items
+
+(describe "Sorting items:"
+  :var (buf)
+  (before-each
+    (setq buf (lister-test-setup-minimal-buffer)))
+  (after-each
+    (kill-buffer buf))
+
+  (describe "lister-sort:"
+    (it "sorts a flat list"
+      (let ((data (number-sequence 0 20)))
+	(lister-set-list buf data)
+	(lister-sort buf #'>)
+	(expect (lister-get-all-data-tree buf)
+		:to-equal
+		(cl-sort data #'>))))
+    (it "sorts a part of a flat list"
+      (let* ((data (number-sequence 0 20))
+	     (pos  (lister-test-positions-of data)))
+	(lister-set-list buf data)
+	(lister-sort buf #'> (elt pos 5) (elt pos 15))
+	(expect (lister-get-all-data-tree buf)
+		:to-equal
+		'(0 1 2 3 4 15 14 13 12 11 10 9 8 7 6 5 16 17 18 19 20))))
+    (it "sorts a nested list"
+      (let ((data '(0 1 2 3 (31 32 33 34 35 36) 4 5 6)))
+	(lister-set-list buf data)
+	(lister-sort buf #'>)
+	(expect (lister-get-all-data-tree buf)
+		:to-equal
+		'(6 5 4 3 (36 35 34 33 32 31) 2 1 0))))))
+
 ;; * Walk items
 
 (describe "Walk items:"
@@ -1051,7 +1084,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (setq walk-path '(3 6 8 9))
     ;; find the positions of this subset
     (lister-add-sequence buf data)
-    (setq walk-positions (mapcar (apply-partially 'lister-index-marker buf) walk-path))
+    (setq walk-positions (mapcar (apply-partially 'lister-index-marker buf) walk-path)))
   (after-each
     (kill-buffer buf))
 
@@ -1071,7 +1104,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-equal walk-path))
     (it "skips positions where predicate is not matching"
       (expect (lister-walk-some buf walk-positions #'identity  #'cl-evenp)
-	      :to-equal (seq-filter #'cl-evenp walk-path))))))
+	      :to-equal (seq-filter #'cl-evenp walk-path)))))
 
 
 (describe "Callback function"
