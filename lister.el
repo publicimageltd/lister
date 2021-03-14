@@ -47,7 +47,7 @@
 
 ;; * Version:
 
-(defvar lister-version "0.5"
+(defvar lister-version "0.6"
   "Version number.")
 
 ;; * Local Variables:
