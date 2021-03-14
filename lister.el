@@ -1500,7 +1500,7 @@ moved. DIRECTION is either the symbol `left' or `right'."
 ;; -----------------------------------------------------------
 ;; * Sorting a list
 
-(defun lister-sort (buf pred &optional first last)
+(defun lister-sort-list (buf pred &optional first last)
   "Sort all items from FIRST to LAST according to PRED.
 If FIRST or LAST are nil, use the beginning or the end of the
 list as boundaries.

@@ -1039,11 +1039,11 @@ Optional argument INDENTATION adds an indentation level of n."
   (after-each
     (kill-buffer buf))
 
-  (describe "lister-sort:"
+  (describe "lister-sort-list:"
     (it "sorts a flat list"
       (let ((data (number-sequence 0 20)))
 	(lister-set-list buf data)
-	(lister-sort buf #'>)
+	(lister-sort-list buf #'>)
 	(expect (lister-get-all-data-tree buf)
 		:to-equal
 		(cl-sort data #'>))))
@@ -1051,14 +1051,14 @@ Optional argument INDENTATION adds an indentation level of n."
       (let* ((data (number-sequence 0 20))
 	     (pos  (lister-test-positions-of data)))
 	(lister-set-list buf data)
-	(lister-sort buf #'> (elt pos 5) (elt pos 15))
+	(lister-sort-list buf #'> (elt pos 5) (elt pos 15))
 	(expect (lister-get-all-data-tree buf)
 		:to-equal
 		'(0 1 2 3 4 15 14 13 12 11 10 9 8 7 6 5 16 17 18 19 20))))
     (it "sorts a nested list"
       (let ((data '(0 1 2 3 (31 32 33 34 35 36) 4 5 6)))
 	(lister-set-list buf data)
-	(lister-sort buf #'>)
+	(lister-sort-list buf #'>)
 	(expect (lister-get-all-data-tree buf)
 		:to-equal
 		'(6 5 4 3 (36 35 34 33 32 31) 2 1 0))))))
