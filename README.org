@@ -47,6 +47,7 @@ the structure of a Zettelkasten page.
   - [[#accessing-the-data][Accessing the data]]
   - [[#marking--unmarking][Marking / unmarking]]
   - [[#editing-the-list][Editing the list]]
+  - [[#sorting-the-list][Sorting the list]]
   - [[#walking-the-list][Walking the list]]
   - [[#filtering][Filtering]]
   - [[#cursor-sensor-functions][Cursor sensor functions]]
@@ -265,6 +266,7 @@ look at the documentation strings if you want to know more:
 | lister-add-sequence    | Add a sequence (list) to the end of the list |
 | lister-remove          | Remove an item                               |
 | lister-replace         | Replace an item with another one             |
+| lister-replace-list    | Replace a whole part of a list               |
 |------------------------+----------------------------------------------|
 
 Each command dealing with a single item usually accept many different
@@ -296,7 +298,6 @@ There are special functions for dealing with sublists:
 | lister-sublist-boundaries   | Determine the boundaries of the sublist at pos.                  |
 | lister-get-all-data-tree    | Return the current list as an hierachical list.                  |
 |-----------------------------+------------------------------------------------------------------|
-
 
 ** Navigation
 
@@ -335,12 +336,15 @@ re-sets the cursor to the same line after executing body.
 | lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
 |--------------------------+--------------------------------------------------------|
 
+Both the results of  =lister-get-all-data= and =lister-get-all-data-tree=
+can be further refined by specifiyng item boundaries.
+
 ** Marking / unmarking
 
 Every item can be 'marked'. Note that 'mark', in =lister=, is thus an
 ambiguous term: It might refer to the /state/ of an item, being marked
 or unmarked; or to the /position/ of the item, usually represented by a
-marker. If you have any suggestion for a better semantics, write me.
+marker. I'm happy about any suggestion for a better semantics.
 
 Before any marking command is being done, =lister= checks if the item at
 point can be marked at all. This is determined using
@@ -378,6 +382,20 @@ All the following functions respect =lister-local-marking-predicate=:
 | lister-move-item-right | Indent item at POS one level           |
 |------------------------+----------------------------------------|
 
+** Sorting the list
+
+| Function         | Description                            |
+|------------------+----------------------------------------|
+| lister-sort-list | Sort the list according to a predicate |
+|------------------+----------------------------------------|
+
+Sorting also sorts the sublists.
+
+Sorting respects sublist hierarchies. If the new sorting order forces
+a top level item to be moved, the sublist moves with it. 
+
+The range to to be sorted can be restricted by specifiying boundaries
+(like a region).
 
 ** Walking the list
 
@@ -439,6 +457,7 @@ Some of the most useful low-level functions:
 
 ** 0.6
 
+ + Add function to sort 
  + Add keys to move items up and down, to indent and unindent.
  + Bugfixes
  + Simplified code base
