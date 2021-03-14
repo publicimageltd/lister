@@ -516,40 +516,40 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-footer buf footer)
 	(expect buf :to-have-as-content (concat "\n" header "\n" "\n" footer "\n")))))
 
-   (describe "Header and footer in non-empty lists"
-     (it "adds one item between header and footer"
-       (lister-set-header buf header)
-       (lister-set-footer buf footer)
-       (lister-add buf data)
-       (expect buf :to-have-as-content (lister-test-expected-content (list data) header footer)))
-     (it "adds some items between header and footer"
-       (let ((some-items '("1" "2" "3")))
-	 (lister-set-header buf header)
-	 (lister-set-footer buf footer)
-	 (cl-dolist (item some-items)
-	   (lister-add buf item))
-	 (expect buf :to-have-as-content (lister-test-expected-content some-items header footer))))
-     (it "lister-set-footer nil removes footer"
-       (lister-set-header buf header)
-       (lister-set-footer buf footer)
-       (lister-add buf data)
-       (lister-set-footer buf nil)
-       (expect buf :to-have-as-content (lister-test-expected-content (list data) header)))
-     (it "lister-set-header nil removes header"
-       (lister-set-header buf header)
-       (lister-set-footer buf footer)
-       (lister-add buf data)
-       (lister-set-header buf nil)
-       (expect buf :to-have-as-content (lister-test-expected-content (list data) nil footer)))
-     (it "removes header and footer, leaving only the list:"
-       (let ((some-items '("1" "2" "3")))
-	 (lister-set-header buf header)
-	 (lister-set-footer buf footer)
-	 (cl-dolist (item some-items)
-	   (lister-add buf item))
-	 (lister-set-header buf nil)
-	 (lister-set-footer buf nil)
-	 (expect buf :to-have-as-content (lister-test-expected-content some-items))))))
+  (describe "Header and footer in non-empty lists"
+    (it "adds one item between header and footer"
+      (lister-set-header buf header)
+      (lister-set-footer buf footer)
+      (lister-add buf data)
+      (expect buf :to-have-as-content (lister-test-expected-content (list data) header footer)))
+    (it "adds some items between header and footer"
+      (let ((some-items '("1" "2" "3")))
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(cl-dolist (item some-items)
+	  (lister-add buf item))
+	(expect buf :to-have-as-content (lister-test-expected-content some-items header footer))))
+    (it "lister-set-footer nil removes footer"
+      (lister-set-header buf header)
+      (lister-set-footer buf footer)
+      (lister-add buf data)
+      (lister-set-footer buf nil)
+      (expect buf :to-have-as-content (lister-test-expected-content (list data) header)))
+    (it "lister-set-header nil removes header"
+      (lister-set-header buf header)
+      (lister-set-footer buf footer)
+      (lister-add buf data)
+      (lister-set-header buf nil)
+      (expect buf :to-have-as-content (lister-test-expected-content (list data) nil footer)))
+    (it "removes header and footer, leaving only the list:"
+      (let ((some-items '("1" "2" "3")))
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(cl-dolist (item some-items)
+	  (lister-add buf item))
+	(lister-set-header buf nil)
+	(lister-set-footer buf nil)
+	(expect buf :to-have-as-content (lister-test-expected-content some-items))))))
 
 ;; * Adding and replacing items
 
@@ -796,12 +796,12 @@ Optional argument INDENTATION adds an indentation level of n."
       (expect buf :to-have-point-value-of (elt positions (1- (length some-items)))))
     (it "accepts an integer position as argument"
       (let* ((n (random (length some-items)))
-	    (int-pos (elt positions n)))
+	     (int-pos (elt positions n)))
 	(lister-goto buf int-pos)
 	(expect buf :to-have-point-value-of (elt positions n))))
     (it "accepts :point as argument"
       (let* ((n (random (length some-items)))
-	    (int-pos (elt positions n)))
+	     (int-pos (elt positions n)))
 	(with-current-buffer buf
 	  (goto-char int-pos))
 	(lister-goto buf :point)
@@ -853,9 +853,9 @@ Optional argument INDENTATION adds an indentation level of n."
 
   (describe "lister-move-item-down"
     (it "throws error if called on bottom item"
-       (lister-goto buf :last)
-       (with-current-buffer buf
-	 (expect (lister-move-item-down (current-buffer) (point)) :to-throw)))))
+      (lister-goto buf :last)
+      (with-current-buffer buf
+	(expect (lister-move-item-down (current-buffer) (point)) :to-throw)))))
 
 ;; * Index
 
