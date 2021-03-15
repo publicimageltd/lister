@@ -1050,12 +1050,10 @@ Example:
   (#<marker ....> #<marker ...> 0 3)
 
 LISTER-BUF is a lister buffer."
-  ;; FIXME This function uses the marker list heavily, which might be
-  ;; costly if there are thousands of items. An alternative approach
-  ;; would be to proceed from the item and to move up and down using
-  ;; text property searches. It should be faster since the current
-  ;; version still needs to access the text properties to determine
-  ;; the level.
+  ;; NOTE An alternative approach would be to proceed from the item
+  ;; and to move up and down using text property searches. It should
+  ;; be faster since the current version still needs to access the
+  ;; text properties to determine the level.
   (with-lister-buffer lister-buf
     (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
 	   (n       (cl-position marker lister-local-marker-list :test #'=))
@@ -1072,27 +1070,47 @@ LISTER-BUF is a lister buffer."
 	   (end     (elt lister-local-marker-list end-n)))
       (list beg end beg-n end-n))))
 
+(defun lister--pos-in-region-p (beg end m)
+  "Check if pos or marker M is between BEG and 1- END."
+  (and (>= m beg) (< m end)))
+
+(defun lister--delete-region (lister-buf beg end)
+  "Delete region between BEG and END, updating local marker list.
+LISTER-BUF is a lister buffer. BEG and END are integer positions
+or marker. If BEG or END are nil, use the lower or upper
+boundaries of the whole list instead.
+
+Return the effectively used boundaries (beg end)."
+  (let* ((beg-pos (or beg
+		      (lister-item-min lister-buf)))
+	 (end-pos (or
+		   ;; delete everything either up to the end of the
+		   ;; item at END
+		   (when end
+		     (lister-end-of-lines lister-buf end t))
+		   ;; or up to the footer
+		   (with-current-buffer lister-buf lister-local-footer-marker)
+		   ;; or up to point-max
+		   (with-current-buffer lister-buf (point-max)))))
+
+    (with-current-buffer lister-buf
+      (let ((inhibit-read-only t)
+	    (cursor-sensor-inhibit t))
+	(setq lister-local-marker-list (unless (and (null beg) (null end))
+					 (cl-remove-if (apply-partially #'lister--pos-in-region-p beg-pos end-pos)
+						       lister-local-marker-list)))
+	(when (and lister-sensor-last-item
+		   (lister--pos-in-region-p beg-pos end-pos lister-sensor-last-item))
+	  (setq lister-sensor-last-item nil))
+	(delete-region beg-pos end-pos))
+      (list beg-pos end-pos))))
+
 (defun lister-remove-this-level (lister-buf pos-or-marker)
   "Remove all surrounding items matching the level of the item at POS-OR-MARKER.
 LISTER-BUF is a lister buffer."
-  (pcase-let ((`(,beg ,end ,beg-n ,end-n) (lister-sublist-boundaries lister-buf pos-or-marker)))
-    (with-current-buffer lister-buf
-      ;; split and recombine marker list:
-      ;;
-      ;; FIXME Is this necessary? Deleting the region deletes the
-      ;; markers. So it might be faster to just rebuild the marker
-      ;; list, or to weed out all invalid markers.
-      (setq lister-local-marker-list
-	    (append (seq-subseq lister-local-marker-list
-				0 beg-n)
-		    (seq-subseq lister-local-marker-list
-				(min (length lister-local-marker-list)
-				     (1+ end-n)))))
-      ;; actual deletion:
-      (let* ((inhibit-read-only t)
-	     (cursor-sensor-inhibit t))
-	(delete-region (lister-pos-as-integer beg)
-		       (lister-end-of-lines lister-buf end))))))
+  (when (lister-nonempty-p lister-buf)
+    (pcase-let ((`(,beg ,end _) (lister-sublist-boundaries lister-buf pos-or-marker)))
+      (lister--delete-region lister-buf beg end))))
 
 (defun lister-sublist-below-p (lister-buf pos-or-marker)
   "Check if the next item is indented with respect to POS-OR-MARKER.
@@ -1131,41 +1149,15 @@ LISTER-BUF is a lister buffer."
 
 ;; * Replace the whole buffer list (set the list)
 
-(defun lister--pos-in-region-p (beg end m)
-  "Check if pos or marker M is between BEG and 1- END."
-  (and (>= m beg) (< m end)))
-
 (defun lister-replace-list (lister-buf seq first last)
   "Replace the list between positions FIRST and LAST with SEQ.
 FIRST and LAST have to be item buffer positions. If either is
 nil, use the position of the very first or last item instead.
 
 LISTER-BUF is a lister buffer."
-  (setq first  (or first
-		   (lister-item-min lister-buf)))
-  ;; move last to the first character AFTER the last item,
-  ;; since we use the var as an exclusive upper limit
-  (setq last  (or (when last
-		    (lister-end-of-lines lister-buf last t))
-		  (with-current-buffer lister-buf lister-local-footer-marker)
-		  (with-current-buffer lister-buf (point-max))))
-
   (lister-with-locked-cursor lister-buf
-    ;; delete old list:
-    (with-current-buffer lister-buf
-      (let ((inhibit-read-only t))
-	(setq lister-local-marker-list
-	      ;; FIXME Instead of traversing the whole list,
-	      ;; just cut off the upper and lower remainder.
-	      ;; REVIEW This could be also used be `lister-remove-this-level'
-	      (cl-remove-if (apply-partially #'lister--pos-in-region-p first last)
-			    lister-local-marker-list))
-	(when (and lister-sensor-last-item
-		   (lister--pos-in-region-p first last lister-sensor-last-item))
-	  (setq lister-sensor-last-item nil))
-	(delete-region first last)))
-    ;; insert new list:
-    (lister-insert-sequence lister-buf first seq)))
+    (pcase-let ((`(,beg _ ) (lister--delete-region lister-buf first last)))
+      (lister-insert-sequence lister-buf beg seq))))
 
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
