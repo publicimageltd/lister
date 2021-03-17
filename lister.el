@@ -1521,7 +1521,8 @@ list as boundaries.
 
 BUF is a lister buffer."
   (when-let* ((old-list (lister-get-all-data-tree buf first last))
-	      (new-list (lister--sort-wrapped-list (lister--wrap-list old-list) pred)))
+	      (wrapped-list (lister--wrap-list old-list))
+	      (new-list (lister--sort-wrapped-list wrapped-list pred)))
     (lister-replace-list buf new-list first last)))
 
 ;; -----------------------------------------------------------
