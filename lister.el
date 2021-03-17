@@ -1081,6 +1081,18 @@ LISTER-BUF is a lister buffer."
 	   (end     (elt lister-local-marker-list end-n)))
       (list beg end beg-n end-n))))
 
+(defun lister-get-sublist-data (lister-buf pos)
+  "Get the sublist at POS as a flat list."
+  (when (lister-nonempty-p lister-buf)
+    (pcase-let ((`(,beg ,end _) (lister-sublist-boundaries lister-buf pos)))
+      (lister-get-all-data lister-buf beg end))))
+
+(defun lister-get-sublist-data-tree (lister-buf pos)
+  "Get the sublist at POS as a nested list."
+  (when (lister-nonempty-p lister-buf)
+    (pcase-let ((`(,beg ,end _) (lister-sublist-boundaries lister-buf pos)))
+      (lister-get-all-data-tree lister-buf beg end))))
+
 (defun lister--pos-in-region-p (beg end m)
   "Check if pos or marker M is between BEG and 1- END."
   (and (>= m beg) (< m end)))
