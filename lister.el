@@ -1330,36 +1330,47 @@ LISTER-BUF is a lister buffer."
   "Map L to a tree.
 L is a list of cons cells, each pairing the item and its
 associated nesting level, e.g. ((a 0) (b 0) (c 1)). Nesting
-begins with 0. START-LEVEL is used to construct the list
-recursively and should be nil."
+begins with 0. 
+
+START-LEVEL indicates at what level the nesting begins. Thus, if
+START-LEVEL is 0, the group ((a 1) (b 1)) will be returned as the
+nested list ((a b)). If START-LEVEL is nil, take the level of L's
+first item as the starting level, effectively using it as a base
+level."
   (declare (pure t) (side-effect-free t))
-  (let (push-item
-	res
-	(level (or start-level 0))
-	(walk l))
-    (while
-	(progn
-	  (pcase-let ((`(,item ,new-level) (car walk)))
-	    ;; return if we have finished a level:
-	    (unless (> level new-level)
-	      ;; else push item or list:
-	      (if (= level new-level)
-		  (setq push-item item
-			walk (cdr walk))
-		(setq push-item (lister-group-by-level walk (1+ level))
-		      walk (nthcdr (length (lister--flatten push-item)) walk)))
-	      (push push-item res)
-	      walk))))
-    (nreverse res)))
+  (when l
+    (let (push-item
+	  res
+	  (level (or start-level
+		     ;; if no start-level is given, use the first
+		     ;; element's level as reference:
+		     (cadr (car l))))
+	  (walk l))
+      (while
+	  (progn
+	    (pcase-let ((`(,item ,new-level) (car walk)))
+	      ;; return if we have finished a level:
+	      (unless (> level new-level)
+		;; else push item or list:
+		(if (= level new-level)
+		    (setq push-item item
+			  walk (cdr walk))
+		  (setq push-item (lister-group-by-level walk (1+ level))
+			walk (nthcdr (length (lister--flatten push-item)) walk)))
+		(push push-item res)
+		walk))))
+      (nreverse res))))
 
 (defun lister-get-all-data-tree (lister-buf &optional beg end)
   "Collect all data values in LISTER-BUF, respecting its hierarchy.
 Optionally restrict the result to the items ranging from the
 buffer positions BEG and END (END is inclusive). If either BEG or
 END is nil, use the position of the first or last item."
-  (when-let* ((data-list (seq-map (lambda (pos)
-			       (lister-get-props-at lister-buf pos 'data 'level))
-			     (lister-items-in-region lister-buf beg end))))
+  (when-let* ((data-list (seq-map
+			  (lambda (pos)
+			    (lister-get-props-at lister-buf pos 'data 'level))
+			  (lister-items-in-region lister-buf beg end))))
+    (setq my-test data-list)
     (lister-group-by-level data-list)))
 
 ;; -----------------------------------------------------------
