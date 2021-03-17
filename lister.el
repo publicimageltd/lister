@@ -247,9 +247,12 @@ LISTER-BUF is a lister buffer."
     ('previous (when-let ((res (previous-single-property-change pos-or-marker prop lister-buf)))
 		 (1- res)))))
 
-
 ;; -----------------------------------------------------------
 ;; * Safety checks
+
+(defun lister-nonempty-p (lister-buf)
+  "Return non-nil if LISTER-BUF contains at least one item."
+  (buffer-local-value 'lister-local-marker-list lister-buf))
 
 (defun lister-item-p (lister-buf pos-or-symbol)
   "Check if POS-OR-SYMBOL points to a lister item in LISTER-BUF."
@@ -515,6 +518,8 @@ current."
     `(cl-labels ((body-fn () ,@body))
        (if lister-cursor-locked
 	   (body-fn)
+
+	 ;; NOTE Vorher
 	 ;; NOTE: binding buf here avoids pitfalls when buffer is
 	 ;; changed in body-fn (and buf would be, say,
 	 ;; "(current-buffer)")
@@ -526,7 +531,11 @@ current."
 		  (cursor-sensor-inhibit t)        ;; no sensor
 		  ;; current line: if nil, assume first pos:
 		  (,line-idx-var (or ,get-line-idx 0)))
+
+
 	     (setq ,result-var (body-fn))
+
+	     ;; NOTE Nachher
 	     ;; we can't use lister-goto, since target line might be
 	     ;; hidden now
 	     (let (new-pos)
@@ -543,6 +552,8 @@ current."
 		 (goto-char (or new-pos
 				(lister-item-min ,buffer-var))))))
 	   (lister-sensor-enter ,buffer-var)
+
+	   ;; NOTE Schluss
 	   ,result-var)))))
 
 ;; -----------------------------------------------------------
