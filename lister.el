@@ -378,16 +378,9 @@ does not check whether the position found is valid."
 	   ;; now the keyword cases:
 	   ((eq position-or-symbol :first)  (lister-item-min lister-buf))
 	   ((eq position-or-symbol :point)  (with-current-buffer lister-buf (point)))
-	   ((eq position-or-symbol :last)
-	    (when-let*
-		;; This is faster than traversing the whole marker
-		;; list to retrieve the last item.
-		((last-pos (lister-item-max lister-buf))
-		 (last-pos (previous-single-property-change last-pos
-							    'item
-							    lister-buf
-							    (lister-item-min lister-buf))))
-	      (1- last-pos)))
+	   ;; FIXME Quicker: Look backwards from item-max, iff list is nonempty.
+	   ((eq position-or-symbol :last)   (or (car (reverse (with-current-buffer lister-buf lister-local-marker-list)))
+						(lister-item-max lister-buf)))
 	   (t
 	    (error "Unknown value for POSITION-OR-SYMBOL: %s"
 		   position-or-symbol)))))
@@ -417,34 +410,25 @@ Throw an error if POSITION-OR-SYMBOL has an invalid value."
 
 (defun lister-item-min (lister-buf)
   "Return the first position for a list item in LISTER-BUF.
-This is intended to be similar to `point-min'."
+This is intended to be analogous to `point-min', but restricted
+to the list items. Deleting everything between `lister-item-min'
+and `lister-item-max' would delete all items and keep header and
+footer."
   (with-lister-buffer lister-buf
     (if lister-local-header-marker
 	(lister-end-of-lines lister-buf lister-local-header-marker)
       (point-min))))
 
 (defun lister-item-max (lister-buf)
-  "Return the end of the last item in LISTER-BUF.
-This is intended to be similar to `point-max'."
-  (with-lister-buffer lister-buf
+  "Return the first non-item-position after the list in LISTER-BUF.
+This is intended to be analogous to `point-max', but restricted
+to the list items. Deleting everything between `lister-item-min'
+and `lister-item-max' would delete all items and keep header and
+footer."
+  (with-current-buffer lister-buf
     (if lister-local-footer-marker
-	(1- (marker-position lister-local-footer-marker))
+	(marker-position lister-local-footer-marker)
       (point-max))))
-
-(defun lister-next-free-position (lister-buf)
-  "Return the next free position for a new list item in LISTER-BUF."
-  (with-lister-buffer lister-buf
-    (let* ((ml     lister-local-marker-list))
-      (cond
-       ;; if there are any items, return the last item position:
-       ;; (this is independent of an existing footer)
-       (ml (lister-end-of-lines lister-buf (marker-position (car (last ml)))))
-       ;; now is there a footer? return its position to insert next item there:
-       (lister-local-footer-marker (marker-position lister-local-footer-marker))
-       ;; no footer, so insert after header, which is the end of the buffer:
-       (lister-local-header-marker (point-max))
-       ;; nothing there, just go to the beginning:
-       (t (point-min))))))
 
 (defun lister-index-position (lister-buf marker-or-pos)
   "Get index position (starting with 0) of the item at MARKER-OR-POS.
@@ -473,23 +457,38 @@ to `item', meaning that this function matches all regular items."
 	(setq pos (next-single-char-property-change pos prop nil max)))
       (reverse res))))
 
+(defmacro lister-with-normalized-region (buf first last &rest body)
+  "Execute BODY with FIRST and LAST as normalized list boundaries.
+FIRST and LAST have to be symbols pointing to items. They are
+bound either to their current value or, if this value is nil, to
+the first resp. last item of the list."
+  (declare (indent 3) (debug (sexp sexp sexp body)))
+  (let ((buffer-var      (make-symbol "buffer")))	
+    `(let ((,buffer-var ,buf))
+       (let ((,first (or ,first (lister-eval-pos-or-symbol ,buffer-var :first)))
+	     (,last  (or ,last  (lister-eval-pos-or-symbol ,buffer-var :last))))
+	 ,@body))))
+
 (defun lister-items-in-region (lister-buf first last)
   "Get all item markers from FIRST to LAST.
 FIRST or LAST have to be item buffer positions. If FIRST or LAST
 is nil, use the first or last item of the whole list as the
 respective boundary. LISTER-BUF must be a lister buffer;"
-  (when-let* ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
+  (let ((mlist (buffer-local-value 'lister-local-marker-list lister-buf)))
     (if (and (null first) (null last))
 	mlist
-      (seq-subseq mlist
-		  ;; start
-		  (if first (lister-index-position lister-buf first) 0)
-		  ;; last or nil
-		  (when last
-		    ;; the manual of seq-subseq says 'end is the last
-		    ;; item', the docstring says 'end is exclusive'.
-		    ;; The docstring is right.
-		    (1+ (lister-index-position lister-buf last)))))))
+      (lister-with-normalized-region lister-buf first last
+	;; FIXME Here we use indices, in lister--delete-region, we use a
+	;; custom function to determine whether marker is within the
+	;; boundaries. Which one is to prefer?
+	(seq-subseq mlist
+		    (lister-index-position lister-buf first)
+		    ;; last or nil
+		    (when last
+		      ;; the manual of seq-subseq says 'end is the last
+		      ;; item', the docstring says 'end is exclusive'.
+		      ;; The docstring is right.
+		      (1+ (lister-index-position lister-buf last))))))))
 
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
@@ -640,6 +639,9 @@ inserted."
     (lister-remove-lines buf marker-or-pos)
     (lister-insert-lines buf marker-or-pos new-lines level)))
 
+;; FIXME Better name: lister-next-lines? lister-next-item?
+;; lister-after-lines? "End-of-lines" is unclear whether the "end" is
+;; inclusive or not. 
 (defun lister-end-of-lines (buf marker-or-pos &optional no-error)
   "Get the end position of the 'lines' element at MARKER-OR-POS in BUF.
 A 'lines' element can be a list item or a static item, such as a
@@ -789,6 +791,7 @@ buffer current, you might as well that function directly."
 
 ;; Access only the hidden or visible items
 
+;; TODO Add boundaries, use items-in-region instead of lister-local-marker-list
 (defun lister-invisible-items (lister-buf)
   "Get all markers pointing only to hidden items in LISTER-BUF."
   (with-lister-buffer lister-buf
@@ -800,6 +803,7 @@ buffer current, you might as well that function directly."
 		  (text-property-any m (1+ m) 'invisible t))
 		lister-local-marker-list)))
 
+;; TODO Add boundaries, use items-in-region instead of lister-local-marker-list
 (defun lister-visible-items (lister-buf)
   "Get all markers pointing only to visible items in LISTER-BUF."
   (with-lister-buffer lister-buf
@@ -947,7 +951,7 @@ markers."
       (let* ((lister-inhibit-cursor-action t)
 	     (lister-inhibit-marker-list t)
 	     (cursor-sensor-inhibit t)
-	     (pos          (or pos-or-marker (lister-next-free-position lister-buf)))
+	     (pos          (or pos-or-marker (lister-item-max lister-buf)))
 	     (new-level    (lister-determine-level lister-buf pos level)))
 
 	(cl-dolist (item seq)
@@ -983,7 +987,7 @@ values of LEVEL, see `lister-determine-level'.
 
 Return the marker of the added item's cursor gap position."
   (lister-insert lister-buf
-		 (lister-next-free-position lister-buf)
+		 (lister-item-max lister-buf)
 		 data level))
 
 ;; Add sequence of items to the end of the list
@@ -1032,8 +1036,7 @@ The automatic correction of point is turned off when
       (unless (or lister-inhibit-cursor-action
 		  (get-text-property pos 'item lister-buf))
 	(with-current-buffer lister-buf
-	  (goto-char (or (lister-marker-at lister-buf :last)
-			 (lister-item-max lister-buf)))))
+	  (goto-char (lister-marker-at lister-buf :last))))
       ;; if we left the sensor, turn it on again:
       (unless lister-inhibit-cursor-action
 	(when (= cursor-pos pos)
@@ -1081,59 +1084,73 @@ LISTER-BUF is a lister buffer."
 	   (end     (elt lister-local-marker-list end-n)))
       (list beg end beg-n end-n))))
 
+(defmacro lister-with-sublist-at (buf pos first last &rest body)
+  "Execute BODY with FIRST and LAST limiting the sublist at POS.
+BUF is a lister buffer, POS an integer position or marker. FIRST
+and LAST have to be symbol names.
+
+When executing BODY, FIRST and LAST will be bound to the first
+and the last item of the sublist at POS."
+  (declare (indent 4) (debug (sexp sexp symbolp symbolp body)))
+  (let ((boundaries-var (make-symbol "boundaries"))
+	(buf-var        (make-symbol "buffer")))
+    `(let ((,buf-var ,buf))
+       (and (lister-nonempty-p ,buf)
+	    (let* ((,boundaries-var (lister-sublist-boundaries ,buf-var ,pos))
+		   (,first (car ,boundaries-var))
+		   (,last  (cadr ,boundaries-var)))
+	      ,@body)))))
+
 (defun lister-get-sublist-data (lister-buf pos)
   "Get the sublist at POS as a flat list."
-  (when (lister-nonempty-p lister-buf)
-    (pcase-let ((`(,beg ,end _) (lister-sublist-boundaries lister-buf pos)))
-      (lister-get-all-data lister-buf beg end))))
+  (lister-with-sublist-at lister-buf pos first last 
+    (lister-get-all-data lister-buf first last)))
 
 (defun lister-get-sublist-data-tree (lister-buf pos)
   "Get the sublist at POS as a nested list."
-  (when (lister-nonempty-p lister-buf)
-    (pcase-let ((`(,beg ,end _) (lister-sublist-boundaries lister-buf pos)))
-      (lister-get-all-data-tree lister-buf beg end))))
+  (lister-with-sublist-at lister-buf pos first last
+      (lister-get-all-data-tree lister-buf first last)))
 
 (defun lister--pos-in-region-p (beg end m)
-  "Check if pos or marker M is between BEG and 1- END."
-  (and (>= m beg) (< m end)))
-
+  "Check if pos or marker M is between BEG and END (inclusive)."
+  (and (>= m beg) (<= m end)))
+	  
 (defun lister--delete-region (lister-buf beg end)
   "Delete region between BEG and END, updating local marker list.
 LISTER-BUF is a lister buffer. BEG and END are integer positions
 or marker. If BEG or END are nil, use the lower or upper
-boundaries of the whole list instead.
-
-Return the effectively used boundaries (beg end)."
-  (let* ((beg-pos (or beg
-		      (lister-item-min lister-buf)))
-	 (end-pos (or
-		   ;; delete everything either up to the end of the
-		   ;; item at END
-		   (when end
-		     (lister-end-of-lines lister-buf end t))
-		   ;; or up to the footer
-		   (with-current-buffer lister-buf lister-local-footer-marker)
-		   ;; or up to point-max
-		   (with-current-buffer lister-buf (point-max)))))
-
-    (with-current-buffer lister-buf
-      (let ((inhibit-read-only t)
-	    (cursor-sensor-inhibit t))
-	(setq lister-local-marker-list (unless (and (null beg) (null end))
-					 (cl-remove-if (apply-partially #'lister--pos-in-region-p beg-pos end-pos)
-						       lister-local-marker-list)))
-	(when (and lister-sensor-last-item
-		   (lister--pos-in-region-p beg-pos end-pos lister-sensor-last-item))
-	  (setq lister-sensor-last-item nil))
-	(delete-region beg-pos end-pos))
-      (list beg-pos end-pos))))
+boundaries of the whole list instead."
+  (let ((kill-em-all-p (and (null beg) (null end))))
+    (lister-with-normalized-region lister-buf beg end
+      (with-current-buffer lister-buf
+	(let ((inhibit-read-only t)
+	      (cursor-sensor-inhibit t))
+	  ;; re-set local marker list
+	  (setq lister-local-marker-list
+		(unless kill-em-all-p
+		  ;; FIXME  wrap that in an extra function, which will
+		  ;; then also be used by lister-items-in-region. That
+		  ;; function should use the subseq method, which
+		  ;; seems faster.
+		(cl-remove-if (apply-partially #'lister--pos-in-region-p beg end)
+			      lister-local-marker-list)))
+	  ;; if item is deleted, remove it from the sensor queue:
+	  (when (and lister-sensor-last-item
+		     (lister--pos-in-region-p beg end lister-sensor-last-item))
+	    (setq lister-sensor-last-item nil))
+	  ;; delete the region:
+	  (delete-region beg
+			 ;; end points to the cursor gap of the last
+			 ;; item, or to the local footer, or to point max.
+			 (+ end (or (if (get-text-property end 'item)
+					    (get-text-property end 'nchars)
+					  0)))))))))
 
 (defun lister-remove-this-level (lister-buf pos-or-marker)
   "Remove all surrounding items matching the level of the item at POS-OR-MARKER.
 LISTER-BUF is a lister buffer."
-  (when (lister-nonempty-p lister-buf)
-    (pcase-let ((`(,beg ,end _) (lister-sublist-boundaries lister-buf pos-or-marker)))
-      (lister--delete-region lister-buf beg end))))
+  (lister-with-sublist-at lister-buf pos-or-marker first last
+    (lister--delete-region lister-buf first last)))
 
 (defun lister-sublist-below-p (lister-buf pos-or-marker)
   "Check if the next item is indented with respect to POS-OR-MARKER.
@@ -1172,15 +1189,18 @@ LISTER-BUF is a lister buffer."
 
 ;; * Replace the whole buffer list (set the list)
 
-(defun lister-replace-list (lister-buf seq first last)
+(defun lister-replace-list (lister-buf seq first last &optional level)
   "Replace the list between positions FIRST and LAST with SEQ.
 FIRST and LAST have to be item buffer positions. If either is
 nil, use the position of the very first or last item instead.
 
+LEVEL is the hierarchy level of the list to be inserted.
+
 LISTER-BUF is a lister buffer."
   (lister-with-locked-cursor lister-buf
-    (pcase-let ((`(,beg _ ) (lister--delete-region lister-buf first last)))
-      (lister-insert-sequence lister-buf beg seq))))
+    (lister-with-normalized-region lister-buf first last
+      (lister--delete-region  lister-buf first last)
+      (lister-insert-sequence lister-buf first seq level))))
 
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
@@ -1380,9 +1400,9 @@ buffer positions BEG and END (END is inclusive). If either BEG or
 END is nil, use the position of the first or last item."
   (when-let* ((data-list (seq-map
 			  (lambda (pos)
+			    ;; we want a value pair: (data level)
 			    (lister-get-props-at lister-buf pos 'data 'level))
 			  (lister-items-in-region lister-buf beg end))))
-    (setq my-test data-list)
     (lister-group-by-level data-list)))
 
 ;; -----------------------------------------------------------
@@ -1415,7 +1435,7 @@ Return the accumulated results of all executed actions."
     (with-current-buffer lister-buf
       (let ((acc nil)
 	    (min (lister-item-min lister-buf))
-	    (max (lister-item-max lister-buf)))
+	    (max (lister-item- lister-buf)))
 	(cl-dolist (item item-positions)
 	  (goto-char item)
 	  (when (and (>= item min)
@@ -1447,7 +1467,7 @@ POSITION-OR-SYMBOL is a marke, a buffer position or one of the
 symbols `:last', `:point' or `:first'. Return the position.
 Throw an error if the item is not visible."
   (let* ((m (or (lister-marker-at lister-buf position-or-symbol)
-		(lister-next-free-position lister-buf))))
+		(lister-item-max  lister-buf))))
     (with-lister-buffer lister-buf
       (if (invisible-p m)
 	  (error "Item not visible")
@@ -1500,8 +1520,11 @@ moved. DIRECTION is either the symbol `previous' or `next'."
 	(lister-remove buf pos)
 	(setq next-pos (pcase direction
 			 ('previous  next-pos)
+			 ;; FIXME Shouldn't this be simply
+			 ;; lister-end-of-lines pos?
+			 ;; Why so complicated?
 			 ('next      (or (lister-looking-at-prop buf pos 'item 'next)
-					 (lister-next-free-position buf)))))
+					 (lister-item-max buf)))))
 	(lister-insert buf next-pos item level-current)
 	(lister-mark-item buf next-pos mark-state)))))
 
@@ -1532,10 +1555,14 @@ If FIRST or LAST are nil, use the beginning or the end of the
 list as boundaries.
 
 BUF is a lister buffer."
-  (when-let* ((old-list (lister-get-all-data-tree buf first last))
-	      (wrapped-list (lister--wrap-list old-list))
-	      (new-list (lister--sort-wrapped-list wrapped-list pred)))
-    (lister-replace-list buf new-list first last)))
+  ;; TODO REname lister-level-at to lister-get-level; also in Delve
+  ;; and tests
+  (lister-with-normalized-region buf first last
+    (when-let* ((old-list (lister-get-all-data-tree buf first last))
+		(level    (or (car (lister-level-at buf first) 0)))
+		(wrapped-list (lister--wrap-list old-list))
+		(new-list (lister--sort-wrapped-list wrapped-list pred)))
+    (lister-replace-list buf new-list first last level))))
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function
