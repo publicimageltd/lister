@@ -1435,7 +1435,7 @@ Return the accumulated results of all executed actions."
     (with-current-buffer lister-buf
       (let ((acc nil)
 	    (min (lister-item-min lister-buf))
-	    (max (lister-item- lister-buf)))
+	    (max (lister-item-max lister-buf)))
 	(cl-dolist (item item-positions)
 	  (goto-char item)
 	  (when (and (>= item min)
@@ -1549,20 +1549,26 @@ moved. DIRECTION is either the symbol `left' or `right'."
 ;; -----------------------------------------------------------
 ;; * Sorting a list
 
-(defun lister-sort-list (buf pred &optional first last)
+(defun lister-sort-list (lister-buf pred &optional first last)
   "Sort all items from FIRST to LAST according to PRED.
 If FIRST or LAST are nil, use the beginning or the end of the
 list as boundaries.
 
-BUF is a lister buffer."
+LISTER-BUF is a lister buffer."
   ;; TODO REname lister-level-at to lister-get-level; also in Delve
   ;; and tests
-  (lister-with-normalized-region buf first last
-    (when-let* ((old-list (lister-get-all-data-tree buf first last))
-		(level    (or (car (lister-level-at buf first) 0)))
+  (lister-with-normalized-region lister-buf first last
+    (when-let* ((old-list (lister-get-all-data-tree lister-buf first last))
+		(level    (or (lister-level-at lister-buf first) 0))
 		(wrapped-list (lister--wrap-list old-list))
 		(new-list (lister--sort-wrapped-list wrapped-list pred)))
-    (lister-replace-list buf new-list first last level))))
+      (lister-replace-list lister-buf new-list first last level))))
+
+(defun lister-sort-this-level (lister-buf pos-or-marker pred)
+  "Sort the sublist at POS-OR-MARKER according to PRED.
+LISTER-BUF is a lister buffer."
+  (lister-with-sublist-at lister-buf pos-or-marker first last
+    (lister-sort-list lister-buf pred first last)))
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function
