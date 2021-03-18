@@ -976,7 +976,7 @@ markers."
 LISTER-BUF is a lister buffer."
   (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker t)))
     (lister-with-locked-cursor lister-buf
-      (lister-insert-sequence lister-buf next-item seq (1+ (lister-level-at lister-buf pos-or-marker))))))
+      (lister-insert-sequence lister-buf next-item seq (1+ (lister-get-level-at lister-buf pos-or-marker))))))
 
 ;; Add single item to the end of the list
 
@@ -1044,7 +1044,7 @@ The automatic correction of point is turned off when
 
 ;; Remove intended sublists
 
-(defun lister-level-at (lister-buf position-or-symbol)
+(defun lister-get-level-at (lister-buf position-or-symbol)
   "Get current indentation level of item at POSITION-OR-SYMBOL.
 LISTER-BUF is a lister buffer.
 
@@ -1510,8 +1510,8 @@ moved. DIRECTION is either the symbol `previous' or `next'."
     (unless next-pos
       (user-error (format "Item cannot be moved in that direction")))
     ;; make sure that moving the item retains the level:
-    (let* ((level-current (lister-level-at buf pos))
-	   (level-next    (lister-level-at buf next-pos)))
+    (let* ((level-current (lister-get-level-at buf pos))
+	   (level-next    (lister-get-level-at buf next-pos)))
       (when (not (= level-current level-next))
 	(user-error "Items can only be moved within their indentation level"))
       ;; the actual movement:
@@ -1534,7 +1534,7 @@ BUF is a lister buffer. POS is the position of the item to be
 moved. DIRECTION is either the symbol `left' or `right'."
   (unless (lister-item-p buf pos)
     (user-error "There is no item at point"))
-  (let* ((level-current (lister-level-at buf pos))
+  (let* ((level-current (lister-get-level-at buf pos))
 	 (level-new     (pcase direction
 			  ('right (lister-determine-level buf pos (1+ level-current)))
 			  ('left  (max 0 (1- level-current))))))
@@ -1555,11 +1555,9 @@ If FIRST or LAST are nil, use the beginning or the end of the
 list as boundaries.
 
 LISTER-BUF is a lister buffer."
-  ;; TODO REname lister-level-at to lister-get-level; also in Delve
-  ;; and tests
   (lister-with-normalized-region lister-buf first last
     (when-let* ((old-list (lister-get-all-data-tree lister-buf first last))
-		(level    (or (lister-level-at lister-buf first) 0))
+		(level    (or (lister-get-level-at lister-buf first) 0))
 		(wrapped-list (lister--wrap-list old-list))
 		(new-list (lister--sort-wrapped-list wrapped-list pred)))
       (lister-replace-list lister-buf new-list first last level))))

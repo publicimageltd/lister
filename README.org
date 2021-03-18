@@ -396,10 +396,11 @@ All the following functions respect =lister-local-marking-predicate=:
 
 ** Sorting the list
 
-| Function         | Description                            |
-|------------------+----------------------------------------|
-| lister-sort-list | Sort the list according to a predicate |
-|------------------+----------------------------------------|
+| Function               | Description                            |
+|------------------------+----------------------------------------|
+| lister-sort-list       | Sort the list according to a predicate |
+| lister-sort-this-level | Sort the sublist at pos                |
+|------------------------+----------------------------------------|
 
 Sorting also sorts the sublists.
 
@@ -458,13 +459,14 @@ use the homegrown functions:
 
 Some of the most useful low-level functions:
 
-| Function                  | Description                                            |
-|---------------------------+--------------------------------------------------------|
-| lister-end-of-lines       | Return the next cursor gap position /after/ an item      |
-| lister-item-p             | Check if point is on an item                           |
-| lister-items-in-region    | Return a list of all items within specified boundaries |
-| lister-sublist-boundaries | Return the boundaries of the sublist                   |
-|---------------------------+--------------------------------------------------------|
+| Function                      | Description                                            |
+|-------------------------------+--------------------------------------------------------|
+| lister-end-of-lines           | Return the next cursor gap position /after/ an item      |
+| lister-item-p                 | Check if point is on an item                           |
+| lister-items-in-region        | Return a list of all items within specified boundaries |
+| lister-with-normalized-region | Macro for working with boundaries                      |
+| lister-with-sublist-at        | Macro for working with sublists                        |
+|-------------------------------+--------------------------------------------------------|
 
 
 * Changelog
