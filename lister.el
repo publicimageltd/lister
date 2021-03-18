@@ -974,9 +974,12 @@ markers."
 (defun lister-insert-sublist-below (lister-buf pos-or-marker seq)
   "Insert SEQ with indentation below the item at POS-OR-MARKER.
 LISTER-BUF is a lister buffer."
-  (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker t)))
+  (when (lister-item-p lister-buf pos-or-marker)
     (lister-with-locked-cursor lister-buf
-      (lister-insert-sequence lister-buf next-item seq (1+ (lister-get-level-at lister-buf pos-or-marker))))))
+      (lister-insert-sequence lister-buf
+			      (lister-end-of-lines lister-buf pos-or-marker)
+			      seq
+			      (1+ (lister-get-level-at lister-buf pos-or-marker))))))
 
 ;; Add single item to the end of the list
 
@@ -1050,7 +1053,7 @@ LISTER-BUF is a lister buffer.
 
 Return nil is there is no valid item at the position indicated."
   (when-let ((m (lister-marker-at lister-buf position-or-symbol)))
-    (get-text-property (marker-position m) 'level lister-buf)))
+    (or (get-text-property (marker-position m) 'level lister-buf) 0)))
 
 (defun lister-sublist-boundaries (lister-buf marker-or-pos)
   "Return the inner boundaries of the sublist containing MARKER-OR-POS.
@@ -1155,9 +1158,12 @@ LISTER-BUF is a lister buffer."
 (defun lister-sublist-below-p (lister-buf pos-or-marker)
   "Check if the next item is indented with respect to POS-OR-MARKER.
 LISTER-BUF is a lister buffer."
-  (when-let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
-	      (current-level  (get-text-property pos-or-marker 'level lister-buf))
-	      (next-level     (get-text-property next-item 'level lister-buf)))
+  (let* ((next-item      (lister-end-of-lines lister-buf pos-or-marker))
+	 (current-level  (lister-get-level-at lister-buf pos-or-marker))
+	 (next-level     (lister-get-level-at lister-buf next-item)))
+    (unless current-level
+      (error "No item at position %d" (lister-pos-as-integer pos-or-marker)))
+    ()
     (> next-level current-level)))
 
 (defun lister-remove-sublist-below (lister-buf pos-or-marker)
@@ -1556,11 +1562,11 @@ list as boundaries.
 
 LISTER-BUF is a lister buffer."
   (lister-with-normalized-region lister-buf first last
-    (when-let* ((old-list (lister-get-all-data-tree lister-buf first last))
-		(level    (or (lister-get-level-at lister-buf first) 0))
-		(wrapped-list (lister--wrap-list old-list))
-		(new-list (lister--sort-wrapped-list wrapped-list pred)))
-      (lister-replace-list lister-buf new-list first last level))))
+    (when-let* ((old-list (lister-get-all-data-tree lister-buf first last)))
+      (let* ((level        (lister-get-level-at lister-buf first))
+	     (wrapped-list (lister--wrap-list old-list))
+	     (new-list     (lister--sort-wrapped-list wrapped-list pred)))
+	(lister-replace-list lister-buf new-list first last level)))))
 
 (defun lister-sort-this-level (lister-buf pos-or-marker pred)
   "Sort the sublist at POS-OR-MARKER according to PRED.

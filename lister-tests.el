@@ -1004,7 +1004,7 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-add-sequence"
     (it "assigns nested lists a higher level"
       (lister-add-sequence buf some-items)
-      (let ((res (lister-walk-all buf (lambda (_) (lister-level-at buf (point))))))
+      (let ((res (lister-walk-all buf (lambda (_) (lister-get-level-at buf (point))))))
 	(expect res :to-equal '(0 0 1 1 0 1 1)))))
   (describe "lister-get-all-data-tree"
     (it "returns the nested list"
@@ -1022,11 +1022,11 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-equal '("Item1" ("Subitem1") "Item2")))
     (it "silently forces level of top item to be 0"
       (lister-add buf "Item1" 1)
-      (expect (lister-level-at buf :first) :to-be 0))
+      (expect (lister-get-level-at buf :first) :to-be 0))
     (it "silently aligns exceeding indentation"
       (lister-add buf "Item1" 0)
       (let ((m (lister-add buf "Item2" 3)))
-	(expect (lister-level-at buf m) :to-be 1))))
+	(expect (lister-get-level-at buf m) :to-be 1))))
 
   (describe "lister-remove-this-level"
     (it "removes all subsequent items sharing the same level"
