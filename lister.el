@@ -493,67 +493,54 @@ respective boundary. LISTER-BUF must be a lister buffer;"
 ;; -----------------------------------------------------------
 ;; * MACRO Lock cursor during longer transactions:
 
+(defun lister-set-visual-line (lister-buf line)
+  "Visually set point to LINE.
+LINE has to be a line numbered, counting from 0.
+LISTER-BUF is a lister buffer."
+  (let ((m-list (lister-visible-items lister-buf)))
+    (goto-char (or (elt m-list line)
+		   (lister-item-max lister-buf)))))
+
+(defun lister-get-visual-line (lister-buf &optional pos)
+  "Get visual line number for POS.
+POS is an integer position or marker. If POS is nil, use point
+instead. LISTER-BUF is a lister buffer. Return nil if buffer is
+empty."
+  (let ((m-list (lister-visible-items lister-buf)))
+    (cl-position (or pos (with-current-buffer lister-buf (point)))
+		 m-list
+		 :test #'=)))
+
 (defmacro lister-with-locked-cursor (buf &rest body)
-  "Keep cursor at same position after executing BODY.
+  "Execute BODY and keep visual cursor position.
+Return the result of BODY. If this macro is called within the
+BODY of this macro, just execute body directly.
 
-Turn off the cursor sensor, execute BODY, and then try to set the
-cursor back at its old position. If this position is not
-available anymore, move cursor to the end of the list. Then
-re-activate the cursor sensor. Return the result of BODY.
-
-If this macro is called within the BODY of this macro, just
-execute body directly.
-
-BUF is a lister buffer. Note that this function does NOT make BUF
+BUF is a lister buffer. Note that this macro does not make BUF
 current."
   (declare (indent 1) (debug (sexp body)))
-  ;;
-  (let* ((line-idx-var    (make-symbol "line-idx"))
-	 (buffer-var      (make-symbol "buffer"))
-	 (result-var      (make-symbol "result"))
-	 (get-point      `(with-current-buffer ,buffer-var (point)))
-	 (get-line-idx   `(lister-index-position ,buffer-var ,get-point)))
-    ;;
-    `(cl-labels ((body-fn () ,@body))
-       (if lister-cursor-locked
-	   (body-fn)
-
-	 ;; NOTE Vorher
-	 ;; NOTE: binding buf here avoids pitfalls when buffer is
-	 ;; changed in body-fn (and buf would be, say,
-	 ;; "(current-buffer)")
-	 (let (,result-var
-	       (,buffer-var ,buf))
-	   (lister-sensor-leave ,buffer-var)
-	   (let* ((lister-cursor-locked t)         ;; don't nest
-		  (lister-inhibit-cursor-action t) ;; no actions
-		  (cursor-sensor-inhibit t)        ;; no sensor
-		  ;; current line: if nil, assume first pos:
-		  (,line-idx-var (or ,get-line-idx 0)))
-
-
-	     (setq ,result-var (body-fn))
-
-	     ;; NOTE Nachher
-	     ;; we can't use lister-goto, since target line might be
-	     ;; hidden now
-	     (let (new-pos)
-	       ;; jump only to visible lines if filter is active:
-	       (if (buffer-local-value 'lister-local-filter-fn ,buffer-var)
-		   (setq new-pos (when-let ((vis-items (lister-visible-items ,buffer-var)))
-				   (or (elt vis-items ,line-idx-var)
-				       (car (last vis-items)))))
-		 ;; else, jump to same line or the last element:
-		 (setq new-pos (or (lister-index-marker ,buffer-var ,line-idx-var)
-				   (lister-eval-pos-or-symbol ,buffer-var
-							      :last))))
-	       (with-current-buffer ,buffer-var
-		 (goto-char (or new-pos
-				(lister-item-min ,buffer-var))))))
-	   (lister-sensor-enter ,buffer-var)
-
-	   ;; NOTE Schluss
-	   ,result-var)))))
+  (let ((buf-var  (make-symbol "buffer"))
+	(line-var (make-symbol "line"))
+	(res-var  (make-symbol "result")))
+    
+    `(let ((,buf-var  ,buf)
+	   ,line-var
+	   ,res-var)
+       
+       (unless lister-cursor-locked
+	 (lister-sensor-leave ,buf-var)
+	 (setq ,line-var (or (lister-get-visual-line ,buf-var) 0)))
+       
+       (let ((lister-cursor-locked t)
+	     (lister-inhibit-cursor-action t)
+	     (cursor-sensor-inhibit t))
+	 (setq ,res-var ,@body))
+       
+       (unless lister-cursor-locked
+	 (lister-set-visual-line ,buf-var ,line-var)
+	 (lister-sensor-enter ,buf-var))
+       
+       ,res-var)))
 
 ;; -----------------------------------------------------------
 ;; * Building the list using 'lines'
@@ -856,6 +843,10 @@ LISTER-BUF is a lister buffer."
 			 (lambda (_)
 			   (lister-show-item (current-buffer)
 					     (point))))))))
+
+(defun lister-filter-active-p (lister-buf)
+  "Return non-nil if LISTER-BUF has an active filter."
+  (buffer-local-value 'lister-local-filter-fn lister-buf))
 
 ;;; -----------------------------------------------------------
 ;;; * Insert, add, remove or replace list items
