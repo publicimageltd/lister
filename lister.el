@@ -463,7 +463,7 @@ FIRST and LAST have to be symbols pointing to items. They are
 bound either to their current value or, if this value is nil, to
 the first resp. last item of the list."
   (declare (indent 3) (debug (sexp sexp sexp body)))
-  (let ((buffer-var      (make-symbol "buffer")))	
+  (let ((buffer-var      (make-symbol "buffer")))
     `(let ((,buffer-var ,buf))
        (let ((,first (or ,first (lister-eval-pos-or-symbol ,buffer-var :first)))
 	     (,last  (or ,last  (lister-eval-pos-or-symbol ,buffer-var :last))))
@@ -641,7 +641,7 @@ inserted."
 
 ;; FIXME Better name: lister-next-lines? lister-next-item?
 ;; lister-after-lines? "End-of-lines" is unclear whether the "end" is
-;; inclusive or not. 
+;; inclusive or not.
 (defun lister-end-of-lines (buf marker-or-pos &optional no-error)
   "Get the end position of the 'lines' element at MARKER-OR-POS in BUF.
 A 'lines' element can be a list item or a static item, such as a
@@ -1106,7 +1106,7 @@ and the last item of the sublist at POS."
 
 (defun lister-get-sublist-data (lister-buf pos)
   "Get the sublist at POS as a flat list."
-  (lister-with-sublist-at lister-buf pos first last 
+  (lister-with-sublist-at lister-buf pos first last
     (lister-get-all-data lister-buf first last)))
 
 (defun lister-get-sublist-data-tree (lister-buf pos)
@@ -1117,7 +1117,7 @@ and the last item of the sublist at POS."
 (defun lister--pos-in-region-p (beg end m)
   "Check if pos or marker M is between BEG and END (inclusive)."
   (and (>= m beg) (<= m end)))
-	  
+
 (defun lister--delete-region (lister-buf beg end)
   "Delete region between BEG and END, updating local marker list.
 LISTER-BUF is a lister buffer. BEG and END are integer positions
@@ -1368,7 +1368,7 @@ LISTER-BUF is a lister buffer."
   "Map L to a tree.
 L is a list of cons cells, each pairing the item and its
 associated nesting level, e.g. ((a 0) (b 0) (c 1)). Nesting
-begins with 0. 
+begins with 0.
 
 START-LEVEL indicates at what level the nesting begins. Thus, if
 START-LEVEL is 0, the group ((a 1) (b 1)) will be returned as the
