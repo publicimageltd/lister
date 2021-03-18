@@ -314,31 +314,6 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		(list m)))))
 
-  (describe "lister-next-free-position"
-    (it "returns point-min in an empty buffer with no margins or heading"
-      (expect (lister-next-free-position buf)
-	      :to-be
-	      (with-current-buffer buf (point-min))))
-    (it "returns point-min in an empty buffer with footer"
-      (lister-set-footer buf "A FOOTER")
-      (expect (lister-next-free-position buf)
-	      :to-be
-	      (with-current-buffer buf (point-min))))
-    (it "returns point after header if header is given"
-      (let ((header "A HEADER"))
-	(lister-set-header buf header)
-	(expect (lister-next-free-position buf)
-		:to-be
-		;; add 1 nor item newline, 1 for next free pos:
-		(+ 2 (length header)))))
-    (it "returns point-max after last item if some items have been inserted"
-      (let* ((some-items '("A" "B" "C" "D" "JA" "NEIN" "ACH" "EGAL")))
-	(dolist (item some-items)
-	  (lister-insert buf (point-max) item))
-	(expect (lister-next-free-position buf)
-		:to-be
-		(with-current-buffer buf (point-max))))))
-
   ;; now we can use lister-add, which relies on lister-next-free-position:
   (describe "lister-item-min"
     (it "returns the correct position if there is no item"
