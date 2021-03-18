@@ -818,12 +818,10 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "moves cursor if body has shrunk the list"
       (let ((expected-last-item  (elt positions (- (length some-items) 2))))
 	(lister-goto buf :last)
-	(expect (with-current-buffer buf (point))
-		:not :to-be expected-last-item)
+	(expect buf :not :to-have-point-value-of expected-last-item)
 	(lister-with-locked-cursor buf
 	  (lister-remove buf :last))
-	(expect (with-current-buffer buf (point))
-		:to-be expected-last-item)))))
+	(expect buf :to-have-point-value-of expected-last-item)))))
 
 ;; * Editing
 

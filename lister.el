@@ -497,9 +497,12 @@ respective boundary. LISTER-BUF must be a lister buffer;"
   "Visually set point to LINE.
 LINE has to be a line numbered, counting from 0.
 LISTER-BUF is a lister buffer."
-  (let ((m-list (lister-visible-items lister-buf)))
-    (goto-char (or (elt m-list line)
-		   (lister-item-max lister-buf)))))
+  (let* ((m-list  (lister-visible-items lister-buf))
+	 (m-len   (length m-list)))
+    (with-current-buffer lister-buf
+      (goto-char (if m-list
+		     (elt m-list (if (< line m-len) line (1- m-len)))
+		   (lister-item-min lister-buf))))))
 
 (defun lister-get-visual-line (lister-buf &optional pos)
   "Get visual line number for POS.
@@ -522,24 +525,25 @@ current."
   (let ((buf-var  (make-symbol "buffer"))
 	(line-var (make-symbol "line"))
 	(res-var  (make-symbol "result")))
-    
+
     `(let ((,buf-var  ,buf)
 	   ,line-var
 	   ,res-var)
-       
+
        (unless lister-cursor-locked
 	 (lister-sensor-leave ,buf-var)
 	 (setq ,line-var (or (lister-get-visual-line ,buf-var) 0)))
-       
-       (let ((lister-cursor-locked t)
-	     (lister-inhibit-cursor-action t)
-	     (cursor-sensor-inhibit t))
-	 (setq ,res-var ,@body))
-       
+
+       (setq ,res-var
+	     (let ((lister-cursor-locked t)
+		   (lister-inhibit-cursor-action t)
+		   (cursor-sensor-inhibit t))
+	       ,@body))
+
        (unless lister-cursor-locked
 	 (lister-set-visual-line ,buf-var ,line-var)
 	 (lister-sensor-enter ,buf-var))
-       
+
        ,res-var)))
 
 ;; -----------------------------------------------------------
