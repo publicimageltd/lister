@@ -836,13 +836,13 @@ to nil. This restores visibility for all items.
 
 LISTER-BUF is a lister buffer."
   (with-current-buffer lister-buf
-    ;; do not act if there is no filter passed and no filter active
+    ;; do nothing if there is no filter passed and no filter active
     (when (or filter-fn lister-local-filter-fn)
       ;; else update all items
       (if (setq lister-local-filter-fn filter-fn)
-	  ;; that is: either apply the filter per item
+	  ;; that is: either apply the new filter per item
 	  (lister-filter--all-items lister-buf filter-fn)
-	;; or show all items again if there is no filter anymore
+	;; or if there is no filter, show all items again 
 	(lister-walk-all lister-buf
 			 (lambda (_)
 			   (lister-show-item (current-buffer)
@@ -913,7 +913,7 @@ add an item to the end of the list, use `lister-add'."
       ;; maybe hide item:
       (when-let ((fn (buffer-local-value 'lister-local-filter-fn lister-buf)))
 	(unless (funcall fn data)
-	  (lister-hide-item lister-buf marker-or-pos)))
+	  (lister-hide-item lister-buf marker)))
 
       ;; add marker to marker list:
       (lister-add-item-marker lister-buf marker)
