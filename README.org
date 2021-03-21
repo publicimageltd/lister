@@ -3,8 +3,8 @@
 =Lister= is a library for creating interactive "lists" of any kind. In
 contrast to similar packages like =hierarchy.el= or =tablist.el=, it
 aims at /not/ simply mapping a data structure to a navigatable list.
-Rather, it treats the list like emacs treats buffers: It is an empty
-space to which you can successively add stuff. So in emacs lingo,
+Rather, it treats the list like Emacs treats buffers: It is an empty
+space to which you can successively add stuff. So in Emacs lingo,
 =lister= should be rather called =listed= - it is a library for
 /editing/ lists, instead of displaying them.
 
@@ -314,7 +314,7 @@ There are special functions for dealing with sublists:
 ** Navigation
 
 The usual navigation functions work, since all items are exposed to
-emacs using a cursor gap.
+Emacs using a cursor gap.
 
  =lister-goto= is your main entry point for positioning the cursor from
 within the program; it takes care of the cursor sensor functions.
