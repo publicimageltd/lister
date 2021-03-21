@@ -31,7 +31,7 @@
 
 (message "Testing lister version %s on Emacs %s" lister-version emacs-version)
 
-(setq buttercup-stack-frame-style 'pretty)
+;; (setq buttercup-stack-frame-style 'pretty)
 
 ;; * Utility functions
 
@@ -935,6 +935,34 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-filter buf nil)
 	(expect buf :to-have-as-visible-content
 		(lister-test-expected-content some-items)))))
+
+  (describe "lister-insert with active filter"
+    (it "hides items which match the filter"
+      (let ((filter-fn (lambda (data)
+			 (string-match-p "\\`A" data)))
+	    (new-item  "HIDE ME"))
+	(lister-set-filter buf filter-fn)
+	(lister-insert buf :first new-item)
+	(lister-insert buf :first new-item)
+ 	(lister-insert buf :first new-item)
+	(expect buf :to-have-as-visible-content
+		(lister-test-expected-content
+		 (seq-filter filter-fn
+			     (append (list new-item new-item new-item)
+				     some-items))))))
+    (it "does not hide items which do not match the filter"
+      (let ((filter-fn (lambda (data)
+			 (string-match-p "\\`A" data)))
+	    (new-item  "AAAA DO NOT HIDE ME"))
+	(lister-set-filter buf filter-fn)
+	(lister-insert buf :first new-item)
+	(lister-insert buf :first new-item)
+	(lister-insert buf :first new-item)
+	(expect buf :to-have-as-visible-content
+		(lister-test-expected-content
+		 (seq-filter filter-fn 
+			     (append (list new-item new-item new-item)
+				     some-items)))))))
 
   (describe "lister-with-locked-cursor "
     ;; -set-filter calls -walk, which in turn is wrapping its body in
