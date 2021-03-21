@@ -404,7 +404,7 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		(seq-subseq (with-current-buffer buf lister-local-marker-list)
 			    0
-			    ;; in seq-subseq, "end" is exclusive 
+			    ;; in seq-subseq, "end" is exclusive
 			    (1+ n)))))
     (it "returns a part of a list"
       (let ((first 10) (last 15))
@@ -414,7 +414,7 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		(seq-subseq (with-current-buffer buf lister-local-marker-list)
 			    first
-			    ;; in seq-subseq, "end" is exclusive 
+			    ;; in seq-subseq, "end" is exclusive
 			    (1+ last)))))))
 
 ;; * CORE: lister-marker-at
@@ -944,7 +944,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-set-filter buf filter-fn)
 	(lister-insert buf :first new-item)
 	(lister-insert buf :first new-item)
- 	(lister-insert buf :first new-item)
+	(lister-insert buf :first new-item)
 	(expect buf :to-have-as-visible-content
 		(lister-test-expected-content
 		 (seq-filter filter-fn
@@ -960,9 +960,23 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-insert buf :first new-item)
 	(expect buf :to-have-as-visible-content
 		(lister-test-expected-content
-		 (seq-filter filter-fn 
+		 (seq-filter filter-fn
 			     (append (list new-item new-item new-item)
 				     some-items)))))))
+
+  (describe "lister-set-filter"
+    (it "makes newly inserted hidden items appear when deactivating filter"
+      (let* ((filter-fn (lambda (data)
+			 (string-match-p "\\`A" data)))
+	     (new-items '("HIDE ME" "HIDE ME,TOO" "AND WHAT ABOUT ME?"))
+	     (all-items (append new-items some-items)))
+	(lister-set-filter buf filter-fn)
+	(lister-insert-sequence buf (lister-item-min buf) new-items)
+	(expect buf :to-have-as-visible-content
+		(lister-test-expected-content (seq-filter filter-fn all-items)))
+	(lister-set-filter buf nil)
+	(expect buf :to-have-as-visible-content
+		(lister-test-expected-content all-items)))))
 
   (describe "lister-with-locked-cursor "
     ;; -set-filter calls -walk, which in turn is wrapping its body in
