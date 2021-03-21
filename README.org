@@ -472,6 +472,9 @@ Some of the most useful low-level functions:
 * Changelog
 ** Changes to the current version (no new release)
 
+ + Fix bug which lead to ignoring the active filter when inserting
+   items.
+
 ** 0.6
 
  + Add sorting
