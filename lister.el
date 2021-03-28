@@ -1576,15 +1576,15 @@ moved. DIRECTION is either the symbol `left' or `right'."
 (defun lister-rearrange-list (lister-buf fn &optional first last)
   "Rearrange all items from FIRST to LAST using FN.
 If FIRST or LAST are nil, use the beginning or the end of the
-list as boundaries.
+list as boundaries. Return the marker list of the rearranged
+items. If there are no items to rearrange, return nil and do
+nothing.
 
 Note that FN has to rearrange a wrapped list, consisting of a
 cons cell with the actual item as the car and its associated
 sublist as its cdr. It must not undo the wrapping.
 
-LISTER-BUF is a lister buffer.
-
-Return NIL if there are no items to rearrange."
+LISTER-BUF is a lister buffer."
   (lister-with-normalized-region lister-buf first last
     (when-let* ((old-list (lister-get-all-data-tree lister-buf first last)))
       (let* ((level        (lister-get-level-at lister-buf first))
