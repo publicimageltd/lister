@@ -158,17 +158,24 @@ Alternatively, the value can be the name of a face.")
 	  (setq walk (cdr walk))))
     (nreverse acc)))
 
-(defun lister--sort-wrapped-list (l pred)
-  "Sort L according to PRED, keeping sublist structure.
-L has to be a wrapped list as returned by `lister--wrap-list'."
+(defun lister--rearrange-wrapped-list (l fn)
+  "Destructively rearrange L using FN, keeping sublist structure.
+L has to be a wrapped list as returned by `lister--wrap-list',
+consisting of a cons cell with the actual item as the car and its
+associated sublist as its cdr.
+
+Note that FN has to rearrange the wrapped list, not the plain
+list. It must not undo the wrapping.
+
+Return L in new order."
   (declare (pure t) (side-effect-free t))
-  (let (acc (walk     (cl-sort l pred :key #'car)))
+  (let (acc (walk  (funcall fn l)))
     (while
 	(let ((item    (caar walk))
 	      (sublist (cdar walk)))
 	  (push item acc)
 	  (when (consp sublist)
-	    (push (lister--sort-wrapped-list sublist pred) acc))
+	    (push (lister--rearrange-wrapped-list sublist fn) acc))
 	  (setq walk (cdr walk))))
     (nreverse acc)))
 
@@ -457,16 +464,27 @@ to `item', meaning that this function matches all regular items."
 	(setq pos (next-single-char-property-change pos prop nil max)))
       (reverse res))))
 
+(defun lister-normalize-position (buf pos pos-keyword)
+  "Normalize POS according to POS-KEYWORD.
+BUF has to be a lister buffer."
+  (or (when pos
+	(lister-marker-at buf pos))
+      (lister-marker-at buf pos-keyword)))
+
 (defmacro lister-with-normalized-region (buf first last &rest body)
   "Execute BODY with FIRST and LAST as normalized list boundaries.
-FIRST and LAST have to be symbols pointing to items. They are
-bound either to their current value or, if this value is nil, to
-the first resp. last item of the list."
+
+FIRST and LAST have to be symbols pointing to items. If either
+symbol's value is nil, or if there is no item at the position
+indicated, bind it to the first resp. last item of the list for
+the duration of the macro.
+
+Execute BODY only if the list is not empty."
   (declare (indent 3) (debug (sexp sexp sexp body)))
   (let ((buffer-var      (make-symbol "buffer")))
     `(let ((,buffer-var ,buf))
-       (let ((,first (or ,first (lister-eval-pos-or-symbol ,buffer-var :first)))
-	     (,last  (or ,last  (lister-eval-pos-or-symbol ,buffer-var :last))))
+       (when-let ((,first (lister-normalize-position ,buffer-var ,first :first))
+		  (,last  (lister-normalize-position ,buffer-var ,last  :last)))
 	 ,@body))))
 
 (defun lister-items-in-region (lister-buf first last)
@@ -1082,21 +1100,21 @@ LISTER-BUF is a lister buffer."
 	   (end     (elt lister-local-marker-list end-n)))
       (list beg end beg-n end-n))))
 
-(defmacro lister-with-sublist-at (buf pos first last &rest body)
-  "Execute BODY with FIRST and LAST limiting the sublist at POS.
-BUF is a lister buffer, POS an integer position or marker. FIRST
-and LAST have to be symbol names.
+(defmacro lister-with-sublist-at (buf pos first-sym last-sym &rest body)
+  "Execute BODY with FIRST-SYM and LAST-SYM bound to the sublist at POS.
+BUF is a lister buffer, POS an integer position or marker.
+FIRST-SYM and LAST-SYM have to be symbol names.
 
-When executing BODY, FIRST and LAST will be bound to the first
-and the last item of the sublist at POS."
+When executing BODY, FIRST-SYM and LAST-SYM will be bound to the
+first and the last item's position of the sublist at POS."
   (declare (indent 4) (debug (sexp sexp symbolp symbolp body)))
   (let ((boundaries-var (make-symbol "boundaries"))
 	(buf-var        (make-symbol "buffer")))
     `(let ((,buf-var ,buf))
        (and (lister-nonempty-p ,buf)
 	    (let* ((,boundaries-var (lister-sublist-boundaries ,buf-var ,pos))
-		   (,first (car ,boundaries-var))
-		   (,last  (cadr ,boundaries-var)))
+		   (,first-sym (car ,boundaries-var))
+		   (,last-sym  (cadr ,boundaries-var)))
 	      ,@body)))))
 
 (defun lister-get-sublist-data (lister-buf pos)
@@ -1197,6 +1215,8 @@ nil, use the position of the very first or last item instead.
 
 LEVEL is the hierarchy level of the list to be inserted.
 
+Return nil (and do nothing) if the list is empty.
+
 LISTER-BUF is a lister buffer."
   (lister-with-locked-cursor lister-buf
     (lister-with-normalized-region lister-buf first last
@@ -1206,7 +1226,10 @@ LISTER-BUF is a lister buffer."
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
 SEQ can be nested to insert hierarchies."
-  (lister-replace-list lister-buf seq nil nil))
+  (if (lister-nonempty-p lister-buf)
+      (lister-replace-list lister-buf seq nil nil)
+    (lister-with-locked-cursor lister-buf 
+      (lister-add-sequence lister-buf seq))))
 
 ;; -----------------------------------------------------------
 ;; * Marking and unmarking items
@@ -1548,26 +1571,71 @@ moved. DIRECTION is either the symbol `left' or `right'."
 	(lister-mark-item buf pos mark-state)))))
 
 ;; -----------------------------------------------------------
-;; * Sorting a list
+;; * Sorting (or, abstractly, rearranging) a list
+
+(defun lister-rearrange-list (lister-buf fn &optional first last)
+  "Rearrange all items from FIRST to LAST using FN.
+If FIRST or LAST are nil, use the beginning or the end of the
+list as boundaries.
+
+Note that FN has to rearrange a wrapped list, consisting of a
+cons cell with the actual item as the car and its associated
+sublist as its cdr. It must not undo the wrapping.
+
+LISTER-BUF is a lister buffer.
+
+Return NIL if there are no items to rearrange."
+  (lister-with-normalized-region lister-buf first last
+    (when-let* ((old-list (lister-get-all-data-tree lister-buf first last)))
+      (let* ((level        (lister-get-level-at lister-buf first))
+	     (wrapped-list (lister--wrap-list old-list))
+	     (new-list     (lister--rearrange-wrapped-list wrapped-list fn)))
+	(lister-replace-list lister-buf new-list first last level)))))
+
+(defun lister-rearrange-dwim (lister-buf pos-or-marker fn)
+  "Rearrange the sublist below POS-OR-MARKER or the current level's list.
+
+Use FN for rearranging. Note that FN has to rearrange a wrapped
+list, consisting of a cons cell with the actual item as the car
+and its associated sublist as its cdr. It must not undo the
+wrapping.
+
+LISTER-BUF is a lister buffer.
+
+Return NIL if there is nothing to rearrange."
+  (let ((eval-pos (if (lister-sublist-below-p lister-buf pos-or-marker)
+		      (lister-end-of-lines lister-buf pos-or-marker)
+		    pos-or-marker)))
+    (lister-with-sublist-at lister-buf eval-pos first last
+      (lister-rearrange-list lister-buf fn first last))))
 
 (defun lister-sort-list (lister-buf pred &optional first last)
   "Sort all items from FIRST to LAST according to PRED.
 If FIRST or LAST are nil, use the beginning or the end of the
 list as boundaries.
 
-LISTER-BUF is a lister buffer."
-  (lister-with-normalized-region lister-buf first last
-    (when-let* ((old-list (lister-get-all-data-tree lister-buf first last)))
-      (let* ((level        (lister-get-level-at lister-buf first))
-	     (wrapped-list (lister--wrap-list old-list))
-	     (new-list     (lister--sort-wrapped-list wrapped-list pred)))
-	(lister-replace-list lister-buf new-list first last level)))))
+LISTER-BUF is a lister buffer.
+
+Return NIL if there is nothing to sort."
+  (lister-rearrange-list lister-buf
+			 (apply-partially #'seq-sort-by #'car pred)
+			 first last))
 
 (defun lister-sort-this-level (lister-buf pos-or-marker pred)
   "Sort the sublist at POS-OR-MARKER according to PRED.
-LISTER-BUF is a lister buffer."
+LISTER-BUF is a lister buffer.
+
+Return NIL if there is nothing to sort."
   (lister-with-sublist-at lister-buf pos-or-marker first last
     (lister-sort-list lister-buf pred first last)))
+
+(defun lister-sort-dwim (lister-buf pos-or-marker pred)
+  "Sort the sublist below POS-OR-MARKER or the current level's list.
+PRED is sorting predicate. LISTER-BUF is a lister buffer."
+  (lister-rearrange-dwim lister-buf pos-or-marker
+			 (apply-partially #'seq-sort-by #'car pred)))
+			 
+  
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function

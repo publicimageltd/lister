@@ -114,6 +114,19 @@ Optional argument INDENTATION adds an indentation level of n."
       (format "Expected marker list not to be '%s', but it was."
 	      expected-list))))
 
+;; to match buffer contents as data trees:
+(buttercup-define-matcher :to-have-as-data-tree (buf data-to-be)
+  (let* ((data (lister-get-all-data-tree (funcall buf)))
+	 (expected-data (funcall data-to-be)))
+    (buttercup--test-expectation
+	(equal data expected-data)
+      :expect-match-phrase
+      (format "Expected buffer data tree to be '%s', but instead it was '%s'"
+	      expected-data data)
+      :expect-mismatch-phrase
+      (format "Expected buffer data tree not to be '%s', but it was."
+	      expected-data))))
+
 ;; to match buffer contents:
 (buttercup-define-matcher :to-have-as-content (buf content-to-be)
   (let* ((content (with-current-buffer (funcall buf)
@@ -180,18 +193,30 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		'((top1 (top2 (top3 (top4 (s1) (s2) (s3))))))))))
 
-  (describe "lister--sort-wrapped-list"
+  (describe "lister--rearrange-wrapped-list"
     (it "sorts a flat list"
-      (let ((the-list '((7) (5) (1) (8) (3) (2))))
-	(expect (lister--sort-wrapped-list the-list #'<)
+      (let ((the-list '((7) (5) (1) (8) (3) (2)))
+	    (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
+	(expect (lister--rearrange-wrapped-list the-list the-fn)
 		:to-equal
 		'(1 2 3 5 7 8))))
 
     (it "sorts wrapped nested lists"
-      (let ((the-list '(8 6 4 (43 40 (401 402 408 405) 48) 1 9 7 3)))
-	(expect (lister--sort-wrapped-list (lister--wrap-list the-list) #'<)
+      (let ((the-list  '((8) (6) (4
+				  (43
+				   (40
+				    (401)
+				    (402)
+				    (408)
+				    (405))
+				   (48)))
+			 (1) (9) (7) (3)))
+	    (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
+	(expect (lister--rearrange-wrapped-list
+		 the-list
+		 the-fn)
 		:to-equal
-		'(1 3 4 (40 (401 402 405 408) 43 48) 6 7 8 9)))))
+		'(1 3 4 (43 (40 (401 402 405 408) 48)) 6 7 8 9)))))
 
   (describe "lister--list-pos-in:"
     (it "returns the gap positions between sorted items"
@@ -1103,29 +1128,63 @@ Optional argument INDENTATION adds an indentation level of n."
   (after-each
     (kill-buffer buf))
 
+  (describe "lister-rearrange-list"
+    (it "reverses a list"
+      (let ((data (number-sequence 0 10)))
+	(lister-set-list buf data)
+	(lister-rearrange-list buf 'reverse)
+	(expect buf :to-have-as-data-tree
+		(reverse data))))
+    (it "returns nil if there is no list"
+      (expect (lister-rearrange-list buf 'reverse)
+	      :to-be nil))
+    (it "reverse only part of the list"
+      (let* ((data (number-sequence 0 20))
+	     (pos  (lister-test-positions-of data)))
+	(lister-set-list buf data)
+	(lister-rearrange-list buf 'reverse (elt pos 5) (elt pos 10))
+	(expect buf :to-have-as-data-tree
+		'(0 1 2 3 4 10 9 8 7 6 5 11 12 13 14 15 16 17 18 19 20)))))
+  
   (describe "lister-sort-list:"
     (it "sorts a flat list"
       (let ((data (number-sequence 0 20)))
 	(lister-set-list buf data)
 	(lister-sort-list buf #'>)
-	(expect (lister-get-all-data-tree buf)
-		:to-equal
+	(expect buf :to-have-as-data-tree
 		(cl-sort data #'>))))
     (it "sorts a part of a flat list"
       (let* ((data (number-sequence 0 20))
 	     (pos  (lister-test-positions-of data)))
 	(lister-set-list buf data)
 	(lister-sort-list buf #'> (elt pos 5) (elt pos 15))
-	(expect (lister-get-all-data-tree buf)
-		:to-equal
+	(expect buf :to-have-as-data-tree 
 		'(0 1 2 3 4 15 14 13 12 11 10 9 8 7 6 5 16 17 18 19 20))))
     (it "sorts a nested list"
       (let ((data '(0 1 2 3 (31 32 33 34 35 36) 4 5 6)))
 	(lister-set-list buf data)
 	(lister-sort-list buf #'>)
-	(expect (lister-get-all-data-tree buf)
-		:to-equal
-		'(6 5 4 3 (36 35 34 33 32 31) 2 1 0))))))
+	(expect buf :to-have-as-data-tree
+		'(6 5 4 3 (36 35 34 33 32 31) 2 1 0))))
+    (it "returns nil if there is no data"
+      (expect (lister-sort-list buf #'>)
+	      :to-be nil)))
+
+  (describe "lister-sort-dwim"
+    (it "sorts a sublist below point"
+      (let* ((data '(0 1 99 3 4 (43 42 41) 5 6))
+	     (pos  (elt (lister-test-positions-of data) 4)))
+	(lister-set-list buf data)
+	(lister-sort-dwim buf pos #'<)
+	(expect buf :to-have-as-data-tree
+		'(0 1 99 3 4 (41 42 43) 5 6))))
+    (it "sorts the current level if there is no sublist"
+      (let* ((data '(0 1 99 3 4 (43 42 41) 5 6))
+	     (pos  (elt (lister-test-positions-of data) 2)))
+	(lister-set-list buf data)
+	(lister-sort-dwim buf pos #'<)
+	(expect buf :to-have-as-data-tree
+		'(0 1 3 4 (41 42 43) 5 6 99))))))
 
 ;; * Walk items
 
