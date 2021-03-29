@@ -862,7 +862,7 @@ LISTER-BUF is a lister buffer."
       (if (setq lister-local-filter-fn filter-fn)
 	  ;; that is: either apply the new filter per item
 	  (lister-filter--all-items lister-buf filter-fn)
-	;; or if there is no filter, show all items again 
+	;; or if there is no filter, show all items again
 	(lister-walk-all lister-buf
 			 (lambda (_)
 			   (lister-show-item (current-buffer)
@@ -1216,7 +1216,7 @@ FIRST and LAST have to be item buffer positions. If either is
 nil, use the position of the very first or last item instead.
 
 LEVEL is the hierarchy level of the list to be inserted. SEQ is a
-list of items to be inserted. 
+list of items to be inserted.
 
 Return the marker list of the inserted sequence SEQ. If SEQ is
 empty, only delete the current list. If FIRST and LAST do not
@@ -1233,7 +1233,7 @@ LISTER-BUF is a lister buffer."
 SEQ can be nested to insert hierarchies."
   (if (lister-nonempty-p lister-buf)
       (lister-replace-list lister-buf seq nil nil)
-    (lister-with-locked-cursor lister-buf 
+    (lister-with-locked-cursor lister-buf
       (lister-add-sequence lister-buf seq))))
 
 ;; -----------------------------------------------------------
@@ -1653,8 +1653,8 @@ Return NIL if there is nothing to sort."
 PRED is sorting predicate. LISTER-BUF is a lister buffer."
   (lister-rearrange-dwim lister-buf pos-or-marker
 			 (apply-partially #'seq-sort-by #'car pred)))
-			 
-  
+
+
 
 ;; -----------------------------------------------------------
 ;; * Cursor Sensor Function
