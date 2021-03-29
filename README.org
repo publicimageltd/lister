@@ -435,6 +435,15 @@ The range to to be sorted can be restricted by specifiying boundaries
       (let ((state t))
 	(seq-remove (lambda (elt) (setq state (not state))) l)))
     (lister-rearrange-list buf 'delete-every-second-item)
+
+  ;; delete all items < than 10
+  ;; note that the predicate checks against the CAR if of the item ('wrapped' item)
+  (let ((filter-fn (apply-partially #'seq-filter (lambda (item) (< 10 (car item))))))
+    (lister-rearrange-list (current-buffer) filter-fn))
+
+  ;; sort by predicate function >
+  ;; note that we use 'sort-by', which checks against the CAR of the wrapped item
+  (lister-rearrange-list (current-buffer) (apply-partially #'seq-sort-by #'car #'>))
 #+end_src
 
 ** Walking the list
