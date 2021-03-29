@@ -1592,6 +1592,20 @@ LISTER-BUF is a lister buffer."
 	     (new-list     (lister--rearrange-wrapped-list wrapped-list fn)))
 	(lister-replace-list lister-buf new-list first last level)))))
 
+(defun lister-rearrange-this-level (lister-buf pos-or-marker fn)
+  "Rearrange the sublist at POS-OR-MARKER.
+
+Use FN for rearranging. Note that FN has to rearrange a wrapped
+list, consisting of a cons cell with the actual item as the car
+and its associated sublist as its cdr. It must not undo the
+wrapping.
+
+LISTER-BUF is a lister buffer.
+
+Return NIL if there is nothing to rearrange."
+  (lister-with-sublist-at lister-buf pos-or-marker first last
+    (lister-rearrange-list lister-buf fn first last)))
+
 (defun lister-rearrange-dwim (lister-buf pos-or-marker fn)
   "Rearrange the sublist below POS-OR-MARKER or the current level's list.
 
@@ -1603,11 +1617,11 @@ wrapping.
 LISTER-BUF is a lister buffer.
 
 Return NIL if there is nothing to rearrange."
-  (let ((eval-pos (if (lister-sublist-below-p lister-buf pos-or-marker)
-		      (lister-end-of-lines lister-buf pos-or-marker)
-		    pos-or-marker)))
-    (lister-with-sublist-at lister-buf eval-pos first last
-      (lister-rearrange-list lister-buf fn first last))))
+  (lister-rearrange-this-level lister-buf
+			       (if (lister-sublist-below-p lister-buf pos-or-marker)
+				   (lister-end-of-lines lister-buf pos-or-marker)
+				 pos-or-marker)
+			       fn))
 
 (defun lister-sort-list (lister-buf pred &optional first last)
   "Sort all items from FIRST to LAST according to PRED.
