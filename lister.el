@@ -165,12 +165,14 @@ consisting of a cons cell with the actual item as the car and its
 associated sublist as its cdr.
 
 Note that FN has to rearrange the wrapped list, not the plain
-list. It must not undo the wrapping.
+list. It must not undo the wrapping. It can modify or delete
+elements, however.
 
 Return L in new order."
   (declare (pure t) (side-effect-free t))
   (let (acc (walk  (funcall fn l)))
-    (while
+    ;; test at the beginning to ensure that walk is not already empty
+    (while walk
 	(let ((item    (caar walk))
 	      (sublist (cdar walk)))
 	  (push item acc)
