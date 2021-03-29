@@ -1215,9 +1215,12 @@ LISTER-BUF is a lister buffer."
 FIRST and LAST have to be item buffer positions. If either is
 nil, use the position of the very first or last item instead.
 
-LEVEL is the hierarchy level of the list to be inserted.
+LEVEL is the hierarchy level of the list to be inserted. SEQ is a
+list of items to be inserted. 
 
-Return nil (and do nothing) if the list is empty.
+Return the marker list of the inserted sequence SEQ. If SEQ is
+empty, only delete the current list. If FIRST and LAST do not
+mark any list items, do nothing.
 
 LISTER-BUF is a lister buffer."
   (lister-with-locked-cursor lister-buf
