@@ -49,6 +49,8 @@ the structure of a Zettelkasten page.
   - [[#marking--unmarking][Marking / unmarking]]
   - [[#editing-the-list][Editing the list]]
   - [[#sorting-the-list][Sorting the list]]
+    - [[#examples-for-sorting][Examples for sorting:]]
+    - [[#examples-for--rearranging][Examples for  "rearranging":]]
   - [[#walking-the-list][Walking the list]]
   - [[#filtering][Filtering]]
   - [[#cursor-sensor-functions][Cursor sensor functions]]
@@ -278,7 +280,7 @@ look at the documentation strings if you want to know more:
 | lister-add-sequence    | Add a sequence (list) to the end of the list |
 | lister-remove          | Remove an item                               |
 | lister-replace         | Replace an item with another one             |
-| lister-replace-list    | Replace a whole part of a list               |
+| lister-replace-list    | Replace a (part of a) list                   |
 |------------------------+----------------------------------------------|
 
 Each command dealing with a single item usually accept many different
@@ -396,11 +398,13 @@ All the following functions respect =lister-local-marking-predicate=:
 
 ** Sorting the list
 
-| Function               | Description                            |
-|------------------------+----------------------------------------|
-| lister-sort-list       | Sort the list according to a predicate |
-| lister-sort-this-level | Sort the sublist at pos                |
-|------------------------+----------------------------------------|
+| Function                                | Description                                          |
+|-----------------------------------------+------------------------------------------------------|
+| lister-sort-list                        | Sort the list according to a predicate               |
+| lister-sort-this-level                  | Sort the sublist at pos                              |
+| lister-sort-dwim                        | Either sort the current sublist or the sublist below |
+| lister-rearrange{-list/this-level/dwim} | Abstract interface for all kind of "rearranging"     |
+|-----------------------------------------+------------------------------------------------------|
 
 Sorting also sorts the sublists.
 
@@ -409,6 +413,29 @@ a top level item to be moved, the sublist moves with it.
 
 The range to to be sorted can be restricted by specifiying boundaries
 (like a region).
+
+*** Examples for sorting:
+
+#+begin_src emacs-lisp
+(lister-set-list buf (number-sequence 0 20))
+(lister-sort-list buf #'>) ;; effectively reverses the list
+(lister-set-list buf '("a" "b" ("b1" "b2") "c"))
+(lister-sort-list buf #'string-greaterp) ;; "c" "b" "b2" "b1" "a"
+#+end_src
+
+*** Examples for  "rearranging":
+
+#+begin_src emacs-lisp
+    (lister-rearrange-list buf 'reverse) ;; reverse the list at point
+    (lister-rearrange-list buf 'ignore) ;; delete the list at point
+
+    ;; delete every 2nd item
+    (defun delete-every-second-item (l)
+     "Remove every second item of L."
+      (let ((state t))
+	(seq-remove (lambda (elt) (setq state (not state))) l)))
+    (lister-rearrange-list buf 'delete-every-second-item)
+#+end_src
 
 ** Walking the list
 
@@ -472,6 +499,7 @@ Some of the most useful low-level functions:
 * Changelog
 ** Changes to the current version (no new release)
 
+ + Abstracted "sorting" to "rearranging"
  + Fix bug which lead to ignoring the active filter when inserting
    items.
 
