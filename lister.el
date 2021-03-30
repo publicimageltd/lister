@@ -172,12 +172,12 @@ Return L in new order."
   (let (acc (walk  (funcall fn l)))
     ;; test at the beginning to ensure that walk is not already empty
     (while walk
-	(let ((item    (caar walk))
-	      (sublist (cdar walk)))
-	  (push item acc)
-	  (when (consp sublist)
-	    (push (lister--reorder-wrapped-list sublist fn) acc))
-	  (setq walk (cdr walk))))
+      (let ((item    (caar walk))
+	    (sublist (cdar walk)))
+	(push item acc)
+	(when (consp sublist)
+	  (push (lister--reorder-wrapped-list sublist fn) acc))
+	(setq walk (cdr walk))))
     (nreverse acc)))
 
 ;; -----------------------------------------------------------
@@ -1126,7 +1126,7 @@ first and the last item's position of the sublist at POS."
 (defun lister-get-sublist-data-tree (lister-buf pos)
   "Get the sublist at POS as a nested list."
   (lister-with-sublist-at lister-buf pos first last
-      (lister-get-all-data-tree lister-buf first last)))
+    (lister-get-all-data-tree lister-buf first last)))
 
 (defun lister--pos-in-region-p (beg end m)
   "Check if pos or marker M is between BEG and END (inclusive)."
@@ -1149,8 +1149,8 @@ boundaries of the whole list instead."
 		  ;; then also be used by lister-items-in-region. That
 		  ;; function should use the subseq method, which
 		  ;; seems faster.
-		(cl-remove-if (apply-partially #'lister--pos-in-region-p beg end)
-			      lister-local-marker-list)))
+		  (cl-remove-if (apply-partially #'lister--pos-in-region-p beg end)
+				lister-local-marker-list)))
 	  ;; if item is deleted, remove it from the sensor queue:
 	  (when (and lister-sensor-last-item
 		     (lister--pos-in-region-p beg end lister-sensor-last-item))
@@ -1160,8 +1160,8 @@ boundaries of the whole list instead."
 			 ;; end points to the cursor gap of the last
 			 ;; item, or to the local footer, or to point max.
 			 (+ end (or (if (get-text-property end 'item)
-					    (get-text-property end 'nchars)
-					  0)))))))))
+					(get-text-property end 'nchars)
+				      0)))))))))
 
 (defun lister-remove-this-level (lister-buf pos-or-marker)
   "Remove all surrounding items matching the level of the item at POS-OR-MARKER.
@@ -1624,10 +1624,10 @@ LISTER-BUF is a lister buffer.
 
 Return NIL if there is nothing to reorder."
   (lister-reorder-this-level lister-buf
-			       (if (lister-sublist-below-p lister-buf pos-or-marker)
-				   (lister-end-of-lines lister-buf pos-or-marker)
-				 pos-or-marker)
-			       fn))
+			     (if (lister-sublist-below-p lister-buf pos-or-marker)
+				 (lister-end-of-lines lister-buf pos-or-marker)
+			       pos-or-marker)
+			     fn))
 
 ;; Sorting is the most useful case of reordering
 
@@ -1640,8 +1640,8 @@ LISTER-BUF is a lister buffer.
 
 Return NIL if there is nothing to sort."
   (lister-reorder-list lister-buf
-			 (apply-partially #'seq-sort-by #'car pred)
-			 first last))
+		       (apply-partially #'seq-sort-by #'car pred)
+		       first last))
 
 (defun lister-sort-this-level (lister-buf pos-or-marker pred)
   "Sort the sublist at POS-OR-MARKER according to PRED.
@@ -1655,7 +1655,7 @@ Return NIL if there is nothing to sort."
   "Sort the sublist below POS-OR-MARKER or the current level's list.
 PRED is sorting predicate. LISTER-BUF is a lister buffer."
   (lister-reorder-dwim lister-buf pos-or-marker
-			 (apply-partially #'seq-sort-by #'car pred)))
+		       (apply-partially #'seq-sort-by #'car pred)))
 
 
 
