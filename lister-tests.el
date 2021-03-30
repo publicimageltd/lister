@@ -1119,9 +1119,9 @@ Optional argument INDENTATION adds an indentation level of n."
 	      :to-equal
 	      (lister-test-remove-elt-by-index some-items 2)))))
 
-;; * Sort items
+;; * Reordering and sorting items
 
-(describe "Sorting items:"
+(describe "Reordering items:"
   :var (buf)
   (before-each
     (setq buf (lister-test-setup-minimal-buffer)))
@@ -1129,6 +1129,13 @@ Optional argument INDENTATION adds an indentation level of n."
     (kill-buffer buf))
 
   (describe "lister-reorder-list"
+    (it "deletes a sublist"
+      (let* ((data '(0 1 2 3 4 (41 42 43 44) 5 6 7 8 9 10))
+	     (sublist-pos (elt (lister-test-positions-of data) 5)))
+	(lister-set-list buf data)
+	(lister-reorder-this-level buf sublist-pos 'ignore)
+	(expect buf :to-have-as-data-tree
+		'(0 1 2 3 4 5 6 7 8 9 10))))
     (it "reverses a list"
       (let ((data (number-sequence 0 10)))
 	(lister-set-list buf data)
@@ -1138,7 +1145,7 @@ Optional argument INDENTATION adds an indentation level of n."
     (it "returns nil if there is no list"
       (expect (lister-reorder-list buf 'reverse)
 	      :to-be nil))
-    (it "reverse only part of the list"
+    (it "reverses only part of the list"
       (let* ((data (number-sequence 0 20))
 	     (pos  (lister-test-positions-of data)))
 	(lister-set-list buf data)
