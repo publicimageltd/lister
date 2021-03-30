@@ -480,7 +480,9 @@ symbol's value is nil, or if there is no item at the position
 indicated, bind it to the first resp. last item of the list for
 the duration of the macro.
 
-Execute BODY only if the list is not empty."
+Execute BODY only if the list is not empty.
+
+BUF is a lister buffer."
   (declare (indent 3) (debug (sexp sexp sexp body)))
   (let ((buffer-var      (make-symbol "buffer")))
     `(let ((,buffer-var ,buf))
@@ -1119,12 +1121,12 @@ first and the last item's position of the sublist at POS."
 	      ,@body)))))
 
 (defun lister-get-sublist-data (lister-buf pos)
-  "Get the sublist at POS as a flat list."
+  "Return the sublist at POS in LISTER-BUF as a flat list."
   (lister-with-sublist-at lister-buf pos first last
     (lister-get-all-data lister-buf first last)))
 
 (defun lister-get-sublist-data-tree (lister-buf pos)
-  "Get the sublist at POS as a nested list."
+  "Return the sublist at POS in LISTER-BUF as a nested list."
   (lister-with-sublist-at lister-buf pos first last
     (lister-get-all-data-tree lister-buf first last)))
 
