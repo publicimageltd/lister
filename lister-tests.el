@@ -162,7 +162,7 @@ Optional argument INDENTATION adds an indentation level of n."
 		  (pcase poi
 		    ((pred integerp) poi)
 		    ((pred markerp) (marker-position poi))
-		    (_              (error "invalid position: %s" poi))))))
+		    (_              (error "Invalid position: %s" poi))))))
     (buttercup--test-expectation
 	(eq point pos)
       :expect-match-phrase
