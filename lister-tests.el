@@ -193,11 +193,11 @@ Optional argument INDENTATION adds an indentation level of n."
 		:to-equal
 		'((top1 (top2 (top3 (top4 (s1) (s2) (s3))))))))))
 
-  (describe "lister--rearrange-wrapped-list"
+  (describe "lister--reorder-wrapped-list"
     (it "sorts a flat list"
       (let ((the-list '((7) (5) (1) (8) (3) (2)))
 	    (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
-	(expect (lister--rearrange-wrapped-list the-list the-fn)
+	(expect (lister--reorder-wrapped-list the-list the-fn)
 		:to-equal
 		'(1 2 3 5 7 8))))
 
@@ -212,7 +212,7 @@ Optional argument INDENTATION adds an indentation level of n."
 				   (48)))
 			 (1) (9) (7) (3)))
 	    (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
-	(expect (lister--rearrange-wrapped-list
+	(expect (lister--reorder-wrapped-list
 		 the-list
 		 the-fn)
 		:to-equal
@@ -1128,21 +1128,21 @@ Optional argument INDENTATION adds an indentation level of n."
   (after-each
     (kill-buffer buf))
 
-  (describe "lister-rearrange-list"
+  (describe "lister-reorder-list"
     (it "reverses a list"
       (let ((data (number-sequence 0 10)))
 	(lister-set-list buf data)
-	(lister-rearrange-list buf 'reverse)
+	(lister-reorder-list buf 'reverse)
 	(expect buf :to-have-as-data-tree
 		(reverse data))))
     (it "returns nil if there is no list"
-      (expect (lister-rearrange-list buf 'reverse)
+      (expect (lister-reorder-list buf 'reverse)
 	      :to-be nil))
     (it "reverse only part of the list"
       (let* ((data (number-sequence 0 20))
 	     (pos  (lister-test-positions-of data)))
 	(lister-set-list buf data)
-	(lister-rearrange-list buf 'reverse (elt pos 5) (elt pos 10))
+	(lister-reorder-list buf 'reverse (elt pos 5) (elt pos 10))
 	(expect buf :to-have-as-data-tree
 		'(0 1 2 3 4 10 9 8 7 6 5 11 12 13 14 15 16 17 18 19 20)))))
   

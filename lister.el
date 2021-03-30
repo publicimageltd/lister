@@ -158,15 +158,14 @@ Alternatively, the value can be the name of a face.")
 	  (setq walk (cdr walk))))
     (nreverse acc)))
 
-(defun lister--rearrange-wrapped-list (l fn)
-  "Destructively rearrange L using FN, keeping sublist structure.
+(defun lister--reorder-wrapped-list (l fn)
+  "Destructively reorder L using FN, keeping sublist structure.
 L has to be a wrapped list as returned by `lister--wrap-list',
 consisting of a cons cell with the actual item as the car and its
 associated sublist as its cdr.
 
-Note that FN has to rearrange the wrapped list, not the plain
-list. It must not undo the wrapping. It can modify or delete
-elements, however.
+Note that FN has to reorder a wrapped list, not a plain list. Its
+result must not undo the wrapping.
 
 Return L in new order."
   (declare (pure t) (side-effect-free t))
@@ -177,7 +176,7 @@ Return L in new order."
 	      (sublist (cdar walk)))
 	  (push item acc)
 	  (when (consp sublist)
-	    (push (lister--rearrange-wrapped-list sublist fn) acc))
+	    (push (lister--reorder-wrapped-list sublist fn) acc))
 	  (setq walk (cdr walk))))
     (nreverse acc)))
 
@@ -1576,16 +1575,18 @@ moved. DIRECTION is either the symbol `left' or `right'."
 	(lister-mark-item buf pos mark-state)))))
 
 ;; -----------------------------------------------------------
-;; * Sorting (or, abstractly, rearranging) a list
+;; * Sorting (or, abstractly, reordering) a list
 
-(defun lister-rearrange-list (lister-buf fn &optional first last)
-  "Rearrange all items from FIRST to LAST using FN.
+;; The abstract functions
+
+(defun lister-reorder-list (lister-buf fn &optional first last)
+  "Reorder all items from FIRST to LAST using FN.
 If FIRST or LAST are nil, use the beginning or the end of the
-list as boundaries. Return the marker list of the rearranged
-items. If there are no items to rearrange, return nil and do
+list as boundaries. Return the marker list of the reordered
+items. If there are no items to reorder, return nil and do
 nothing.
 
-Note that FN has to rearrange a wrapped list, consisting of a
+Note that FN has to reorder a wrapped list, consisting of a
 cons cell with the actual item as the car and its associated
 sublist as its cdr. It must not undo the wrapping.
 
@@ -1594,39 +1595,41 @@ LISTER-BUF is a lister buffer."
     (when-let* ((old-list (lister-get-all-data-tree lister-buf first last)))
       (let* ((level        (lister-get-level-at lister-buf first))
 	     (wrapped-list (lister--wrap-list old-list))
-	     (new-list     (lister--rearrange-wrapped-list wrapped-list fn)))
+	     (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
 	(lister-replace-list lister-buf new-list first last level)))))
 
-(defun lister-rearrange-this-level (lister-buf pos-or-marker fn)
-  "Rearrange the sublist at POS-OR-MARKER.
+(defun lister-reorder-this-level (lister-buf pos-or-marker fn)
+  "Reorder the sublist at POS-OR-MARKER.
 
-Use FN for rearranging. Note that FN has to rearrange a wrapped
+Use FN for reordering. Note that FN has to reorder a wrapped
 list, consisting of a cons cell with the actual item as the car
 and its associated sublist as its cdr. It must not undo the
 wrapping.
 
 LISTER-BUF is a lister buffer.
 
-Return NIL if there is nothing to rearrange."
+Return NIL if there is nothing to reorder."
   (lister-with-sublist-at lister-buf pos-or-marker first last
-    (lister-rearrange-list lister-buf fn first last)))
+    (lister-reorder-list lister-buf fn first last)))
 
-(defun lister-rearrange-dwim (lister-buf pos-or-marker fn)
-  "Rearrange the sublist below POS-OR-MARKER or the current level's list.
+(defun lister-reorder-dwim (lister-buf pos-or-marker fn)
+  "Reorder the sublist below POS-OR-MARKER or the current level's list.
 
-Use FN for rearranging. Note that FN has to rearrange a wrapped
+Use FN for reorderingq. Note that FN has to reorder a wrapped
 list, consisting of a cons cell with the actual item as the car
 and its associated sublist as its cdr. It must not undo the
 wrapping.
 
 LISTER-BUF is a lister buffer.
 
-Return NIL if there is nothing to rearrange."
-  (lister-rearrange-this-level lister-buf
+Return NIL if there is nothing to reorder."
+  (lister-reorder-this-level lister-buf
 			       (if (lister-sublist-below-p lister-buf pos-or-marker)
 				   (lister-end-of-lines lister-buf pos-or-marker)
 				 pos-or-marker)
 			       fn))
+
+;; Sorting is the most useful case of reordering
 
 (defun lister-sort-list (lister-buf pred &optional first last)
   "Sort all items from FIRST to LAST according to PRED.
@@ -1636,7 +1639,7 @@ list as boundaries.
 LISTER-BUF is a lister buffer.
 
 Return NIL if there is nothing to sort."
-  (lister-rearrange-list lister-buf
+  (lister-reorder-list lister-buf
 			 (apply-partially #'seq-sort-by #'car pred)
 			 first last))
 
@@ -1651,7 +1654,7 @@ Return NIL if there is nothing to sort."
 (defun lister-sort-dwim (lister-buf pos-or-marker pred)
   "Sort the sublist below POS-OR-MARKER or the current level's list.
 PRED is sorting predicate. LISTER-BUF is a lister buffer."
-  (lister-rearrange-dwim lister-buf pos-or-marker
+  (lister-reorder-dwim lister-buf pos-or-marker
 			 (apply-partially #'seq-sort-by #'car pred)))
 
 

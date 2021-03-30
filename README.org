@@ -50,7 +50,7 @@ the structure of a Zettelkasten page.
   - [[#editing-the-list][Editing the list]]
   - [[#sorting-the-list][Sorting the list]]
     - [[#examples-for-sorting][Examples for sorting:]]
-    - [[#examples-for--rearranging][Examples for  "rearranging":]]
+    - [[#examples-for-reorder][Examples for reorder:]]
   - [[#walking-the-list][Walking the list]]
   - [[#filtering][Filtering]]
   - [[#cursor-sensor-functions][Cursor sensor functions]]
@@ -398,15 +398,15 @@ All the following functions respect =lister-local-marking-predicate=:
 
 ** Sorting the list
 
-| Function                                | Description                                          |
-|-----------------------------------------+------------------------------------------------------|
-| lister-sort-list                        | Sort the list according to a predicate               |
-| lister-sort-this-level                  | Sort the sublist at pos                              |
-| lister-sort-dwim                        | Either sort the current sublist or the sublist below |
-| lister-rearrange{-list/this-level/dwim} | Abstract interface for all kind of "rearranging"     |
-|-----------------------------------------+------------------------------------------------------|
+| Function                              | Description                                             |
+|---------------------------------------+---------------------------------------------------------|
+| lister-reorder{-list/this-level/dwim} | Abstract interface to change the order of a (sub-) list |
+| lister-sort-list                      | Sort the list according to a predicate                  |
+| lister-sort-this-level                | Sort the sublist at pos                                 |
+| lister-sort-dwim                      | Either sort the current sublist or the sublist below    |
+|---------------------------------------+---------------------------------------------------------|
 
-Sorting also sorts the sublists.
+Sorting will also sort sublists.
 
 Sorting respects sublist hierarchies. If the new sorting order forces
 a top level item to be moved, the sublist moves with it. 
@@ -423,27 +423,27 @@ The range to to be sorted can be restricted by specifiying boundaries
 (lister-sort-list buf #'string-greaterp) ;; "c" "b" "b2" "b1" "a"
 #+end_src
 
-*** Examples for  "rearranging":
+*** Examples for reorder:
 
 #+begin_src emacs-lisp
-    (lister-rearrange-list buf 'reverse) ;; reverse the list at point
-    (lister-rearrange-list buf 'ignore) ;; delete the list at point
+    (lister-reorder-list buf 'reverse) ;; reverse the list at point
+    (lister-reorder-list buf 'ignore) ;; delete the list at point
 
     ;; delete every 2nd item
     (defun delete-every-second-item (l)
      "Remove every second item of L."
       (let ((state t))
 	(seq-remove (lambda (elt) (setq state (not state))) l)))
-    (lister-rearrange-list buf 'delete-every-second-item)
+    (lister-reorder-list buf 'delete-every-second-item)
 
   ;; delete all items < than 10
   ;; note that the predicate checks against the CAR if of the item ('wrapped' item)
   (let ((filter-fn (apply-partially #'seq-filter (lambda (item) (< 10 (car item))))))
-    (lister-rearrange-list (current-buffer) filter-fn))
+    (lister-reorder-list (current-buffer) filter-fn))
 
   ;; sort by predicate function >
   ;; note that we use 'sort-by', which checks against the CAR of the wrapped item
-  (lister-rearrange-list (current-buffer) (apply-partially #'seq-sort-by #'car #'>))
+  (lister-reorder-list (current-buffer) (apply-partially #'seq-sort-by #'car #'>))
 #+end_src
 
 ** Walking the list
@@ -508,7 +508,7 @@ Some of the most useful low-level functions:
 * Changelog
 ** Changes to the current version (no new release)
 
- + Abstracted "sorting" to "rearranging"
+ + Abstracted "sorting" to "reordering"
  + Fix bug which lead to ignoring the active filter when inserting
    items.
 
