@@ -422,7 +422,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister-items-in-region buf (elt some-positions n) nil)
 		:to-equal
 		(seq-subseq (with-current-buffer buf lister-local-marker-list)
-			n))))
+			    n))))
     (it "returns the lower part of a list"
       (let ((n 15))
 	(expect (lister-items-in-region buf nil (elt some-positions n))
@@ -544,40 +544,40 @@ Optional argument INDENTATION adds an indentation level of n."
 	    (expect buf :to-have-as-content
 		    (lister-test-expected-content nil margined-header margined-footer))))))
 
-  (describe "Header and footer in non-empty lists"
-    (it "adds one item between header and footer"
-      (lister-set-header buf header)
-      (lister-set-footer buf footer)
-      (lister-add buf data)
-      (expect buf :to-have-as-content (lister-test-expected-content (list data) header footer)))
-    (it "adds some items between header and footer"
-      (let ((some-items '("1" "2" "3")))
+    (describe "Header and footer in non-empty lists"
+      (it "adds one item between header and footer"
 	(lister-set-header buf header)
 	(lister-set-footer buf footer)
-	(cl-dolist (item some-items)
-	  (lister-add buf item))
-	(expect buf :to-have-as-content (lister-test-expected-content some-items header footer))))
-    (it "lister-set-footer nil removes footer"
-      (lister-set-header buf header)
-      (lister-set-footer buf footer)
-      (lister-add buf data)
-      (lister-set-footer buf nil)
-      (expect buf :to-have-as-content (lister-test-expected-content (list data) header)))
-    (it "lister-set-header nil removes header"
-      (lister-set-header buf header)
-      (lister-set-footer buf footer)
-      (lister-add buf data)
-      (lister-set-header buf nil)
-      (expect buf :to-have-as-content (lister-test-expected-content (list data) nil footer)))
-    (it "removes header and footer, leaving only the list:"
-      (let ((some-items '("1" "2" "3")))
+	(lister-add buf data)
+	(expect buf :to-have-as-content (lister-test-expected-content (list data) header footer)))
+      (it "adds some items between header and footer"
+	(let ((some-items '("1" "2" "3")))
+	  (lister-set-header buf header)
+	  (lister-set-footer buf footer)
+	  (cl-dolist (item some-items)
+	    (lister-add buf item))
+	  (expect buf :to-have-as-content (lister-test-expected-content some-items header footer))))
+      (it "lister-set-footer nil removes footer"
 	(lister-set-header buf header)
 	(lister-set-footer buf footer)
-	(cl-dolist (item some-items)
-	  (lister-add buf item))
-	(lister-set-header buf nil)
+	(lister-add buf data)
 	(lister-set-footer buf nil)
-	(expect buf :to-have-as-content (lister-test-expected-content some-items)))))))
+	(expect buf :to-have-as-content (lister-test-expected-content (list data) header)))
+      (it "lister-set-header nil removes header"
+	(lister-set-header buf header)
+	(lister-set-footer buf footer)
+	(lister-add buf data)
+	(lister-set-header buf nil)
+	(expect buf :to-have-as-content (lister-test-expected-content (list data) nil footer)))
+      (it "removes header and footer, leaving only the list:"
+	(let ((some-items '("1" "2" "3")))
+	  (lister-set-header buf header)
+	  (lister-set-footer buf footer)
+	  (cl-dolist (item some-items)
+	    (lister-add buf item))
+	  (lister-set-header buf nil)
+	  (lister-set-footer buf nil)
+	  (expect buf :to-have-as-content (lister-test-expected-content some-items)))))))
 
 ;; * Adding and replacing items
 
@@ -992,7 +992,7 @@ Optional argument INDENTATION adds an indentation level of n."
   (describe "lister-set-filter"
     (it "makes newly inserted hidden items appear when deactivating filter"
       (let* ((filter-fn (lambda (data)
-			 (string-match-p "\\`A" data)))
+			  (string-match-p "\\`A" data)))
 	     (new-items '("HIDE ME" "HIDE ME,TOO" "AND WHAT ABOUT ME?"))
 	     (all-items (append new-items some-items)))
 	(lister-set-filter buf filter-fn)
@@ -1152,7 +1152,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(lister-reorder-list buf 'reverse (elt pos 5) (elt pos 10))
 	(expect buf :to-have-as-data-tree
 		'(0 1 2 3 4 10 9 8 7 6 5 11 12 13 14 15 16 17 18 19 20)))))
-  
+
   (describe "lister-sort-list:"
     (it "sorts a flat list"
       (let ((data (number-sequence 0 20)))
@@ -1165,7 +1165,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	     (pos  (lister-test-positions-of data)))
 	(lister-set-list buf data)
 	(lister-sort-list buf #'> (elt pos 5) (elt pos 15))
-	(expect buf :to-have-as-data-tree 
+	(expect buf :to-have-as-data-tree
 		'(0 1 2 3 4 15 14 13 12 11 10 9 8 7 6 5 16 17 18 19 20))))
     (it "sorts a nested list"
       (let ((data '(0 1 2 3 (31 32 33 34 35 36) 4 5 6)))
