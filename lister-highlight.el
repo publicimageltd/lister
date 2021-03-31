@@ -23,19 +23,17 @@
 
 ;;; Code:
 
-;; (require 'cl-lib)
-;; (cl-eval-when (eval)
-;;   (if (not (member default-directory load-path))
-;;       (add-to-list 'load-path default-directory)))
-
 (require 'lister)
 
 ;; * Highlight face
 
-(defvar lister-highlight-face-or-property 'hl-line
+(defcustom lister-highlight-face-or-property 'hl-line
   "Face or property list used for highlighting.
 The value can be either the name of a face (a symbol) or a
-property list with face attributes.")
+property list with face attributes."
+  :group 'lister-highlight
+  :type '(choice (face :tag "Name of a face")
+		 (plist :tag "Face attributes")))
 
 ;; * Callbacks which do the highlighting
 
@@ -67,25 +65,21 @@ front, letting the highlighting stand out."
 (define-minor-mode lister-highlight-mode
   "Toggle automatic highlighting of the lister item at point."
   :lighter ""
-  :group 'lister
-  (unless (lister-buffer-p (current-buffer))
-    (user-error "This minor mode can only be used in a properly set up lister buffer"))
+  :group 'lister-highlight
+  (unless (derived-mode-p 'lister-mode)
+    (user-error "This minor mode is to be used in a buffer with a lister major mode"))
   (if lister-highlight-mode
       ;; enable:
-      (progn
-	(add-hook 'lister-enter-item-hook #'lister-highlight-item nil t)
-	(add-hook 'lister-leave-item-hook #'lister-unhighlight-item nil t)
-	(when lister-local-marker-list
-	  (let* ((previous-point (point)))
-	    (lister-sensor-function (selected-window) previous-point 'entered))))
+      (let ((buf (current-buffer)))
+	(lister-add-enter-callback buf #'lister-highlight-item)
+	(lister-add-leave-callback buf #'lister-unhighlight-item)
+	(lister-sensor-enter buf))
     ;; disable:
     (progn
-      (when lister-local-marker-list
-	(let* ((previous-point (point)))
-	  (lister-sensor-function (selected-window) previous-point 'left)))
-      (remove-hook 'lister-enter-item-hook #'lister-highlight-item t)
-      (remove-hook 'lister-leave-item-hook #'lister-unhighlight-item t))))
-
+      (lister-sensor-leave buf)
+      (let ((buf (current-buffer)))
+	(lister-remove-enter-callback #'lister-highlight-item)
+	(lister-remove-leave-callback #'lister-unhighlight-item)))))
 
 (provide 'lister-highlight)
 ;;; lister-highlight.el ends here
