@@ -78,8 +78,8 @@ front, letting the highlighting stand out."
     (progn
       (lister-sensor-leave buf)
       (let ((buf (current-buffer)))
-	(lister-remove-enter-callback #'lister-highlight-item)
-	(lister-remove-leave-callback #'lister-unhighlight-item)))))
+	(lister-remove-enter-callback buf #'lister-highlight-item)
+	(lister-remove-leave-callback buf #'lister-unhighlight-item)))))
 
 (provide 'lister-highlight)
 ;;; lister-highlight.el ends here
