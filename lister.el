@@ -285,7 +285,7 @@ defined."
 	"Buffer %s has to have a local mapper function; execution aborted.")
       buf))))
 
-(defmacro with-lister-buffer (buf &rest body)
+(defmacro lister-with-lister-buffer (buf &rest body)
   "Execute BODY in BUF.
 Throw an error if BUF is not a lister buffer."
   (declare (indent 1) (debug t))
@@ -422,7 +422,7 @@ This is intended to be analogous to `point-min', but restricted
 to the list items. Deleting everything between `lister-item-min'
 and `lister-item-max' would delete all items and keep header and
 footer."
-  (with-lister-buffer lister-buf
+  (lister-with-lister-buffer lister-buf
     (if lister-local-header-marker
 	(lister-end-of-lines lister-buf lister-local-header-marker)
       (point-min))))
@@ -806,7 +806,7 @@ buffer current, you might as well that function directly."
 ;; TODO Add boundaries, use items-in-region instead of lister-local-marker-list
 (defun lister-invisible-items (lister-buf)
   "Get all markers pointing only to hidden items in LISTER-BUF."
-  (with-lister-buffer lister-buf
+  (lister-with-lister-buffer lister-buf
     (seq-filter (lambda (m)
 		  ;; Since the marker position is the place for
 		  ;; accessing the item with the cursor, we can safely
@@ -818,7 +818,7 @@ buffer current, you might as well that function directly."
 ;; TODO Add boundaries, use items-in-region instead of lister-local-marker-list
 (defun lister-visible-items (lister-buf)
   "Get all markers pointing only to visible items in LISTER-BUF."
-  (with-lister-buffer lister-buf
+  (lister-with-lister-buffer lister-buf
     (seq-filter (lambda (m)
 		  ;; Since the marker position is the place for
 		  ;; accessing the item with the cursor, we can safely
@@ -1087,7 +1087,7 @@ LISTER-BUF is a lister buffer."
   ;; and to move up and down using text property searches. It should
   ;; be faster since the current version still needs to access the
   ;; text properties to determine the level.
-  (with-lister-buffer lister-buf
+  (lister-with-lister-buffer lister-buf
     (let* ((marker  (lister-pos-as-marker lister-buf marker-or-pos))
 	   (n       (cl-position marker lister-local-marker-list :test #'=))
 	   (last-n  (1- (length lister-local-marker-list)))
@@ -1246,7 +1246,7 @@ SEQ can be nested to insert hierarchies."
   "In LISTER-BUF, display the item as marked or not marked.
 The item is referred to via MARKER-OR-POS pointing to its cursor
 gap position."
-  (with-lister-buffer lister-buf
+  (lister-with-lister-buffer lister-buf
     (let* ((inhibit-read-only t)
 	   (state    (lister-get-mark-state lister-buf marker-or-pos))
 	   (beg      (lister-pos-as-integer marker-or-pos))
@@ -1304,7 +1304,7 @@ Return t if the item's state has been set to VALUE, else nil."
 
 (defun lister-mark-some-items (lister-buf positions value)
   "In LISTER-BUF, mark all items in POSITIONS with VALUE."
-  (with-lister-buffer lister-buf
+  (lister-with-lister-buffer lister-buf
     ;; using 'save-excursion' instead of `lister-with-locked-cursor'
     ;; assumes that marking does not change the item's positions or
     ;; size:
@@ -1498,7 +1498,7 @@ symbols `:last', `:point' or `:first'. Return the position.
 Throw an error if the item is not visible."
   (let* ((m (or (lister-marker-at lister-buf position-or-symbol)
 		(lister-item-max  lister-buf))))
-    (with-lister-buffer lister-buf
+    (lister-with-lister-buffer lister-buf
       (if (invisible-p m)
 	  (error "Item not visible")
 	(goto-char m)
