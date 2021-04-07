@@ -1227,7 +1227,7 @@ LISTER-BUF is a lister buffer."
 (defun lister-set-list (lister-buf seq)
   "In LISTER-BUF, insert SEQ, leaving header and footer untouched.
 SEQ can be nested to insert hierarchies."
-  (lister-with-lister-buffer lister-buf 
+  (lister-with-lister-buffer lister-buf
     (if (lister-nonempty-p lister-buf)
 	(lister-replace-list lister-buf seq nil nil)
       (lister-with-locked-cursor lister-buf
