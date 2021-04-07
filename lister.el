@@ -120,27 +120,21 @@ local hook.")
   "Bind this to inhibit updating the marker list while inserting items.")
 
 (defvar lister-cursor-locked nil
-  "Execution is within a `lister-with-locked-cursor' macro.
-Used internally to avoid duplicate calls of
-`lister-with-locked-cursor'. Don't set this variable.")
+  "Internal lock to avoid duplicate calls of `lister-with-locked-cursor'.
+Do not set this variable.")
 
 ;; * Customizable Global Variables:
 
-;; TODO Change to defcustom
-(defvar lister-mark-face-or-property
+(defcustom lister-mark-face-or-property
   '(:background "darkorange3"
 		:foreground "white")
-  "Additional text property highlighting marked items.
-Any marked item will be highlighted by adding these properties.
-Useful values are, for example,
+  "Text properties to be added when highlighting marked items.
+Possible values are either a plist of face attributes or the name
+of a face."
+  :group 'lister
+  :type '(choice (face :tag "Name of a face")
+		 (plist :tag "Plist of face attributes")))
 
- (:background \"dark orange\") ;; sets a dark orange background
-
-or
-
-  (:weight bold)
-
-Alternatively, the value can be the name of a face.")
 ;; -----------------------------------------------------------
 ;; * Side-effect free utilities
 
