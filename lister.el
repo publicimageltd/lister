@@ -1803,17 +1803,19 @@ whole list."
   (interactive)
   (lister-mark-all-items (current-buffer) nil))
 
-(defun lister-key-action ()
-  "Do something with the item at point."
-  (interactive)
-  (if (get-text-property (point) 'item)
-      (if-let* ((fn lister-local-action))
-	  (funcall lister-local-action
-		   (lister-get-data (current-buffer) :point))
-	(message "No action defined"))
-    (user-error "No item at point")))
+;; Major modes
 
-(defvar lister-mode-map
+(define-derived-mode lister-mode
+  special-mode "Lister"
+  "Major mode for selecting list items."
+  :group 'lister
+  (cursor-sensor-mode)
+  (cursor-intangible-mode)
+  (add-hook 'isearch-mode-hook #'lister-before-isearch nil t)
+  (add-hook 'isearch-mode-end-hook #'lister-after-isearch nil t)
+  (setq buffer-undo-list t))
+
+(defvar lister-keys-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map "m" 'lister-key-toggle-mark)
@@ -1825,71 +1827,55 @@ whole list."
     (define-key map (kbd "<M-down>")  'lister-move-item-down)
     (define-key map (kbd "<M-right>") 'lister-move-item-right)
     (define-key map (kbd "<M-left>")  'lister-move-item-left)
-    (define-key map (kbd "RET") #'lister-key-action)
     map)
-  "Key map for `lister-mode'.")
+  "Key map for `lister-keys-mode'.")
 
-(define-derived-mode lister-mode
-  special-mode "Lister"
-  "Major mode for selecting list items."
+(define-minor-mode lister-keys-mode
+  "Basic keybindings for Lister mode."
+  :keymap 'lister-keys-mode-map
   :group 'lister
-  (cursor-sensor-mode)
-  (cursor-intangible-mode)
-  (add-hook 'isearch-mode-hook #'lister-before-isearch nil t)
-  (add-hook 'isearch-mode-end-hook #'lister-after-isearch nil t))
+  (unless (derived-mode-p 'lister-mode)
+    (user-error "This minor mode is to be used in a buffer with a lister major mode")))
 
 ;; * Set up a lister buffer
 
 ;;;###autoload
 (defun lister-setup (buf mapper-fn &optional data-list
-			 header footer
-			 filter-sexpr
-			 no-major-mode)
-  "Set up BUF to display DATA-LIST using MAPPER-FN.
-
-DATA-LIST is a list of data objects which will be passed to
-MAPPER-FN.
+			 header footer)
+  "Set up BUF for Lister mode using MAPPER-FN.
+Set the major mode to `lister-mode', if not done yet; prepare the
+buffer for further Lister actions; and optionally insert
+DATA-LIST, HEADER and FOOTER. Return BUF.
 
 MAPPER-FN must accept only one argument, the data object, and
 returns either a string or a list of strings.
 
-Optional argument HEADER is a string or a list of strings to be
-inserted at the top of the list.
-
-Optional argument FOOTER is a string or a list of strings to be
-inserted at the end of the list.
-
-Optional argument FILTER-SEXPR defines a filter function. See
-also `lister-set-filter'.
-
-Set the major mode to `lister-mode' unless NO-MAJOR-MODE is true.
-
-Move point to the first list item.
-
-Return BUF."
+Optional argument DATA-LIST is a list of data objects which will
+be inserted using MAPPER-FN. Optional arguments HEADER and FOOTER
+are strings, or a list of strings, which are inserted at the top
+or the bottom of the list."
   (with-current-buffer buf
     ;; first of all, set the major mode
-    (unless no-major-mode
-      (lister-mode))
+    (unless (derived-mode-p 'lister-mode)
+      (if (buffer-file-name)
+	  (error "Lister lists can only be set up in a buffer with no file attached")
+	(lister-mode)))
     ;; prepare the buffer:
     (setq lister-local-mapper mapper-fn)
     (setq lister-enter-item-hook nil
 	  lister-leave-item-hook nil)
-    (setq buffer-undo-list t)
     (setq lister-sensor-last-item nil)
     (setq lister-local-filter-fn nil)
     (let ((cursor-sensor-inhibit t)
 	  (inhibit-read-only t))
       (erase-buffer))
-    ;; ready to add header, list and footer:
+    ;; add header, list and footer:
     (when header
       (lister-set-header buf header))
     (when footer
       (lister-set-footer buf footer))
     (when data-list
       (lister-set-list buf data-list))
-    ;; apply filter:
-    (lister-set-filter buf filter-sexpr)
     ;; move to first item:
     (if (lister-visible-items buf)
 	(lister-goto buf :first)

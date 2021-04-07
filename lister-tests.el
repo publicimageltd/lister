@@ -175,6 +175,29 @@ Optional argument INDENTATION adds an indentation level of n."
 ;; -----------------------------------------------------------
 ;; The tests.
 
+(describe "The major mode:"
+  (describe "lister-setup"
+    (it "returns a buffer with major mode 'lister-mode'"
+      (let* ((buf (generate-new-buffer "TEST"))
+	     (buf (lister-setup buf #'list)))
+	(expect (with-current-buffer buf major-mode)
+		:to-equal
+		'lister-mode)))
+    (it "bails if called with a buffer visiting a file"
+      (let* ((file (make-temp-file "lister-testfile"))
+	     (buf  (find-file file)))
+	(expect (lister-setup buf #'list)
+		:to-throw)))
+    (it "can be used in the body of a derived major mode"
+      (define-derived-mode test-mode
+	lister-mode "Test"
+	"Test-mode"
+	(lister-setup (current-buffer) #'list))
+      (let* ((buf (generate-new-buffer "TEST")))
+	(with-current-buffer buf
+	  (test-mode))
+	(expect (lister-buffer-p buf) :to-be-truthy)))))
+
 (describe "Utility functions:"
   (describe "lister--wrap-list"
     (it "wraps a flat list in lists"

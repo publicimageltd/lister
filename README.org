@@ -35,8 +35,8 @@ the structure of a Zettelkasten page.
 - [[#keymap][Keymap]]
 - [[#using-lister-programmatically][Using Lister Programmatically]]
   - [[#simple-example][Simple example]]
-  - [[#doing-something-with-an-item][Doing something with an item]]
-  - [[#overriding-lister-mode][Overriding lister mode]]
+  - [[#define-a-specialized-major-mode][Define a specialized major mode]]
+  - [[#binding-a-key-to-an-item-action][Binding a key to an item action]]
   - [[#lister-highlight-mode][Lister highlight mode]]
   - [[#further-examples][Further examples]]
 - [[#functions-and-variables][Functions and Variables]]
@@ -173,47 +173,45 @@ This little program yields:
     This is the end of the list
 #+END_EXAMPLE
 
-** Doing something with an item
+** Define a specialized major mode
 
-If you press on an item, the function =lister-local-action= is called
-with the associated data as its sole argument. So if you want something
-to happen, bind this buffer local variable to something useful. Toy
-example:
+Since Lister can only be used with a mapper function installed, it is
+highly advised to use =lister-setup= when initializing the buffer. This
+function will also set the major mode to =lister-mode= unless the buffer
+already has this major mode, or a mode derived from it, enabled. So
+you can safely call =lister-setup= in the body of your own derived major
+mode:
+
+#+begin_src emacs-lisp
+  (defun mapper-fn (data)
+    "Simple mapper."
+    (list data)) 
+
+  (define-derived-mode my-specialized-lister-mode
+    lister-mode "Special Lister"
+    "A Specialized Lister Mode"
+   (lister-setup (current-buffer) #'mapper-fn)
+   (lister-keys-mode))
+#+end_src
+
+** Binding a key to an item action
+
+Lister is shipped with a minor mode with some predefined keys
+(=lister-keys-mode)=, which offers basic interactive commands for
+marking items or moving them. Yet there is no predefined binding to
+"do" something with an item. So you have to bind keys providing such a
+functionality on your own to =lister-mode-map=, or to the keymap of your
+derived major mode.
+
+Here's an example how this can be done:
 
 #+BEGIN_SRC emacs-lisp
-  (defun my-action (data)
-     (message "You just pressed enter on the item %s." data))
-
-  ;; install the action somewhere after you set up the buffer:
-  (with-current-buffer the-lister-buffer
-    (setq lister-local-action #'my-action))
-#+END_SRC
-
-** Overriding lister mode
-
-You must take care if derive your own major mode from =lister mode=. You
-need to call =lister-setup= to initialize the buffer, yet this function
-also turns on lister mode. This would interfere with your program
-trying to turn on its own major mode.
-
-Thus there is an optional argument telling =lister-setup= to /not/ turn on
-=lister mode=:
-
-#+BEGIN_SRC emacs-lisp
-  (define-derived-mode some-mode
-    lister-mode "something"
-    "Some description of your own major mode."
-    ;; Setup lister, but don't set the major mode:
-    (lister-setup (current-buffer) 
-          #'some-mode--mapper-fn
-          nil
-          nil ;; header
-          nil ;; footer
-          nil ;; filter
-          t   ;; no major-mode <--- !!!
-          )
-    ;; Now add mode specific stuff:
-    (setq-local lister-local-action #'some-mode-action)) 
+  (defun my-key-action (buf pos)
+   "Show the value of the item at point in the message buffer."
+  (interactive (list (current-buffer) (point)))
+  (when (lister-item-p buf pos)
+    (message "Value: %s" (lister-get-data buf pos))))
+  (define-key lister-mode-map (kbd "RET") #'my-key-action)
 #+END_SRC
 
 ** Lister highlight mode
