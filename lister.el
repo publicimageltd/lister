@@ -3,7 +3,7 @@
 ;; Copyright (C) 2018-2021
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Version: 0.6
+;; Version: 0.7
 ;; Package-Requires: ((seq "2.20") (emacs "26.1"))
 ;; Keywords: hypermedia
 ;; URL: https://github.com/publicimageltd/lister
@@ -47,28 +47,27 @@
 
 ;; * Version:
 
-(defvar lister-version "0.6"
+(defvar lister-version "0.7"
   "Version number.")
 
 ;; * Local Variables:
 
 (defvar-local lister-local-mapper nil
-  "Function which converts any DATA object to a list of strings.")
-
-(defvar-local lister-local-action nil
-  "Function which gets called 'on' an item to do something with it.")
+  "Function to convert any DATA object to a list of strings.")
 
 (defvar-local lister-local-filter-fn nil
-  "A filter function accepting as its only argument the data of each item.
-If this function returns nil, the corresponding item will be
-hidden.")
+  "Local filter function for Lister items.
+All items for which this functions returns nil will be hidden.
+
+Do not set this variable directly; use `lister-set-filter'
+instead.")
 
 (defvar-local lister-local-marking-predicate nil
-  "Function which decides if an item can be marked at all.
-If there is no function, just treat any item as subject to
-marking. The function has to be called with one argument: the
-associated data. The item will be exempt from marking if the
-return value is nil.")
+  "Function which decides if an item can be marked.
+If nil, any item can be marked.
+
+The function has to be called with one argument: the associated
+data. If the function returns non-nil, the item can be marked.")
 
 (defvar-local lister-local-header-marker nil
   "Stores the marker for the upper left corner of the header.")
@@ -466,6 +465,8 @@ BUF has to be a lister buffer."
 	(lister-marker-at buf pos))
       (lister-marker-at buf pos-keyword)))
 
+;; TODO Add function which returns a subsequence of items for the
+;; normalized region. Two possible methods; see "lister-items-in-region"
 (defmacro lister-with-normalized-region (buf first last &rest body)
   "Execute BODY with FIRST and LAST as normalized list boundaries.
 

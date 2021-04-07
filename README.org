@@ -1,25 +1,26 @@
 * Lister - Yet Another List Printer for Emacs
 
-=Lister= is a library for creating interactive "lists" of any kind. In
-contrast to similar packages like =hierarchy.el= or =tablist.el=, it
-aims at /not/ simply mapping a data structure to a navigatable list.
-Rather, it treats the list like Emacs treats buffers: It is an empty
-space to which you can successively add stuff. So in Emacs lingo,
-=lister= should be rather called =listed= - it is a library for
+This is the documentation for =Lister= version =0.7=.
+
+=Lister= is a library for creating interactive lists of any kind. In
+contrast to similar packages like =hierarchy.el= or =tablist.el=, it aims
+at /not/ simply mapping a data structure to a navigatable list. Rather,
+it treats the list buffer like Emacs treats text buffers: It is an
+empty space to which you can successively add stuff. So in Emacs
+lingo, =lister= should be rather called =listed= - it is a library for
 /editing/ lists, instead of displaying them.
 
 The advantage of this approach is that you don't have to know in advance
 the structure of your data. You just "insert" a new slice on the fly
 when you need it.
 
-To my knowledge, =lister= is currently only used by =delve.el=, another
-project of mine. =Delve= is a good usecase for working with lists
-lister-style: You navigate your =org-roam= Zettelkasten by following the
-links of each page. These links, however, do quickly become cyclic:
-One page links to another, and that one links back to the first one.
-With lister, these cycles are no problem. The user just inserts
-another sublist at point if he or she wants to dive a bit deeper into
-the structure of a Zettelkasten page.
+=Delve=, another project of mine, is a good usecase for working with
+lists lister-style: You navigate your =org-roam= Zettelkasten by
+following the links of each page. These links, however, do quickly
+become cyclic: One page links to another, and that one links back to
+the first one. With =Lister=, these cycles are no problem. The user just
+inserts another sublist at point if they want to dive a bit deeper
+into the structure of a Zettelkasten page.
 
 * Contents                                                         :noexport:
 :PROPERTIES:
@@ -57,13 +58,14 @@ the structure of a Zettelkasten page.
   - [[#low-level-functions][Low-level functions]]
 - [[#changelog][Changelog]]
   - [[#changes-to-the-current-version-no-new-release][Changes to the current version (no new release)]]
+  - [[#07][0.7]]
   - [[#06][0.6]]
   - [[#05][0.5]]
 :END:
 
 * Project status
 
-Current stable release is =0.6=. 
+Current stable release is =0.7=. 
 
 | Feature                                    | State  | Automated tests? |
 |--------------------------------------------+--------+------------------|
@@ -73,7 +75,7 @@ Current stable release is =0.6=.
 | walk the list                              | stable | yes              |
 | provide API for marking or unmarking items | stable | yes              |
 | use cursor sensor functions                | stable | yes              |
-| filter items                               | works  | yes              |
+| filter items                               | stable | yes              |
 |--------------------------------------------+--------+------------------|
 
 
@@ -506,16 +508,19 @@ Some of the most useful low-level functions:
 * Changelog
 ** Changes to the current version (no new release)
 
- + Abstracted "sorting" to "reordering"
+** 0.7 
+
+ + Abstracted "sorting" to "reordering".
  + Fix bug which lead to ignoring the active filter when inserting
    items.
+ + Internal cleanup and refactoring.
 
 ** 0.6
 
- + Add sorting
+ + Add sorting.
  + Add keys to move items up and down, to indent and unindent.
- + Bugfixes
- + Simplified code base
+ + Bugfixes.
+ + Simplified code base.
 
 ** 0.5
  + Simplified filtering.
