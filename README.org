@@ -1,6 +1,6 @@
 * Lister - Yet Another List Printer for Emacs
 
-This is the documentation for =Lister= version =0.7=.
+This is the documentation for =Lister= version =0.7.1=.
 
 =Lister= is a library for creating interactive lists of any kind. In
 contrast to similar packages like =hierarchy.el= or =tablist.el=, it aims
@@ -58,6 +58,7 @@ into the structure of a Zettelkasten page.
   - [[#low-level-functions][Low-level functions]]
 - [[#changelog][Changelog]]
   - [[#changes-to-the-current-version-no-new-release][Changes to the current version (no new release)]]
+  - [[#071][0.7.1]]
   - [[#07][0.7]]
   - [[#06][0.6]]
   - [[#05][0.5]]
@@ -192,18 +193,15 @@ mode:
   (define-derived-mode my-specialized-lister-mode
     lister-mode "Special Lister"
     "A Specialized Lister Mode"
-   (lister-setup (current-buffer) #'mapper-fn)
-   (lister-keys-mode))
+   (lister-setup (current-buffer) #'mapper-fn))
 #+end_src
 
 ** Binding a key to an item action
 
-Lister is shipped with a minor mode with some predefined keys
-(=lister-keys-mode)=, which offers basic interactive commands for
-marking items or moving them. Yet there is no predefined binding to
-"do" something with an item. So you have to bind keys providing such a
-functionality on your own to =lister-mode-map=, or to the keymap of your
-derived major mode.
+Lister is shipped with some predefined keys offering basic interactive
+commands for marking items or moving them. Yet there is no predefined
+binding to "do" something with an item. For that, bind your own key to
+=lister-mode-map=, or to the keymap of your derived major mode.
 
 Here's an example how this can be done:
 
@@ -507,6 +505,11 @@ Some of the most useful low-level functions:
 
 * Changelog
 ** Changes to the current version (no new release)
+
+** 0.7.1
+
+ + Reverted stupid idea of creating a separate minor mode for the
+   keybindings.
 
 ** 0.7 
 

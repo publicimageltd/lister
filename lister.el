@@ -47,7 +47,7 @@
 
 ;; * Version:
 
-(defvar lister-version "0.7"
+(defvar lister-version "0.7.1"
   "Version number.")
 
 ;; * Local Variables:
@@ -1801,17 +1801,7 @@ whole list."
 
 ;; Major modes
 
-(define-derived-mode lister-mode
-  special-mode "Lister"
-  "Major mode for selecting list items."
-  :group 'lister
-  (cursor-sensor-mode)
-  (cursor-intangible-mode)
-  (add-hook 'isearch-mode-hook #'lister-before-isearch nil t)
-  (add-hook 'isearch-mode-end-hook #'lister-after-isearch nil t)
-  (setq buffer-undo-list t))
-
-(defvar lister-keys-mode-map
+(defvar lister-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map "m" 'lister-key-toggle-mark)
@@ -1824,14 +1814,17 @@ whole list."
     (define-key map (kbd "<M-right>") 'lister-move-item-right)
     (define-key map (kbd "<M-left>")  'lister-move-item-left)
     map)
-  "Key map for `lister-keys-mode'.")
+  "Key map for `lister-mode'.")
 
-(define-minor-mode lister-keys-mode
-  "Basic keybindings for Lister mode."
-  :keymap 'lister-keys-mode-map
+(define-derived-mode lister-mode
+  special-mode "Lister"
+  "Major mode for selecting list items."
   :group 'lister
-  (unless (derived-mode-p 'lister-mode)
-    (user-error "This minor mode is to be used in a buffer with a lister major mode")))
+  (cursor-sensor-mode)
+  (cursor-intangible-mode)
+  (add-hook 'isearch-mode-hook #'lister-before-isearch nil t)
+  (add-hook 'isearch-mode-end-hook #'lister-after-isearch nil t)
+  (setq buffer-undo-list t))
 
 ;; * Set up a lister buffer
 
