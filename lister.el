@@ -1174,8 +1174,9 @@ LISTER-BUF is a lister buffer."
 	 (next-level     (lister-get-level-at lister-buf next-item)))
     (unless current-level
       (error "No item at position %d" (lister-pos-as-integer pos-or-marker)))
-    ()
-    (> next-level current-level)))
+    (if next-level
+        (> next-level current-level)
+      'nil)))
 
 (defun lister-remove-sublist-below (lister-buf pos-or-marker)
   "Remove the sublist below the item at POS-OR-MARKER.
