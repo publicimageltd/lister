@@ -107,7 +107,7 @@ Current stable release is =0.7=.
 ** Additional Features
 
 - The list can have a static header or a footer.
-- In =lister-mode=, using isearch works out of the box.
+- In =lister-mode=, using =isearch= works out of the box.
 - Items can be marked and unmarked. There are helper functions to
   easily do something with these marked items (e.g.
   =lister-walk-marked-items=).
@@ -120,10 +120,10 @@ Current stable release is =0.7=.
 
 =Lister= relies heavily on text properties and on keeping a buffer local
 list with markers. My experience is that after a certain threshhold,
-having a buffer with that many text properties makes cursoe movement
+having a buffer with that many text properties makes cursor movement
 slow and uncomfortable to use. For me, this limit is at around 1.000
-items, but that will most certainly depend on you hardware and
-software configuration.
+items, but that will most certainly depend on your particular hardware
+and software configuration.
 
 So if you expect your list to have regularly more than 750 items or
 so, you should not use =lister=.
@@ -153,14 +153,15 @@ which see.
 #+BEGIN_SRC emacs-lisp
   (let* ((buf (generate-new-buffer "*LISTER*")))
     (lister-setup buf 
-                  #'list ;; mapper-fn
-          '("3" "4" "5" "6") ;; initial data
-          "This is my list:" ;; header
-          "This is the end of the list") ;; footer
-    (lister-goto buf :first) ;; move to first item
-    (lister-insert buf :point "2")
-    (lister-insert buf :point "1")
-    (switch-to-buffer buf))               
+		  #'list     ;; most minimal mapper-fn
+	  '("3" "4" "5" "6") ;; initial data
+	  "This is my list:" ;; static header
+	  "This is the end of the list") ;; footer
+    ;;
+    (lister-goto buf :first)       ;; move to first item
+    (lister-insert buf :point "2") ;; insert item "2" at point
+    (lister-insert buf :point "1") ;; insert item "1" at point
+    (switch-to-buffer buf))
 #+END_SRC
 
 This little program yields:
@@ -178,27 +179,33 @@ This little program yields:
 
 ** Define a specialized major mode
 
-Since Lister can only be used with a mapper function installed, it is
-highly advised to use =lister-setup= when initializing the buffer. This
+Since =Lister= can only be used with a mapper function installed, it is
+highly advised to use =lister-setup= for initializing the buffer. This
 function will also set the major mode to =lister-mode= unless the buffer
-already has this major mode, or a mode derived from it, enabled. So
-you can safely call =lister-setup= in the body of your own derived major
+already has this major mode enabled, or a mode derived from it. So you
+can safely call =lister-setup= in the body of your own derived major
 mode:
 
 #+begin_src emacs-lisp
+  ;; Either way, you need a mapper function:
   (defun mapper-fn (data)
     "Simple mapper."
     (list data)) 
 
+  ;; Set up the buffer with a derived minor mode:
   (define-derived-mode my-specialized-lister-mode
     lister-mode "Special Lister"
     "A Specialized Lister Mode"
-   (lister-setup (current-buffer) #'mapper-fn))
+    (lister-setup (current-buffer) #'mapper-fn))
+
+  ;; Set up the buffer manually:
+  (let ((buf (get-buffer-create "Testbuffer")))
+    (lister-setup buf #'mapper-fn))
 #+end_src
 
 ** Binding a key to an item action
 
-Lister is shipped with some predefined keys offering basic interactive
+=Lister= is shipped with some predefined keys offering basic interactive
 commands for marking items or moving them. Yet there is no predefined
 binding to "do" something with an item. For that, bind your own key to
 =lister-mode-map=, or to the keymap of your derived major mode.
@@ -207,16 +214,20 @@ Here's an example how this can be done:
 
 #+BEGIN_SRC emacs-lisp
   (defun my-key-action (buf pos)
-   "Show the value of the item at point in the message buffer."
-  (interactive (list (current-buffer) (point)))
-  (when (lister-item-p buf pos)
-    (message "Value: %s" (lister-get-data buf pos))))
+    "Show the value of the item at point in the message buffer."
+    ;; predefine the values when called interactively:
+    (interactive (list (current-buffer) (point)))
+    ;; do something if the item actually is a lister item:
+    (when (lister-item-p buf pos)
+      (message "Value: %s" (lister-get-data buf pos))))
+  ;;
   (define-key lister-mode-map (kbd "RET") #'my-key-action)
 #+END_SRC
 
 ** Lister highlight mode
 
-Turning on this minor mode turns on highlighting of the item at point.
+Turning on =lister-highlight-mode= enables highlighting of the item at
+point.
 
 #+begin_src emacs-lisp
 (require 'lister-highlight)
@@ -244,72 +255,74 @@ look at the documentation strings if you want to know more:
 
 ** Some Conventions
 
- - The =lister= buffer is set up using quite some buffer local
-   variables. All of these variables are prefixed with =lister-local=
-   (e.g., =lister-local-marker-list=).
- - The first argument is usually the lister buffer object. It cannot
-   be omitted; even the current buffer has to be passed explicitly.
- - All argument variables usually also express a type. Thus =lister-buf=
-   must be a buffer set up as a lister buffer. Common argument names
-   are =marker-or-pos= (implying that one can either pass a marker or an
-   integer); or =pos-or-symbol= (meaning that one can pass a marker, an
-   integer or a symbol =:last=, =:point=, =:first=). Many commands which
-   work on a position (such as =lister-goto= or =lister-remove=) use this
-   latter type, making possible expressions such as =(lister-goto buf
-   :first)=.
+ - The =lister= buffer uses buffer local variables. All of these
+   variables are prefixed with =lister-local= (e.g.,
+   =lister-local-marker-list=).
+ - The first argument of a public function is usually the lister
+   buffer object. It cannot be omitted; even the current buffer has to
+   be passed explicitly.
+ - For a lack of a decent type management in Emacs Lisp, all variable
+   names of the argument try at least specify the wanted type by using
+   a "telling" name. Thus =lister-buf= must be a buffer set up as a
+   lister buffer, etc. Commonly used argument names in this package are:
+   - =marker-or-pos=: specify a position either with a marker or an
+     integer value
+   - =pos-or-symbol=: specify a position with a marker, an integer or a
+     symbol =:last=, =:point=, =:first=
 
 ** Basic Setup
 
-| Function          | Purpose                                                  |
-|-------------------+----------------------------------------------------------|
-| lister-setup      | Initialize a buffer and turn on "lister-mode".           |
-| lister-set-list   | Replace current list with another (possibly empty) list. |
-| lister-set-header | Set a header on top of the list.                         |
-| lister-set-footer | Set a footer at the end of the list.                     |
-|-------------------+----------------------------------------------------------|
+These are the functions which setup a lister buffer. It is mandatory
+to prepare a buffer before calling any other =Lister= functions in it.
+
+| Function          | Purpose                                                                 |
+|-------------------+-------------------------------------------------------------------------|
+| lister-setup      | Initialize a buffer and turn on "lister-mode", if it is not on already. |
+| lister-set-list   | Replace current list with another (possibly empty) list.                |
+| lister-set-header | Set an immovable header on top of the list.                             |
+| lister-set-footer | Set an immovable (dangling) footer at the end of the list.              |
+|-------------------+-------------------------------------------------------------------------|
 
 ** Editing plain lists
 
-| Function               | Purpose                                      |
-|------------------------+----------------------------------------------|
-| lister-insert          | Insert a single item                         |
-| lister-insert-sequence | Insert a sequence (list) of items            |
-| lister-add             | Add a single item to the end of the list     |
-| lister-add-sequence    | Add a sequence (list) to the end of the list |
-| lister-remove          | Remove an item                               |
-| lister-replace         | Replace an item with another one             |
-| lister-replace-list    | Replace a (part of a) list                   |
-|------------------------+----------------------------------------------|
+| Function               | Purpose                                        |
+|------------------------+------------------------------------------------|
+| lister-insert          | Insert a single item at the position specified |
+| lister-insert-sequence | Insert a sequence (list) of items              |
+| lister-add             | Add a single item to the end of the list       |
+| lister-add-sequence    | Add a sequence (list) to the end of the list   |
+| lister-remove          | Remove an item                                 |
+| lister-replace         | Replace an item with another one               |
+| lister-replace-list    | Replace a (part of a) list                     |
+|------------------------+------------------------------------------------|
 
-Each command dealing with a single item usually accept many different
-types of positions (markers, integers, symbol). They also call the
-cursor sensor callbacks. If you use several of these commands in a
-row, wrap them in =lister-with-locked-cursor= to avoid calling the
-sensor functions after each single step.
+Each command dealing with a single item usually accepts different
+types of positions (markers, integers or a symbol such as =:point=).
+They also call the cursor sensor callbacks. If you use several of
+these commands in a row, wrap them in =lister-with-locked-cursor= to
+avoid calling the sensor functions after each single step.
 
 Inserting sequences is optimized for speed, so it might be useful to
 first build a list and then insert it in one rush.
 
 ** Editing hierarchical lists
 
-All =-sequence= commands also accept nested sequences (lists), which
-result in indented lists (i.e., hierarchies). Indentation is visually
-indicated by prepending a single space per indentation level. A list
-which is indented relative to their surrounding items is called a
-"sublist". Thus if you open a node in a normal hierarchical list, in
-lister, a sublist will be inserted.
+All =lister-..-sequence= commands also accept nested sequences (lists),
+which result in indented lists (i.e., hierarchies). Indentation is
+indicated visually by prepending one single space each per indentation
+level. A list which is thus indented relative to their surrounding
+items is called a "sublist". There are special functions for dealing
+with sublists:
 
-There are special functions for dealing with sublists:
-
-| Function                    | Description                                                      |
-|-----------------------------+------------------------------------------------------------------|
-| lister-insert-sublist-below | Insert a sequence (list) below an item, with indentation         |
-| lister-sublist-below-p      | Check if there is a sublist below this item.                     |
-| lister-remove-this-level    | Remove all items with the indentation level of an item           |
-| lister-remove-sublist-below | Remove all items below the current items with higher indentation |
-| lister-sublist-boundaries   | Determine the boundaries of the sublist at pos.                  |
-| lister-get-all-data-tree    | Return the current list as an hierachical list.                  |
-|-----------------------------+------------------------------------------------------------------|
+| Function                    | Description                                                          |
+|-----------------------------+----------------------------------------------------------------------|
+| lister-insert-sublist-below | Insert an indented sequence (list) below the  item at pos.           |
+| lister-sublist-below-p      | Check if there is a sublist below this item.                         |
+| lister-remove-this-level    | Remove all items with the same indentation level as the item at pos. |
+| lister-remove-sublist-below | Remove all items below the current items with higher indentation.    |
+| lister-sublist-boundaries   | Determine the boundaries of the sublist at pos.                      |
+| lister-get-all-data-tree    | Return the current list as a nested list.                            |
+|-----------------------------+----------------------------------------------------------------------|
 
 ** Navigation
 
@@ -319,49 +332,47 @@ Emacs using a cursor gap.
  =lister-goto= is your main entry point for positioning the cursor from
 within the program; it takes care of the cursor sensor functions.
 Don't use =goto-char= unless you know what you do. =lister-goto= accepts
-many different types of arguments, such as markers, integer positions
-or meaningful symbols such as =:last, =:first= or =:point=.
+different types of arguments, such as markers, integer positions or
+meaningful symbols such as =:last, =:first= or =:point=.
 
 For more complex navigation operations, wrap the calls within
 =lister-with-locked-cursor=. This macro saves point and intelligently
 re-sets the cursor to the same line after executing body.
 
- | Function                  | Purpose                                                  |
- |---------------------------+----------------------------------------------------------|
- | lister-goto               | Goto a position                                          |
- | lister-with-locked-cursor | MACRO: Execute BODY and restore line position afterwards |
- |---------------------------+----------------------------------------------------------|
-
- | Variable            | Purpose                                  |
- |---------------------+------------------------------------------|
- | lister-local-action | This  fn is called when pressing <ENTER> |
- |---------------------+------------------------------------------|
-
+ | Function                  | Purpose                                           |
+ |---------------------------+---------------------------------------------------|
+ | lister-goto               | Goto a position                                   |
+ | lister-with-locked-cursor | Execute BODY and restore line position afterwards |
+ |---------------------------+---------------------------------------------------|
 
 ** Accessing the data
 
+The data is stored as a text property value at the cursor gap position
+of the item (which is often referred to as "the item's position"). Use
+these functions to store and retrieve these data items:
+
 | Function                 | Purpose                                                |
 |--------------------------+--------------------------------------------------------|
-| lister-get-data          | Get the data of an item                                |
-| lister-set-data          | Change the data of an item                             |
-| lister-get-all-data      | Get all data (disregarding indentation) as a flat list |
-| lister-get-all-data-tree | Get all data as a tree, respecting indentation         |
+| lister-get-data          | Get the data of the item at pos.                       |
+| lister-set-data          | Set the data of the item at pos.                       |
+| lister-get-all-data      | Get all data as a flat list, disregarding indentation. |
+| lister-get-all-data-tree | Get all data as a nested list, respecting indentation. |
 |--------------------------+--------------------------------------------------------|
 
-Both the results of  =lister-get-all-data= and =lister-get-all-data-tree=
-can be further refined by specifiyng item boundaries.
+To retreive the data list of a sublist or some arbitrary part of the
+list, you can specify item boundaries.
 
 ** Marking / unmarking
 
-Every item can be 'marked'. Note that 'mark', in =lister=, is thus an
-ambiguous term: It might refer to the /state/ of an item, being marked
-or unmarked; or to the /position/ of the item, usually represented by a
-marker. I'm happy about any suggestion for a better semantics.
+Every item can be 'marked'. Note that 'mark', in =lister=, is ambiguous:
+It might refer to the /state/ of an item, being marked or unmarked; or
+to the /position/ of the item, usually represented by an Emacs Lisp
+marker object. I'm happy about any suggestion for a better semantics.
 
 Before any marking command is being done, =lister= checks if the item at
 point can be marked at all. This is determined using
 =lister-local-marking-predicate=. This makes it easy to restrict all
-marking to only items with a specific data type.
+marking to items with a specific data type.
 
 | Variable                       | Description                                        |
 |--------------------------------+----------------------------------------------------|
@@ -414,37 +425,61 @@ The range to to be sorted can be restricted by specifiying boundaries
 
 *** Examples for sorting:
 
+The sorting commands accept all common sorting predicates, like =>= and
+friends:
+
 #+begin_src emacs-lisp
-(lister-set-list buf (number-sequence 0 20))
-(lister-sort-list buf #'>) ;; effectively reverses the list
-(lister-set-list buf '("a" "b" ("b1" "b2") "c"))
-(lister-sort-list buf #'string-greaterp) ;; "c" "b" "b2" "b1" "a"
+  ;; sort numbers by size:
+  (lister-set-list buf (number-sequence 0 20))
+  (lister-sort-list buf #'>) ;; effectively reverses the list
+
+  ;; sort items by alphanumeric string comparison:
+  (lister-set-list buf '("a" "b" ("b1" "b2") "c"))
+  (lister-sort-list buf #'string-greaterp) ;; "c" "b" "b2" "b1" "a"
 #+end_src
 
 *** Examples for reorder:
+Compared to sorting, reordering is the more generalized concept. It
+can be used to change the order of the list in any way conceivable.
+The following code snippets show some examples.
+
+Note that the reordering functions operate an  "wrapped" list items,
+which has to be accessed via =car=. So you cannot use simple comparison
+operators, you have to somehow "unwrap" the items before.
 
 #+begin_src emacs-lisp
-    (lister-reorder-list buf 'reverse) ;; reverse the list at point
-    (lister-reorder-list buf 'ignore) ;; delete the list at point
+  ;; Simple reorderings:
+  (lister-reorder-list buf 'reverse) ;; reverse the list at point
+  (lister-reorder-list buf 'ignore) ;; delete the list at point
 
-    ;; delete every 2nd item
-    (defun delete-every-second-item (l)
-     "Remove every second item of L."
-      (let ((state t))
-	(seq-remove (lambda (elt) (setq state (not state))) l)))
-    (lister-reorder-list buf 'delete-every-second-item)
+  ;; delete every 2nd item:
+  ;; - first define a predicate which removes every 2nd item:
+  (defun delete-every-second-item (l)
+    "Remove every second item of L."
+    (let ((state t))
+      (seq-remove (lambda (elt) (setq state (not state))) l)))
+  ;; - then call 'reorder' with that predicate:
+  (lister-reorder-list buf 'delete-every-second-item)
 
-  ;; delete all items < than 10
-  ;; note that the predicate checks against the CAR if of the item ('wrapped' item)
+  ;; delete all items < than 10:
+  ;; - use a filter fn which returns every item < than 10
+  ;; - note that the predicate checks against the CAR of the item ('wrapped' item)
   (let ((filter-fn (apply-partially #'seq-filter (lambda (item) (< 10 (car item))))))
     (lister-reorder-list (current-buffer) filter-fn))
 
-  ;; sort by predicate function >
-  ;; note that we use 'sort-by', which checks against the CAR of the wrapped item
+  ;; sort by predicate function >:
+  ;; - note that we use 'sort-by' and tell it to check against the CAR of
+  ;;   the wrapped item:
   (lister-reorder-list (current-buffer) (apply-partially #'seq-sort-by #'car #'>))
 #+end_src
 
 ** Walking the list
+
+Use these functions to apply a function to a set of items. The items
+are determined by positions, e.g. marker lists. Use low level
+functions like =lister-items-in-region= (see below) to get a subset of
+functions. Alternatively, you can also pass a predicate function to
+restrict action only to those items which pass this predicate test.
 
 | Function                 | Description                                                       |
 |--------------------------+-------------------------------------------------------------------|
@@ -467,7 +502,6 @@ newly inserted items will only be visible if they match the filter.
 |-------------------+-------------------------------|
 | lister-set-filter | Set or remove filter function |
 |-------------------+-------------------------------|
-
 
 ** Cursor sensor functions
 
