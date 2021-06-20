@@ -189,6 +189,7 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister-setup buf #'list)
 		:to-throw)))
     (it "can be used in the body of a derived major mode"
+      (defun test-mode ()) ;; silence byte compiler
       (define-derived-mode test-mode
 	lister-mode "Test"
 	"Test-mode"
