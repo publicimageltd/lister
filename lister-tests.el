@@ -31,6 +31,11 @@
 
 (message "Testing lister version %s on Emacs %s" lister-version emacs-version)
 
+;; * Declarations for the Byte compiler
+
+(defun lister-test-mode ()
+  "Dummy function which will be redefined during testing.")
+
 ;; (setq buttercup-stack-frame-style 'pretty)
 
 ;; * Utility functions
@@ -47,7 +52,7 @@ Return the buffer object"
 (defun lister-test-positions-of (l &optional indentation)
   "Return a list of expected positions for inserting L.
 L has to be a list of items which can be printed with format
-'%s'. The results are only valid in a buffer with no margins, and
+'%s'.  The results are only valid in a buffer with no margins, and
 if the items are inserted with no indentation level.
 
 Optional argument INDENTATION adds an indentation level of n."
@@ -61,7 +66,7 @@ Optional argument INDENTATION adds an indentation level of n."
 (defun lister-test-expected-content (l &optional header footer indentation)
   "Return a string of the expected buffer contents when inserting L.
 L has to be a list of items which can be printed with format '%s'.
-HEADER and FOOTER have to be nil or strings. The results are only
+HEADER and FOOTER have to be nil or strings.  The results are only
 valid in a minimal buffer with no margins, and if the items are
 inserted with no indentation.
 
@@ -189,14 +194,13 @@ Optional argument INDENTATION adds an indentation level of n."
 	(expect (lister-setup buf #'list)
 		:to-throw)))
     (it "can be used in the body of a derived major mode"
-      (defun test-mode ()) ;; silence byte compiler
-      (define-derived-mode test-mode
+      (define-derived-mode lister-test-mode
 	lister-mode "Test"
 	"Test-mode"
 	(lister-setup (current-buffer) #'list))
       (let* ((buf (generate-new-buffer "TEST")))
 	(with-current-buffer buf
-	  (test-mode))
+	  (lister-test-mode))
 	(expect (lister-buffer-p buf) :to-be-truthy)))))
 
 (describe "Utility functions:"
