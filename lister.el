@@ -4,7 +4,7 @@
 
 ;; Author:  <joerg@joergvolbers.de>
 ;; Version: 0.7.1
-;; Package-Requires: ((seq "2.20") (emacs "26.1"))
+;; Package-Requires: ((emacs "26.1"))
 ;; Keywords: hypermedia
 ;; URL: https://github.com/publicimageltd/lister
 
