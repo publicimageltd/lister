@@ -66,7 +66,7 @@ into the structure of a Zettelkasten page.
 
 * Project status
 
-Current stable release is =0.7=. 
+Current stable release is =0.7.1=
 
 | Feature                                    | State  | Automated tests? |
 |--------------------------------------------+--------+------------------|
@@ -513,7 +513,7 @@ minor mode =lister-highlight= (shipped with this mode) uses sensor
 functions to highlight the item at point.
 
 Sensor functions *must not* be added via =add-hook= and friends. Instead,
-use the homegrown functions:
+use these homegrown functions:
 
 | Function                             | Description                                                   |
 |--------------------------------------+---------------------------------------------------------------|
@@ -542,12 +542,12 @@ Some of the most useful low-level functions:
 
 ** 0.7.1
 
- + Reverted stupid idea of creating a separate minor mode for the
+ + Revert stupid idea of creating a separate minor mode for the
    keybindings.
 
 ** 0.7 
 
- + Abstracted "sorting" to "reordering".
+ + Abstract "sorting" to "reordering".
  + Fix bug which lead to ignoring the active filter when inserting
    items.
  + Internal cleanup and refactoring.
@@ -560,7 +560,7 @@ Some of the most useful low-level functions:
  + Simplified code base.
 
 ** 0.5
- + Simplified filtering.
+ + Simplify filtering.
  + Extend the documentation.
  + /Quite/ some internal cleanup of the code base.
  + Use =org-make-toc= for the README.org
