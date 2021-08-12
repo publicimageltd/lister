@@ -252,7 +252,7 @@ LISTER-BUF is a lister buffer."
 ;; * Safety checks
 
 (defun lister-nonempty-p (lister-buf)
-  "Return non-nil if LISTER-BUF contains at least one item."
+  "Return non-nil if LISTER-BUF has no single list item."
   (buffer-local-value 'lister-local-marker-list lister-buf))
 
 (defun lister-item-p (lister-buf pos-or-symbol)
