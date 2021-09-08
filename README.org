@@ -1,3 +1,14 @@
+* ANN: Breaking Change coming soon
+
+=NOTE=: =Lister= will soon be updated to version =1.0=. This will be a
+breaking change, existing code has to be adapted. The new version
+shares most of the features of the existing version, but it works on a
+different principle. It uses the internal library =Ewoc=, and so all
+calls to that library now require an =Ewoc= object instead of a buffer.
+That's the most important change, but there are more. The new version
+is much more stable, its code is simpler and less error prone, but
+existing programs using =Lister= will need to adapt.
+
 * Lister - Yet Another List Printer for Emacs
 
 This is the documentation for =Lister= version =0.7.1=.
@@ -246,7 +257,7 @@ existing face.
 =Lister= is shipped with an extensive suite of =buttercup= tests. Thus see
 =lister-tests.el= for further examples of how to use a function.
 
-=Delve=, which is also hosted on githin, uses =lister=. 
+=Delve=, which is also hosted on github, uses =lister=. 
 
 * Functions and Variables
 
@@ -284,6 +295,9 @@ to prepare a buffer before calling any other =Lister= functions in it.
 |-------------------+-------------------------------------------------------------------------|
 
 ** Editing plain lists
+
+"Inserting" means: Insert something by moving everything else below
+that position further down.
 
 | Function               | Purpose                                        |
 |------------------------+------------------------------------------------|
@@ -335,9 +349,11 @@ Don't use =goto-char= unless you know what you do. =lister-goto= accepts
 different types of arguments, such as markers, integer positions or
 meaningful symbols such as =:last, =:first= or =:point=.
 
-For more complex navigation operations, wrap the calls within
-=lister-with-locked-cursor=. This macro saves point and intelligently
-re-sets the cursor to the same line after executing body.
+For more complex navigation operations which modify lists, wrap the
+calls within =lister-with-locked-cursor=. This macro saves point and
+intelligently re-sets the cursor to the same line after executing
+body. It takes care of edge cases such as when the line position is
+not available any more because the list has shrunk.
 
  | Function                  | Purpose                                           |
  |---------------------------+---------------------------------------------------|
