@@ -509,15 +509,14 @@ is invalid (i.e. index is out of bounds) or invisible."
   "Get the indentation level of the item at NODE."
   (lister--item-level (ewoc-data node)))
 
-;; TODO Rename to lister-node-set-level
-(defun lister-set-level (ewoc node level)
+(defun lister-set-node-level (ewoc node level)
   "In EWOC, set indentation of NODE to LEVEL, refreshing it."
   (setf (lister--item-level (ewoc-data node)) level)
   (ewoc-invalidate ewoc node))
 
 (defun lister-set-level-at (ewoc pos level)
   "In EWOC, set indentation of node at POS to LEVEL, refreshing it."
-  (lister-set-level ewoc (lister--parse-position ewoc pos) level))
+  (lister-set-node-level ewoc (lister--parse-position ewoc pos) level))
 
 ;; TODO Rename to lister-node-get-data
 (defun lister-get-data (node)
