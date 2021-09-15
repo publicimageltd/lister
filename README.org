@@ -1,0 +1,494 @@
+* Lister - Yet another List Printer
+
+# NOTE: Do not forget to update the release in PROJECT STATUS and
+# CHANGELOG!
+This is the documentation for =Lister= version =0.9=
+
+=Lister= is a library for creating interactive lists of any kind. In
+contrast to similar packages like =hierarchy.el= or =tablist.el=, it aims
+at /not/ simply mapping a data structure to a navigatable list. Rather,
+it treats the list buffer like Emacs treats text buffers: It is an
+empty space to which you successively add stuff. So =Lister= should
+actually be called =Listed=.
+
+One advantage of this approach is that you don't have to know in
+advance the structure of your data. You just "insert" a new slice on
+the fly when you need it. Another advantage is that you do not need to
+keep a separate copy of the list and worry about syncing: The buffer
+is the whole source of truth. Thus =Lister= recommends itself in all
+cases where it makes sense to collect, modify, thin out, graft, sort
+or otherwise edit lists from various sources.
+
+* Contents                                                         :noexport:
+:PROPERTIES:
+ :TOC:      :include siblings
+:END:
+
+:CONTENTS:
+- [[#project-status][Project status]]
+- [[#feature-overview][Feature overview]]
+- [[#example][Example]]
+- [[#design-principle][Design principle]]
+  - [[#what-does-lister-offer][What does Lister offer?]]
+  - [[#some-core-concepts][Some core concepts:]]
+  - [[#bumps-and-wrinkles][Bumps and Wrinkles]]
+- [[#api][API]]
+  - [[#setting-up-the-buffer][Setting up the buffer]]
+  - [[#inserting-adding-deleting-or-replacing-single-items][Inserting, adding, deleting or replacing single items]]
+  - [[#inserting-adding-deleting-or-replacing-lists-of-items][Inserting, adding, deleting or replacing lists of items]]
+  - [[#getting-the-list-data][Getting the list data]]
+  - [[#normalizing-regions][Normalizing 'regions']]
+  - [[#basic-sublist-handling][Basic sublist handling]]
+  - [[#marking][Marking]]
+  - [[#sorting][Sorting]]
+  - [[#filter][Filter]]
+  - [[#finding-nodes][Finding nodes]]
+  - [[#looping][Looping]]
+  - [[#miscellaneous][Miscellaneous]]
+- [[#changelog][Changelog]]
+  - [[#09][0.9]]
+:END:
+
+* Project status
+
+Current release is =0.9=. 
+
+* Feature overview
+
+This is an overview of features done or planned.
+
+| Feature                         | State   | Automated tests? |
+|---------------------------------+---------+------------------|
+| build simple or large lists     | stable  | yes              |
+| build nested lists              | stable  | yes              |
+| retrieve data, with hierarchies | stable  | yes              |
+| loop over the list              | stable  | yes              |
+| marking or unmarking items      | stable  | yes              |
+| filter items                    | stable  | yes              |
+| move items and sublists         | planned | -                |
+|---------------------------------+---------+------------------|
+
+* Example
+
+This piece of code creates a new buffer which displays lists of
+strings.
+
+#+begin_src emacs-lisp
+  (let ((ewoc (lister-setup "BUFFERNAME" #'list)))
+    ;; insert 4 items:
+    (lister-set-list ewoc '("ITEM1" "ITEM2" "ITEM3" "ITEM4"))
+    ;; add further items:
+    (lister-add-list ewoc '("ITEM5" "ITEM6"))
+    ;; add sublist:
+    (lister-insert-sublist-below ewoc :first '("SUBITEM1" "SUBITEM2"))
+    ;; move point:
+    (lister-goto ewoc :first)
+    (lister-goto ewoc :next)
+    ;; get item data:
+    (lister-get-data-at ewoc :point) ;; => "SUBITEM1"
+    ;; get sublist at point:
+    (lister-get-sublist-at ewoc :point) ;; => ("SUBITEM1" "SUBITEM2")
+    ;; prepend "X" to each item:
+    (lister-dolist (ewoc data :first :last node)
+      (lister-replace-at ewoc node (concat "X" data)))
+    ;; alternative, more functional way:
+    (lister-update-list ewoc (lambda (data) (concat "X" data)))
+    ;; filter every item containing the digit 1:
+    (let ((filter (apply-partially #'string-match "1")))
+      (lister-set-filter ewoc filter))
+    ;; only get visible items:
+    (lister-get-visible-list ewoc)
+    ;; => (("XXSUBITEM2") "XXITEM2" "XXITEM3" "XXITEM4" "XXITEM5" "XXITEM6")
+    ;; remove filter:
+    (lister-set-filter ewoc nil)
+    ;; collect the list values as a flat list:
+    (lister-collect-list ewoc)
+    ;; => ("XXITEM1" "XXSUBITEM1" "XXSUBITEM2" "XXITEM2"....)
+    ;; get the data as a listed nist:
+    (lister-get-list ewoc)) ;; => ("XXITEM1" ("XXSUBITEM1" "XXSUBITEM2") "XXITEM2" ....) 
+#+end_src
+
+* Design principle
+
+=Lister= is based on the internal library =Ewoc.el=. Have a look at its
+info pages. The core idea is that we keep a double linked list which
+is "viewed" in the buffer, so that each change in the list will be
+reflected in the buffer using a function which pretty prints the data
+(model-view-controller pattern). =Lister= provides convenience functions
+on top of this core principle of =Ewoc.el= (and also corrects some of
+its bugs). A list item thus is basically a data item which is turned
+into a printable representation with a /mapper function/.
+
+** What does Lister offer?
+
+ - Structured API to add, insert, delete or replace lists or list
+   items. All positions can be indicated by passing either the
+   containing =Ewoc= node, a zero-counting index position, or one of the
+   symbols =:first=, =:last=, =:next=, =:prev=, =:point=.
+ - Functions to return the next list item matching a predicate.
+ - Macros to loop over the lists, or a part of it, and to deal safely
+   with parts of the list ("regions"). The looping macros mimic the
+   =cl-dolist= syntax; e.g. you can use =(lister-dolist (data :first
+   :last) ..BODY..)= to loop over the whole list.
+ - Functions to collect data which matches a predicate; and functions
+   which can be used to do something with items ("updating" them).
+ - Sublist handling: Recognize, insert, delete, replace, reverse or
+   sort a sublist.
+ - Visually filter items according to a predicate; offer some of the
+   functionality above limited to visible items only.
+ - Built-in functionality to mark items.
+
+** Some core concepts:
+
+ - *Mapper function*: A buffer local function which turns a data item (a
+   non-list lisp object) into a list of strings which will then be
+   inserted in the buffer as its representation.
+ - *Hierarchy by indentation*: Nested list hierarchies are built by
+   visually indenting list items. Each item with the same indentation
+   level belongs to the same nesting level. A sublist is thus defined
+   by having an item with an indentation level greater than the one of
+   its predecessor.
+ - *Data items cannot be lists*: Since nested lists are recognized by
+   simply being lists (=consp=), it is /not possible to store lists as
+   data items/! If you need to store more complex data, use a vector or
+   a =defstruct= instead.
+ - *No major mode*: To use a buffer with lister, call =lister-setup=
+   first. It prepares the buffer by setting some variables and erasing
+   its content. It does not, however, set a specific major mode.
+ - *Keep common navigation keys*: Each item is printed with the text
+   property =intangible= set so that the user can only move point to the
+   very first character of the printed item. You can thus use all
+   basic navigation commands without any further ado, including
+   =isearch=. You do not need to define any navigation commands.
+ - *Data, items and nodes*: What is visually presented as a list item
+   has three levels of structure: The =Ewoc= node, the =Lister= specific
+   =lister--item= and the actual list data. This might cause some
+   confusion, so here's a short explanation: First, each visual list
+   item corresponds to an =Ewoc= node. This node becomes relevant for
+   all generic list functions, such as "looping over the list" or
+   "deleting a specific region". Secondly, each node contains a
+   structure called =lister--item=. That structure keeps track of list
+   specific information such as the indentation level or whether the
+   item is visible. Finally, there is the actual data which is mapped
+   and printed. This data is also a part of that =Lister= item structure
+   which is stored in each node, but is treated distinctly since
+   accessing it is the purpose of the whole library. To avoid semantic
+   confusion, all functions applying to the node have a "node"
+   somewhere in their function name. All other public functions
+   usually refer to the data. To access the =lister--item=, you can use
+   =(ewoc-data node)=.
+
+
+** Bumps and Wrinkles
+
+ - =Lister= operations become slower when the list grows above a thousand
+items. I would love to optimize it more for bigger lists once this
+becomes a real need.
+ 
+* API
+
+** Setting up the buffer
+
+#+begin_src emacs-lisp
+(lister-setup buf-or-name mapper &optional header footer)
+#+end_src
+
+You have to initialize a buffer in order to use it with =Lister=. The
+function =lister-setup= will either create a buffer with the given name,
+or erase the contents of an existing buffer. It then prepares the
+buffer by adding some text properties and setting some buffer local
+variables.
+
+In addition to defining the buffer and the mapper function, you can
+optionally define a =header= or a =footer= string, or a list of strings,
+which will be inserted before or after the actual list. To change
+them, use =lister-set-{header/footer}=. Passing the value =nil= always
+deletes them. To get the currently installed =header= or =footer=, use the
+=Ewoc= function =ewoc-get-hf=.
+
+=Lister-setup= returns an ewoc object, which is then used as the basic
+reference for all =Lister= operations.
+
+** Inserting, adding, deleting or replacing single items
+
+#+begin_src emacs-lisp
+;; Insert a single item at POS:
+(lister-insert-at ewoc pos data &optional level insert-after)
+;; Add to the end of the list:
+(lister-add ewoc data &optional level)
+;; Replace the item at POS:
+(lister-replace-at ewoc pos data)
+;; Delete the item at POS:
+(lister-delete-at ewoc pos)
+#+end_src
+
+Per default, all =insert= operations insert /at/ the position indicated,
+moving the previous content down. This might result in unintuitive
+results, e.g. (=lister-insert-at ewoc :last data)= adds the item at the
+second last position. Set =insert-after= to a non-nil value to insert
+/after/ the position indicated (or use =lister-add=).
+
+Argument =POS= can be either an =Ewoc= node, an integer position, or one
+of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+The integer argument =level= determines the indentation level and can be
+used to begin a new sublist. Note that =Lister= automatically corrects
+too big values in order to ensure that every new level is just one
+level away from the item at =POS=. Thus you can safely use
+=(lister-insert-at ewoc pos data 999)= in order to begin a new sublist.
+
+** Inserting, adding, deleting or replacing lists of items
+
+#+begin_src emacs-lisp
+;; Erase all previous content and set a new list:
+(lister-set-list ewoc data-list)
+;; Insert a list at POS:
+(lister-insert-list ewoc pos data-list &optional level insert-after)
+;; Add a list to the end of the EWOC:
+(lister-add-list ewoc data-list &optional level)
+;; Replace the items from BEG to END with a new (possibly longer or shorter) list:
+(lister-replace-list ewoc data-list beg end &optional level)
+;; Delete all items from BEG to END:
+(lister-delete-list ewoc beg end)
+(lister-delete-all ewoc)
+#+end_src
+
+Argument =POS= can be either an =Ewoc= node, an integer position, or one
+of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+The integer argument =level= determines the indentation level and can be
+used to begin a new sublist. Note that =Lister= automatically corrects
+too big values in order to ensure that every new level is just one
+level away from the item at =POS=. Thus you can safely use
+=(lister-insert-list ewoc pos data-list 999)= in order to insert a whole
+sublist.
+
+** Getting the list data
+
+#+begin_src emacs-lisp
+;; Return the data of a single item:
+(lister-get-data-at ewoc pos)
+;; Return the data as a list (with sublists as nested lists):
+(lister-get-list ewoc &optional beg end start-level pred)
+;; Get the sublist at or below POS:
+(lister-get-sublist-at ewoc pos)
+(lister-get-sublist-below ewoc pos)
+#+end_src
+
+All functions (except =lister-get-data=, of course) return a list of
+data. Per default, they return the whole list. If there is a sublist
+in the specified region, return it as a nested list, e.g. =("A" ("SUB1"
+"SUB2") "B"))=. Multiple levels of indentation lead to multiply nested
+lists: =("A" (("SUBSUB1" "SUBSUB2")) "B")=.
+
+Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
+position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
+=:point=.
+
+All of these functions ignore any active filter. 
+
+** Normalizing 'regions'
+
+Since it is often the case that we have an operation that operates on
+a 'region' or the whole list, we have a macro to normalize that:
+
+#+begin_src emacs-lisp
+(lister-with-region ewoc beg-var end-var
+  ...BODY..)
+#+end_src
+
+This macro binds BEG-VAR and END-VAR according to the following
+scheme: 
+
+If the variables are already bound, use its value to determine the
+position. Then these variables are interpreted as a normal position.
+Allowed values are an =Ewoc= node, an integer position, or one of the
+symbols =:first=, =:last=, =:point=, =:next= or =:prev=.
+
+If the variables are undefined, bind them to the first and the last
+node of the list, respectively.
+
+** Basic sublist handling
+
+#+begin_src emacs-lisp
+  ;; Doing something with a sublist below POS:
+  (lister-insert-sublist-below ewoc pos l)
+  (lister-delete-sublist-below ewoc pos l)
+  (lister-replace-sublist-below ewoc pos l)
+  ;; Doing something with the sublist at POS:
+  (lister-delete-sublist-at ewoc pos l)
+  (lister-replace-sublist-at ewoc pos l)
+  ;; Check if there is a sublist:
+  (lister-sublist-below-p ewoc pos)
+  ;;; Helpful macros:
+  ;;
+  ;; Execute BODY with the symbols BEG-SYM and END-SYM bound to the
+  ;; boundaries of the sublist at POS. Do nothing if there is no
+  ;; sublist.
+  (lister-with-sublist-at ewoc pos beg-sym end-sym
+                          ....BODY...)
+  ;; same as above, but looking for a sublist below POS:
+  (lister-with-sublist-below ewoc pos beg-sym end-sym
+                             ....BODY...)
+#+end_src
+
+Argument =POS= can be either an =Ewoc= node, an integer position, or one
+of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+** Marking
+
+#+begin_src emacs-lisp
+;; All marked items are highlighted by addding the value of that variable:
+lister-mark-face-or-property 
+;; Mark or unmark the item at POS:
+(lister-mark-unmark-at ewoc pos state)
+;; Mark or unmark a whole list:
+(lister-mark-unmark-list ewoc beg end state)
+(lister-mark-unmark-sublist-at ewoc pos state)
+(lister-mark-unmark-sublist-below ewoc pos state)
+;; Get data of only the marked items:
+(lister-get-marked-list ewoc &optional beg end pred-fn flatten?)
+;; Do something with all marked nodes or items:
+(lister-walk-marked-nodes ewoc action-fn &optional beg end marker-pred-fn)
+(lister-walk-marked-list ewoc action-fn &optional beg end marker-pred-fn)
+#+end_src
+
+If =STATE= is nil, mark the item or the specified list items; else
+unmark them.
+
+Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
+position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
+=:point=.
+
+** Sorting
+
+#+begin_src emacs-lisp
+;; Reverse the list items between BEG and END, or the whole list:
+(lister-reverse-list ewoc &optional beg end)
+;; Sort the list according to sorting predicate PRED:
+(lister-sort-list ewoc pred &optional beg end)
+;; The same with sublists:
+(lister-sort-sublist-at ewoc pos pred)
+(lister-sort-sublist-below ewoc pos pred)
+#+end_src
+
+Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
+position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
+=:point=.
+
+** Filter
+
+#+begin_src emacs-lisp
+;; Set and activate a filter predicate:
+(lister-set-filter ewoc pred)
+;; Check if filter is active:
+(lister-filter-active-p ewoc)
+;; Predicates:
+(lister-node-visible-p)
+(lister-node-marked-and-visible-p)
+;; Return the filtered ('visible') list:
+(lister-get-visible-list ewoc &optional beg end start-level)
+;; Find 'visible' nodes matching a predicate:
+(lister-next-visible-matching ewoc pos pred)
+(lister-prev-visible-matching ewoc pos pred)
+;; Return only data currently visible:
+(lister-get-visible-list ewoc &optional beg end start-level)
+#+end_src
+
+The filter predicate =PRED= is a function which receives the list item's
+data as its sole argument. The item is hidden if =PRED= returns =nil=.
+
+Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
+position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
+=:point=.
+
+** Finding nodes
+
+#+begin_src emacs-lisp
+  ;; From POS, find the next or prev node where the data matches PRED:
+  (lister-next-matching ewoc pos pred)
+  (lister-prev-matching ewoc pos pred)
+  ;; same as above, but only consider visible items:
+  (lister-next-visible-matching pos pred)
+  (lister-prev-visible-matching pos pred)
+#+end_src
+
+Argument =POS= can be either an =Ewoc= node, an integer position, or one
+of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+**  Looping 
+
+Basic macros, imperative style:
+
+#+begin_src emacs-lisp
+  ;; Basic macro to loop over NODES (not items!)
+  (lister-dolist-nodes (ewoc var-name &optional beg end))
+  ;; same with items:
+  (lister-dolist (ewoc var-name &optional beg end node-var-name))
+  ;;; Examples:
+  ;; Delete the whole list:
+  (lister-dolist-nodes (ewoc node :first :last)
+    (lister-delete-at ewoc node))
+  ;; Delete the whole list and return the deleted content:
+  (let (acc)
+    (lister-dolist (ewoc data :first :last node)
+      (push data acc)
+      (lister-delete-at ewoc node))
+   (nreverse acc))
+#+end_src
+
+More specific functions, more functional style:
+
+#+begin_src emacs-lisp
+ ;; Collect and maybe map all items between BEG and END:
+ (lister-collect-list ewoc &optional beg end pred-fn map-fn)
+ ;; same with nodes:
+ (lister-collect-nodes ewoc &optional beg end pred-fn map-fn)
+ ;; Modifiy the data and redisplay it:
+ (lister-update-list ewoc action-fn &optional beg end pred-fn)
+ ;; Do something with each node (not item):
+ (lister-walk-nodes ewoc action-fn &optional beg end pred-fn)
+#+end_src
+
+All functions operate on the items specified by =BEG= and =END= or on the
+whole list. Optionally operation can be restricted to those items
+matching =PRED-FN=.
+
+When collecting stuff, =map-fn= can be used to further transform the
+data item.
+
+When updating a list, =action-fn= receives a data object. If it returns
+=nil=, it leaves the corresponding item unchanged, else it updates its
+value with the new value and redisplays the node.
+
+Arguments =BEG= and =END= can be either an =Ewoc= node, an integer position,
+or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+** Miscellaneous 
+
+#+begin_src emacs-lisp
+  ;; Check if the list is empty:
+  (lister-empty-p ewoc)
+  ;; Return the first and last char of the list, that is, the region
+  ;; between header and footer:
+  (lister-point-min ewoc)
+  (lister-point-max ewoc)
+  ;; Move point:
+  (lister-goto ewoc pos)
+  ;; Manually re-set the level of an item:
+  (lister-set-level-at ewoc pos)
+  ;; Redisplay an item (e.g. if its data has changed):
+  (lister-refresh-at ewoc pos)
+  (lister-refresh-list ewoc beg end) 
+#+end_src
+
+Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
+position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
+=:point=.
+
+* Changelog
+** 0.9
+
+ - Rewrite the whole package basing it now on =Ewoc=.
+ 
+
