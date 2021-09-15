@@ -628,10 +628,8 @@ DO-NOT-FLATTEN-LIST is non-nil, respect hierarchy levels."
         (lister--flatten l)
       l)))
 
-;; TODO get rid of cl-defun
 ;; TODO rename pred-fn to marker-pred-fn
-(cl-defun lister-walk-marked-nodes (ewoc action-fn &optional beg end
-                                        (pred-fn #'lister-node-marked-and-visible-p))
+(defun lister-walk-marked-nodes (ewoc action-fn &optional beg end pred-fn)
   "In EWOC, call ACTION-FN on each node which is marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
@@ -641,7 +639,8 @@ the second argument.
 
 Per default, only consider those items which are marked and
 visible.  Alternative predicates can be passed to PRED-FN."
-  (lister-walk-nodes ewoc action-fn beg end pred-fn))
+  (lister-walk-nodes ewoc action-fn beg end
+                     (or pred-fn #'lister-node-marked-and-visible-p)))
 
 ;; TODO Write tests!
 ;; TODO get rid of cl-defun
