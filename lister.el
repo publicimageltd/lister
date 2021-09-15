@@ -426,12 +426,13 @@ set, call MAP-FN on the node's data before collecting it."
 
 (defun lister-collect-nodes (ewoc &optional beg end pred-fn map-fn)
   "In EWOC, collect and optionally transform all nodes between BEG and END.
-BEG and END are positions understood by `lister--parse-position'
-and point to the first or the last node to be considered.  If
-nil, use the first or the last node of the complete list instead.
-When PRED-FN is set, only consider those nodes for which PRED-FN,
-called with the node, returns true.  If MAP-FN is set, call
-MAP-FN on the node before collecting it."
+Return all nodes between BEG and END.  BEG and END are positions
+understood by `lister--parse-position' and point to the first or
+the last node to be considered.  If nil, use the first or the
+last node of the complete list instead.  When PRED-FN is set,
+only return those nodes for which PRED-FN, called with the node,
+returns true.  If MAP-FN is set, call MAP-FN on the node before
+collecting it."
   (let (acc)
     (lister-dolist-nodes (ewoc node beg end)
       (when (or (not pred-fn)
@@ -660,7 +661,6 @@ called with the current node, not the data!"
       (when (funcall pred-fn node)
         (funcall action-fn data)))))
 
-;;TODO Write Tests!
 (defun lister-delete-marked-list (ewoc &optional beg end marker-pred-fn)
   "In EWOC, delete marked and visible items between BEG and END.
 BEG and END refer to the first and last node to be checked,
@@ -669,9 +669,9 @@ defaulting to the first and last node of the list.
 Per default, only consider those items which are marked and
 visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (let* ((inhibit-read-only t)
-         (marker-pred-fn (or marker-pred-fn #'lister-node-marked-and-visible-p))
-         (nodes (lister-collect-nodes ewoc beg end marker-pred-fn)))
-    (apply #'ewoc-delete nodes)))
+         (pred-fn (or marker-pred-fn #'lister-node-marked-and-visible-p))
+         (nodes   (lister-collect-nodes ewoc beg end pred-fn)))
+    (apply #'ewoc-delete ewoc nodes)))
 
 ;; * Insert Items
 
