@@ -642,9 +642,8 @@ visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (lister-walk-nodes ewoc action-fn beg end
                      (or marker-pred-fn #'lister-node-marked-and-visible-p)))
 
-;; TODO Write tests!
 (defun lister-walk-marked-list (ewoc action-fn &optional beg end marker-pred-fn)
-  "In EWOC, call ACTION-FN on each item which is marked and visible.
+  "In EWOC, call ACTION-FN on each data which is marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
 
@@ -652,10 +651,13 @@ Call ACTION-FN with the current list item's data as its sole
 argument.
 
 Per default, only consider those items which are marked and
-visible.  Alternative predicates can be passed to MARKER-PRED-FN."
+visible.  Alternative predicates can be passed to MARKER-PRED-FN.
+
+Note that unlike ACTION-FN, the predicate MARKER-PRED-FN is
+called with the current node, not the data!"
   (let ((pred-fn (or marker-pred-fn #'lister-node-marked-and-visible-p)))
-    (lister-dolist (ewoc data beg end)
-      (when (funcall pred-fn data)
+    (lister-dolist (ewoc data beg end node)
+      (when (funcall pred-fn node)
         (funcall action-fn data)))))
 
 ;;TODO Write Tests!
