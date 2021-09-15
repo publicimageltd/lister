@@ -609,10 +609,7 @@ and END can be nodes, positions such as `:first', `:point' or
   (lister-dolist-nodes (ewoc node beg end)
     (lister-mark-unmark-at ewoc node state)))
 
-;; TODO get rid of cl-defun
-(cl-defun lister-get-marked-list (ewoc &optional beg end
-                                       (pred-fn #'lister-node-marked-and-visible-p)
-                                       (flatten-list t))
+(defun lister-get-marked-list (ewoc &optional beg end pred-fn do-not-flatten-list)
   "In EWOC, get all items which are marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.  Return a flat
@@ -622,10 +619,9 @@ Per default, return those items which are marked and visible.
 Alternative predicates can be passed to PRED-FN.
 
 Return a flattened list with all items matching PRED-FN.  If
-FLATTEN-LIST is non-nil, the result can be a nested list if the
-marked items belong to different hierarchy levels."
-  (let ((l (lister-get-list ewoc beg end 0 pred-fn)))
-    (if flatten-list
+DO-NOT-FLATTEN-LIST is non-nil, respect hierarchy levels."
+  (let ((l (lister-get-list ewoc beg end 0 (or pred-fn #'lister-node-marked-and-visible-p))))
+    (if (not do-not-flatten-list)
         (lister--flatten l)
       l)))
 

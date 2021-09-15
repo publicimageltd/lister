@@ -1116,9 +1116,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-insert-sublist-below ewoc 1 '("SUB1" "SUB2"))
       (lister-mark-unmark-sublist-below ewoc 1 t)
       (lister-mark-unmark-at ewoc 0 t)
-      (expect (lister-get-marked-list ewoc :first :last
-                                      #'lister-node-marked-p
-                                      nil)
+      (expect (lister-get-marked-list ewoc :first :last nil t)
               :to-equal '("0" ("SUB1" "SUB2"))))))
 
 (provide 'lister-tests)
