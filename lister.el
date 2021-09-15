@@ -505,8 +505,7 @@ is invalid (i.e. index is out of bounds) or invisible."
 
 (defalias 'lister-get-node-at 'lister--parse-position)
 
-;; TODO Rename to lister-node-get-level
-(defun lister-get-level (node)
+(defun lister-node-get-level (node)
   "Get the indentation level of the item at NODE."
   (lister--item-level (ewoc-data node)))
 
@@ -854,7 +853,7 @@ indentation level."
       (cl-labels ((walk (ewoc acc prev-level)
                               (let (level)
                                 (while (and node
-                                            (>= (setq level (lister-get-level node))
+                                            (>= (setq level (lister-node-get-level node))
                                                 prev-level))
                                   (if (> level prev-level)
                                       (push (walk ewoc nil (1+ prev-level)) acc)
@@ -942,8 +941,8 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
   (let* ((node (lister--parse-position ewoc pos))
          (next (ewoc-next ewoc node)))
     (when next
-      (< (lister-get-level node)
-         (lister-get-level next)))))
+      (< (lister-node-get-level node)
+         (lister-node-get-level next)))))
 
 (defun lister-insert-sublist-below (ewoc pos l)
   "In EWOC, insert L as an indented list below POS."
@@ -962,13 +961,13 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
 (defun lister-replace-sublist-at (ewoc pos l)
   "In EWOC, replace sublist at POS with L."
   (lister-with-sublist-at ewoc pos beg end
-    (let ((level (lister-get-level beg)))
+    (let ((level (lister-node-get-level beg)))
       (lister-replace-list ewoc l beg end level))))
 
 (defun lister-replace-sublist-below (ewoc pos l)
   "In EWOC, replace sublist below POS with L."
   (lister-with-sublist-below ewoc pos beg end
-    (let ((level (lister-get-level beg)))
+    (let ((level (lister-node-get-level beg)))
       (lister-replace-list ewoc l beg end level))))
 
 (defun lister-mark-unmark-sublist-at (ewoc pos state)
@@ -987,13 +986,13 @@ Use boolean STATE t set the node as 'marked', else nil."
   "In EWOC, return the data of the sublist at POS as a list.
 If no list is found, return nil."
   (lister-with-sublist-at ewoc pos beg end
-    (let ((start-level (lister-get-level beg)))
+    (let ((start-level (lister-node-get-level beg)))
       (lister-get-list ewoc beg end start-level))))
 
 (defun lister-get-sublist-below (ewoc pos)
   "In EWOC, return the sublist below POS."
   (lister-with-sublist-below ewoc pos beg end
-    (let ((start-level (lister-get-level (ewoc-next ewoc beg))))
+    (let ((start-level (lister-node-get-level (ewoc-next ewoc beg))))
       (lister-get-list ewoc beg end start-level))))
 
 ;;; * Sorting (or, more abstract, reordering)
@@ -1058,7 +1057,7 @@ complete list.
 Note that FN has to reorder a wrapped list and must not undo the
 wrapping.  See `lister--reorder-wrapped-list' for an example."
   (lister-with-region ewoc beg end
-    (let* ((level        (lister-get-level beg))
+    (let* ((level        (lister-node-get-level beg))
            (wrapped-list (lister--wrap-list (lister-get-list ewoc beg end level)))
            (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
       (lister-replace-list ewoc new-list beg end level))))
