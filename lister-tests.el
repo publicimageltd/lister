@@ -1068,7 +1068,58 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (let* ((node (lister-get-node-at ewoc :first))
              (pos  (lister--item-beg (ewoc-data node))))
         (expect (get-text-property pos 'face (ewoc-buffer ewoc))
-                :to-be nil)))))
+                :to-be nil))))
+
+  (describe "lister-mark-unmark-list"
+    (it "marks the whole list:"
+      (lister-set-list ewoc l)
+      (lister-mark-unmark-list ewoc :first :last t)
+      (let ((marked? t))
+        (lister-dolist-nodes (ewoc node)
+          (setq marked? (and marked?
+                             (lister-node-marked-p node))))
+        (expect marked? :to-be-truthy))))
+
+  (describe "lister-get-marked-list"
+    (it "returns nil if there is no marked item:"
+      (lister-set-list ewoc l)
+      (expect (lister-get-marked-list ewoc)
+              :to-be nil))
+    (it "returns a list of all marked items:"
+      (lister-set-list ewoc l)
+      (let ((mark? t)
+            (acc   nil))
+        (lister-dolist (ewoc data :first :last node)
+          (when mark?
+            (push data acc)
+            (lister-mark-unmark-at ewoc node t))
+          (setq mark? (not mark?)))
+        (expect (lister-get-marked-list ewoc)
+                :to-equal (nreverse acc))))
+    (it "only returns items marked and visible"
+      (lister-set-list ewoc l)
+      (lister-mark-unmark-list ewoc :first :last t)
+      (let ((filter (lambda (s)
+                      (not (string-match-p "8" s)))))
+        (lister-set-filter ewoc filter)
+        (expect (lister-get-marked-list ewoc)
+                :to-equal '("8"))))
+    (it "per default ignores indentation:"
+      (lister-set-list ewoc l)
+      (lister-insert-sublist-below ewoc 1 '("SUB1" "SUB2"))
+      (lister-mark-unmark-sublist-below ewoc 1 t)
+      (lister-mark-unmark-at ewoc 0 t)
+      (expect (lister-get-marked-list ewoc)
+              :to-equal '("0" "SUB1" "SUB2")))
+    (it "optionally returns a not-flattened list:"
+      (lister-set-list ewoc l)
+      (lister-insert-sublist-below ewoc 1 '("SUB1" "SUB2"))
+      (lister-mark-unmark-sublist-below ewoc 1 t)
+      (lister-mark-unmark-at ewoc 0 t)
+      (expect (lister-get-marked-list ewoc :first :last
+                                      #'lister-node-marked-p
+                                      nil)
+              :to-equal '("0" ("SUB1" "SUB2"))))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here

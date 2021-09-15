@@ -609,7 +609,6 @@ and END can be nodes, positions such as `:first', `:point' or
   (lister-dolist-nodes (ewoc node beg end)
     (lister-mark-unmark-at ewoc node state)))
 
-;; TODO Write tests!
 ;; TODO get rid of cl-defun
 (cl-defun lister-get-marked-list (ewoc &optional beg end
                                        (pred-fn #'lister-node-marked-and-visible-p)
