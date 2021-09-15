@@ -356,6 +356,11 @@ lister-mark-face-or-property
 If =STATE= is nil, mark the item or the specified list items; else
 unmark them.
 
+Note that in the case of walking nodes, =ACTION-FN= requires /two/
+arguments: the ewoc object and the node. The reason behind this is
+that if you choose do to something with the node rather with the data,
+it is very likely you will need the ewoc object.
+
 Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
 position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 =:point=.
@@ -460,6 +465,11 @@ data item.
 When updating a list, =action-fn= receives a data object. If it returns
 =nil=, it leaves the corresponding item unchanged, else it updates its
 value with the new value and redisplays the node.
+
+Note that in the case of walking nodes, =ACTION-FN= requires /two/
+arguments: the ewoc object and the node. The reason behind this is
+that if you choose do to something with the node rather with the data,
+it is very likely you will need the ewoc object.
 
 Arguments =BEG= and =END= can be either an =Ewoc= node, an integer position,
 or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
