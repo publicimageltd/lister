@@ -518,8 +518,7 @@ is invalid (i.e. index is out of bounds) or invisible."
   "In EWOC, set indentation of node at POS to LEVEL, refreshing it."
   (lister-set-node-level ewoc (lister--parse-position ewoc pos) level))
 
-;; TODO Rename to lister-node-get-data
-(defun lister-get-data (node)
+(defun lister-node-get-data (node)
   "Get the item data stored in NODE."
   (lister--item-data (ewoc-data node)))
 
@@ -528,7 +527,7 @@ is invalid (i.e. index is out of bounds) or invisible."
 POS can be either an ewoc node, an index position, or one of the
 symbols `:first', `:last', `:point', `:next' or `:prev'."
   (if-let ((node (lister--parse-position ewoc pos)))
-      (lister-get-data node)
+      (lister-node-get-data node)
     (error "No node or lister item at position %s" pos)))
 
 (defun lister-set-data-at (ewoc pos data)
