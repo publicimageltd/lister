@@ -34,6 +34,8 @@
 
 ;; (setq buttercup-stack-frame-style 'pretty)
 
+(defvar lister-default-left-margin)
+
 (defun lister-test-setup-minimal-buffer ()
   "Set up a minimal buffer, with no margins and a simple list mapper.
 Return the ewoc object"
@@ -324,10 +326,11 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                 :to-equal (append (list "A") new (list "F")))))
     (it "replaces a list with index positions:"
       (lister-set-list ewoc l)
-      (let ((new    '("1" "2" "3" "4" "5" "6" "7")))
+      (let* ((new      '("1" "2" "3" "4" "5" "6" "7"))
+             (expected (append (list "A") new (list "F"))))
         (lister-replace-list ewoc new 1 4)
         (expect (lister-get-list ewoc)
-                :to-equal (append (list "A") new (list "F")))))
+                :to-equal expected)))
     (it "completely replaces a list with :first :last"
       (lister-set-list ewoc l)
       (let ((new '("1" "2")))
@@ -497,7 +500,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (let ((transformer-fn (apply-partially #'concat " ")))
         (expect (lister-collect-list ewoc :first :last
                                 nil
-                                transformer-fn)               
+                                transformer-fn)
                 :to-equal
                 (mapcar transformer-fn l))))
     (it "only returns matching data items:"
@@ -1069,3 +1072,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
+
+;; Local Variables:
+;; eval: (flycheck-mode -1)
+;; End:
