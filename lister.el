@@ -496,6 +496,8 @@ symbols `:first', `:last', `:point' (sic!), `:next' or `:prev'.
 
 Do nothing if position does not exist; throw an error if position
 is invalid (i.e. index is out of bounds) or invisible."
+  ;; NOTE This is a common pattern: when-let node, do something with
+  ;; node, else error. Refactor?
   (when-let ((node (lister--parse-position ewoc pos)))
     (if (lister--item-visible (ewoc-data node))
         (ewoc-goto-node ewoc node)
