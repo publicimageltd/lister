@@ -612,24 +612,24 @@ and END can be nodes, positions such as `:first', `:point' or
   (lister-dolist-nodes (ewoc node beg end)
     (lister-mark-unmark-at ewoc node state)))
 
-(defun lister-get-marked-list (ewoc &optional beg end pred-fn do-not-flatten-list)
+(defun lister-get-marked-list (ewoc &optional beg end marker-pred-fn do-not-flatten-list)
   "In EWOC, get all items which are marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.  Return a flat
 list of all marked items.
 
 Per default, return those items which are marked and visible.
-Alternative predicates can be passed to PRED-FN.
+Alternative predicates can be passed to MARKER-PRED-FN.
 
-Return a flattened list with all items matching PRED-FN.  If
+Return a flattened list with all items matching MARKER-PRED-FN.  If
 DO-NOT-FLATTEN-LIST is non-nil, respect hierarchy levels."
-  (let ((l (lister-get-list ewoc beg end 0 (or pred-fn #'lister-node-marked-and-visible-p))))
+  (let ((l (lister-get-list ewoc beg end 0
+                            (or marker-pred-fn #'lister-node-marked-and-visible-p))))
     (if (not do-not-flatten-list)
         (lister--flatten l)
       l)))
 
-;; TODO rename pred-fn to marker-pred-fn
-(defun lister-walk-marked-nodes (ewoc action-fn &optional beg end pred-fn)
+(defun lister-walk-marked-nodes (ewoc action-fn &optional beg end marker-pred-fn)
   "In EWOC, call ACTION-FN on each node which is marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
@@ -638,15 +638,14 @@ Call ACTION-FN with the EWOC as its first and the current node as
 the second argument.
 
 Per default, only consider those items which are marked and
-visible.  Alternative predicates can be passed to PRED-FN."
+visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (lister-walk-nodes ewoc action-fn beg end
-                     (or pred-fn #'lister-node-marked-and-visible-p)))
+                     (or marker-pred-fn #'lister-node-marked-and-visible-p)))
 
 ;; TODO Write tests!
 ;; TODO get rid of cl-defun
-;; TODO rename pred-fn to marker-pred-fn
 (cl-defun lister-walk-marked-list (ewoc action-fn &optional beg end
-                                        (pred-fn #'lister-node-marked-and-visible-p))
+                                        (marker-pred-fn #'lister-node-marked-and-visible-p))
   "In EWOC, call ACTION-FN on each item which is marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
@@ -655,22 +654,22 @@ Call ACTION-FN with the current list item's data as its sole
 argument.
 
 Per default, only consider those items which are marked and
-visible.  Alternative predicates can be passed to PRED-FN."
+visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (lister-dolist (ewoc data beg end)
-    (when (funcall pred-fn data)
+    (when (funcall marker-pred-fn data)
       (funcall action-fn data))))
 
 ;;TODO Write Tests!
-(defun lister-delete-marked-list (ewoc &optional beg end pred-fn)
+(defun lister-delete-marked-list (ewoc &optional beg end marker-pred-fn)
   "In EWOC, delete marked and visible items between BEG and END.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
 
 Per default, only consider those items which are marked and
-visible.  Alternative predicates can be passed to PRED-FN."
+visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (let* ((inhibit-read-only t)
-         (pred-fn (or pred-fn #'lister-node-marked-and-visible-p))
-         (nodes (lister-collect-nodes ewoc beg end pred-fn)))
+         (marker-pred-fn (or marker-pred-fn #'lister-node-marked-and-visible-p))
+         (nodes (lister-collect-nodes ewoc beg end marker-pred-fn)))
     (apply #'ewoc-delete nodes)))
 
 ;; * Insert Items
