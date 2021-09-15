@@ -625,7 +625,6 @@ DO-NOT-FLATTEN-LIST is non-nil, respect hierarchy levels."
         (lister--flatten l)
       l)))
 
-;; TODO Write tests!
 ;; TODO get rid of cl-defun
 ;; TODO rename pred-fn to marker-pred-fn
 (cl-defun lister-walk-marked-nodes (ewoc action-fn &optional beg end

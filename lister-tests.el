@@ -1117,7 +1117,26 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-mark-unmark-sublist-below ewoc 1 t)
       (lister-mark-unmark-at ewoc 0 t)
       (expect (lister-get-marked-list ewoc :first :last nil t)
-              :to-equal '("0" ("SUB1" "SUB2"))))))
+              :to-equal '("0" ("SUB1" "SUB2")))))
+
+  (describe "lister-walk-marked-nodes"
+    (it "does nothing if nothing is marked:"
+      (lister-set-list ewoc l)
+      (let (acc)
+        (let ((action-fn (lambda (ewoc node)
+                           (push (lister-get-data node) acc))))
+          (lister-walk-marked-nodes ewoc action-fn))
+        (expect acc :to-be nil)))
+    (it "walks the marked nodes:"
+      (lister-set-list ewoc l)
+      (lister-mark-unmark-at ewoc 0 t)
+      (lister-mark-unmark-at ewoc 1 t)
+      (lister-mark-unmark-at ewoc 3 t)
+      (let (acc)
+        (let ((action-fn (lambda (ewoc node)
+                           (push (lister-get-data node) acc))))
+          (lister-walk-marked-nodes ewoc action-fn))
+        (expect acc :to-equal '("3" "1" "0"))))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
