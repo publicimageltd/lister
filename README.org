@@ -183,7 +183,6 @@ into a printable representation with a /mapper function/.
    usually refer to the data. To access the =lister--item=, you can use
    =(ewoc-data node)=.
 
-
 ** Bumps and Wrinkles
 
  - =Lister= operations become slower when the list grows above a thousand
@@ -450,14 +449,16 @@ Basic macros, imperative style:
 More specific functions, more functional style:
 
 #+begin_src emacs-lisp
- ;; Collect and maybe map all items between BEG and END:
- (lister-collect-list ewoc &optional beg end pred-fn map-fn)
- ;; same with nodes:
- (lister-collect-nodes ewoc &optional beg end pred-fn map-fn)
- ;; Modifiy the data and redisplay it:
- (lister-update-list ewoc action-fn &optional beg end pred-fn)
- ;; Do something with each node (not item):
- (lister-walk-nodes ewoc action-fn &optional beg end pred-fn)
+   ;; Collect and maybe map all items between BEG and END:
+   (lister-collect-list ewoc &optional beg end pred-fn map-fn)
+   ;; same with nodes:
+   (lister-collect-nodes ewoc &optional beg end pred-fn map-fn)
+   ;; Modifiy the data and redisplay it:
+   (lister-update-list ewoc action-fn &optional beg end pred-fn)
+   ;; Do something with each node (not item):
+   (lister-walk-nodes ewoc action-fn &optional beg end pred-fn)
+  ;; see also lister-walk-marked-{list/nodes} for looping over all
+  ;; marked items
 #+end_src
 
 All functions operate on the items specified by =BEG= and =END= or on the
