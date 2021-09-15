@@ -493,6 +493,7 @@ or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
   (lister-goto ewoc pos)
   ;; Manually re-set the level of an item:
   (lister-set-level-at ewoc pos)
+  (lister-get-level-at ewoc pos)
   ;; Redisplay an item (e.g. if its data has changed):
   (lister-refresh-at ewoc pos)
   (lister-refresh-list ewoc beg end) 

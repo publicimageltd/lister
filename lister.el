@@ -506,13 +506,18 @@ is invalid (i.e. index is out of bounds) or invisible."
 (defalias 'lister-get-node-at 'lister--parse-position)
 
 (defun lister-node-get-level (node)
-  "Get the indentation level of the item at NODE."
+  "Get the indentation level of NODE."
   (lister--item-level (ewoc-data node)))
 
 (defun lister-set-node-level (ewoc node level)
   "In EWOC, set indentation of NODE to LEVEL, refreshing it."
   (setf (lister--item-level (ewoc-data node)) level)
   (ewoc-invalidate ewoc node))
+
+(defun lister-get-level-at (ewoc pos)
+  "In EWOC, get the indentation level of the item at POS."
+  (when-let ((node (lister--parse-position ewoc pos)))
+    (lister-node-get-level node)))
 
 (defun lister-set-level-at (ewoc pos level)
   "In EWOC, set indentation of node at POS to LEVEL, refreshing it."
