@@ -4,6 +4,11 @@
 # CHANGELOG!
 This is the documentation for =Lister= version =0.9=
 
+*NOTE*: This version is a complete rewrite and breaks all code which had
+been using the previous version =0.7.2=. To retain the legacy code, use
+the archive branch =archive-version-0.7.2=. It should not be too
+difficult, however, to adapt the code.
+
 =Lister= is a library for creating interactive lists of any kind. In
 contrast to similar packages like =hierarchy.el= or =tablist.el=, it aims
 at /not/ simply mapping a data structure to a navigatable list. Rather,
