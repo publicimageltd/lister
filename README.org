@@ -1,5 +1,7 @@
 * Lister - Yet another List Printer
 
+[[https://melpa.org/#/lister][file:https://melpa.org/packages/lister-badge.svg]]
+
 # NOTE: Do not forget to update the release in PROJECT STATUS and
 # CHANGELOG!
 This is the documentation for =Lister= version =0.9=
