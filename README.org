@@ -407,7 +407,8 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 #+end_src
 
 The filter predicate =PRED= is a function which receives the list item's
-data as its sole argument. The item is hidden if =PRED= returns =nil=.
+data as its sole argument. The item is hidden if =PRED= returns a
+non-nil value (if it "matches" =PRED=).
 
 Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
 position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
