@@ -187,9 +187,9 @@ into a printable representation with a /mapper function/.
 
 ** Bumps and Wrinkles
 
- - =Lister= operations become slower when the list grows above a thousand
-items. I would love to optimize it more for bigger lists once this
-becomes a real need.
+ - =Lister= operations become slower when the list grows above a
+   thousand items. I would love to optimize it more for bigger lists
+   once this becomes a real need.
  
 * API
 
