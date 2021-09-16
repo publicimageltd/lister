@@ -111,7 +111,7 @@ strings.
     ;; collect the list values as a flat list:
     (lister-collect-list ewoc)
     ;; => ("XXITEM1" "XXSUBITEM1" "XXSUBITEM2" "XXITEM2"....)
-    ;; get the data as a listed nist:
+    ;; get the data as a nested list:
     (lister-get-list ewoc)) ;; => ("XXITEM1" ("XXSUBITEM1" "XXSUBITEM2") "XXITEM2" ....) 
 #+end_src
 
