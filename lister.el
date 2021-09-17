@@ -1198,7 +1198,6 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
                                       level))))
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
-;; TODO Write tests
 (defun lister--swap-item (ewoc pos1 pos2)
   "In EWOC, swap the items at POS1 and POS2."
   (let* ((node1 (lister--parse-position ewoc pos1))
