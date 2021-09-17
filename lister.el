@@ -315,9 +315,9 @@ If NODE is nil, return the last visible node of the EWOC."
 ;;; * Public API
 
 (defmacro lister-with-region (ewoc beg-var end-var &rest body)
-  "In EWOC, do BODY binding BEG-VAR and END-VAR to list boundaries.
+  "In EWOC, do BODY binding BEG-VAR and END-VAR to list nodes.
 BEG and END have to be variable names.  When executing BODY, bind
-BEG and END to the items indicated by the current value of these
+BEG and END to the nodes indicated by the current value of these
 variables.  All values understood by `lister--parse-position' are
 accepted.  If either variable is nil at runtime or yet unbound,
 bind it to very first or to the very last node, respectively.
