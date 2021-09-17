@@ -66,17 +66,17 @@ Current release is =0.9=.
 
 This is an overview of features done or planned.
 
-| Feature                              | State   | Automated tests? |
-|--------------------------------------+---------+------------------|
-| build simple or large lists          | stable  | yes              |
-| build nested lists                   | stable  | yes              |
-| retrieve data, with hierarchies      | stable  | yes              |
-| loop over the list                   | stable  | yes              |
-| marking or unmarking items           | stable  | yes              |
-| filter items                         | stable  | yes              |
-| hide and show sublists outline-style | works   | no               |
-| move items and sublists              | planned | -                |
-|--------------------------------------+---------+------------------|
+| Feature                              | State  | Automated tests? |
+|--------------------------------------+--------+------------------|
+| build simple or large lists          | stable | yes              |
+| build nested lists                   | stable | yes              |
+| retrieve data, with hierarchies      | stable | yes              |
+| loop over the list                   | stable | yes              |
+| marking or unmarking items           | stable | yes              |
+| filter items                         | stable | yes              |
+| hide and show sublists outline-style | works  | -                |
+| move items and sublists              | works  | -                |
+|--------------------------------------+--------+------------------|
 
 * Example
 
@@ -309,8 +309,8 @@ All of these functions ignore any active filter.
 
 ** Normalizing 'regions'
 
-Since it is often the case that we have an operation that operates on
-a 'region' or the whole list, we have a macro to normalize that:
+Since it is often the case tp operate on a 'region' or the whole list,
+we have a macro to normalize these boundaries:
 
 #+begin_src emacs-lisp
 (lister-with-region ewoc beg-var end-var
@@ -323,10 +323,26 @@ scheme:
 If the variables are already bound, use its value to determine the
 position. Then these variables are interpreted as a normal position.
 Allowed values are an =Ewoc= node, an integer position, or one of the
-symbols =:first=, =:last=, =:point=, =:next= or =:prev=.
+symbols =:first=, =:last=, =:point=, =:next= or =:prev=. If the variables are
+undefined, bind them to the first and the last node of the list,
+respectively.
 
-If the variables are undefined, bind them to the first and the last
-node of the list, respectively.
+In short, if you use this macro in a function with the arguments =BEG=
+and =END=, and you can profit from automatic parsing these arguments and
+also be sure that while in =BODY=, =BEG= and =END= always have a valid
+value:
+
+#+begin_src emacs-lisp
+  (defun a-function (ewoc beg end)
+    "Do something within BEG and END. Both arguments can be a node,
+  an integer position, or one of the symbols `:point', `:first',
+  `:last', `:next' or `:prev'."
+    (lister-with-region ewoc beg end
+      (do-something-with-node beg)))
+#+end_src
+
+All looping macros also normalize the region in the same way (see
+below).
 
 ** Basic sublist handling
 
@@ -340,6 +356,7 @@ node of the list, respectively.
   (lister-replace-sublist-at ewoc pos l)
   ;; Check if there is a sublist:
   (lister-sublist-below-p ewoc pos)
+  (lister-sublist-at-p ewoc pos)
   ;;; Helpful macros:
   ;;
   ;; Execute BODY with the symbols BEG-SYM and END-SYM bound to the
