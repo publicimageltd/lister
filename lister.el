@@ -1187,6 +1187,100 @@ EWOC is a lister Ewoc object."
   "In EWOC, show all hidden outlines."
   (lister--outline-hide-show ewoc :first :last nil))
 
+;;; * Interactive Editing
+
+;; TODO Write tests
+(defun lister--next-same-level (ewoc pos move-fn)
+  "In EWOC, find next visible node with the same level as POS.
+MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
+  (when-let* ((node    (lister--parse-position ewoc pos))
+              (level   (lister-get-level-at ewoc node))
+              (pred-fn (lambda (n) (= (or (lister--item-level (ewoc-data n)) 0)
+                                      level))))
+    (lister--next-node-matching ewoc node pred-fn move-fn)))
+
+;; TODO Write tests
+(defun lister--swap-item (ewoc pos1 pos2)
+  "In EWOC, swap the items at POS1 and POS2."
+  (let* ((node1 (lister--parse-position ewoc pos1))
+         (node2 (lister--parse-position ewoc pos2)))
+    (when (and node1 node2)
+      (let* ((item1 (ewoc-data node1))
+             (item2 (ewoc-data node2)))
+        (setf (ewoc-data node1) item2
+              (ewoc-data node2) item1)
+        (ewoc-invalidate ewoc node1 node2)))))
+
+;;; TODO Write tests
+(defun lister--move-item (ewoc pos move-fn &optional restrict-level)
+  "In EWOC, move item at POS up or down.
+Move item to the next visible node in direction of MOVE-FN.  If
+RESTRICT-LEVEL is non-nil, only consider items with the same
+indentation level.  Throw an error if there is no next position."
+  (let* ((from   (lister--parse-position ewoc pos))
+         (to     (if restrict-level
+                     (lister--next-same-level ewoc from move-fn)
+                   (funcall move-fn from))))
+    (unless to
+      (error "No movement possible"))
+    (lister--swap-item ewoc from to)))
+
+;;; TODO Write tests
+(defun lister-move-item-up (ewoc pos &optional dont-restrict-level)
+  "Move item one up.
+Move upwards from the item at POS in EWOC.  Unless
+DONT-RESTRICT-LEVEL is non-nil, only move within the same
+indentation level."
+  (lister--move-item ewoc pos #'ewoc-prev dont-restrict-level))
+
+;;; TODO Write tests
+(defun lister-move-item-down (ewoc pos &optional dont-restrict-level)
+  "Move item one down.
+Move downwards from the item at POS in EWOC.  Unless
+DONT-RESTRICT-LEVEL is non-nil, only move within the same
+indentation level."
+  (lister--move-item ewoc pos #'ewoc-next dont-restrict-level))
+
+;;; TODO Write tests
+(defun lister--move-list (ewoc beg-node end-node target-node)
+  "Move list from BEG-NODE to END-NODE to TARGET-NODE.
+Throw an error if TARGET-NODE is the first item.  Throw an error
+if TARGET-POS is itself part of the list.  EWOC is an ewoc
+object."
+  (unless (and target-node
+               (ewoc-prev ewoc target-node))
+    (error "Cannot move in that direction"))
+  (when (lister-node-in-region-p target-node beg-node end-node)
+    (error "Cannot move; target is part of the list to be moved"))
+  (let* ((from-level   (lister-get-level-at ewoc beg-node))
+         (l            (lister-get-list ewoc beg-node end-node from-level))
+         (insert-after (< (ewoc-location end-node)
+                          (ewoc-location target-node))))
+    (lister-delete-list ewoc beg-node end-node)
+    (lister-insert-list ewoc target-node l from-level insert-after)))
+
+;;; TODO Write tests
+(defun lister-move-sublist-up (ewoc pos)
+  "In EWOC, move sublist at POS one up."
+  (lister-with-sublist-at ewoc pos beg end
+    (lister--move-list ewoc beg end (ewoc-prev ewoc beg))))
+
+;;; TODO Write tests
+(defun lister-move-sublist-down (ewoc pos)
+  "In EWOC, move sublist at POS one down."
+  (lister-with-sublist-at ewoc pos beg end
+    (lister--move-list ewoc beg end (ewoc-next ewoc end))))
+
+;;; TODO Write tests
+(defun lister-move-item-right (ewoc pos)
+  "In EWOC, increase indentation level of the item at POS."
+  (lister-set-level-at ewoc pos (1+ (lister-get-level-at ewoc pos))))
+
+;;; TODO Write tests
+(defun lister-move-item-left (ewoc pos)
+  "In EWOC, decrease indentation level of the item at POS."
+  (lister-set-level-at ewoc pos (1- (lister-get-level-at ewoc pos))))
+
 ;;; * Set up buffer for printing:
 ;;;
 ;;;###autoload
