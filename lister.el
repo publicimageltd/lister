@@ -703,7 +703,7 @@ visible.  Alternative predicates can be passed to MARKER-PRED-FN."
 
 ;; * Insert Items
 
-(defun lister--walk-insert (ewoc tail level node) ;; item-fn)
+(defun lister--walk-insert (ewoc tail level node item-fn)
   "In EWOC, recursively insert all elements of TAIL.
 Create each item by calling ITEM-FN with two arguments, the
 current head of TAIL and the calculated level.  The items are
@@ -716,16 +716,16 @@ inserted with an higher indentation level."
       (setq item (car tail)
             tail (cdr tail))
       (if (listp item)
-          (lister--walk-insert ewoc item (1+ level) node)
+          (lister--walk-insert ewoc item (1+ level) node item-fn)
         ;; wrap the item in an item object:
-        (setq item (lister--new-item item level))
-;;        (setq item (funcall item-fn item level))
+;;        (setq item (lister--new-item item level))
+        (setq item (funcall item-fn item level))
         (if node
             (ewoc-enter-before ewoc node item)
           (ewoc-enter-last ewoc item))))))
 
 (defun lister-insert-list (ewoc pos data-list &optional
-                            level insert-after)
+                            level insert-after item-fn)
   "In EWOC, insert DATA-LIST as printed items at POS.
 POS can be either an ewoc node, an index position, or one of the
 symbols `:first', `:last', `:point', `:next' or `:prev'.
@@ -740,6 +740,13 @@ If LEVEL is nil, align the new data item's level with its
 predecessor.  If LEVEL is an integer value, indent the item LEVEL
 times.  Silently correct invalid values, e.g. positive ones at
 the beginning of the list.
+
+Set ITEM-FN for full control over how DATA-LIST is interpreted
+and what is inserted in the node.  Per default, each element of
+DATA-LIST fills the `data' slot of a new `lister--item'.  You can
+use any other function to create the `lister--item' object as you
+like it, as long as it accepts two arguments, the list atom and
+the indentation level.
 
 Insert data-list before (or visually 'above') the node at POS,
 unless INSERT-AFTER is set."
@@ -756,7 +763,8 @@ unless INSERT-AFTER is set."
      ((and node insert-after)             ;; insert after NODE?
       (setq node (ewoc-next ewoc node)))) ;; => insert before its next node
     ;;
-    (lister--walk-insert ewoc data-list this-level node)))
+    (lister--walk-insert ewoc data-list this-level node
+                         (or item-fn #'lister--new-item))))
 
 (defun lister-insert (ewoc pos data  &optional level insert-after)
   "In EWOC, insert DATA at POS, printing it.
@@ -809,7 +817,7 @@ consequence, `lister-get-list' returns `(A (B C))' with only one
 sublist.  In that case, there is no way to tell that B and C once
 belonged to different lists."
   (lister-delete-all ewoc)
-  (lister--walk-insert ewoc l 0 nil))
+  (lister--walk-insert ewoc l 0 nil #'lister--new-item))
 
 ;; * Moving Functions (next, prev)
 
