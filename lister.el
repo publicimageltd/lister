@@ -78,7 +78,7 @@ Copy only the slots `level', `marked' and `data'."
                        :level (lister--item-level item)
                        :marked (lister--item-marked item)))
 
-(defun lister--new-item (data &optional level)
+(defun lister--new-data-item (data &optional level)
   "Create a new lister item storing DATA and LEVEL."
   (lister--item-create :data data :level level))
 
@@ -532,9 +532,14 @@ is invalid (i.e. index is out of bounds) or invisible."
   "Get the indentation level of NODE."
   (lister--item-level (ewoc-data node)))
 
+;; this is used by lister--walk-insert when copying lists:
+(defun lister-set-item-level (item level)
+  "Set the LEVEL of ITEM."
+  (setf (lister--item-level item) level))
+
 (defun lister-set-node-level (ewoc node level)
   "In EWOC, set indentation of NODE to LEVEL, refreshing it."
-  (setf (lister--item-level (ewoc-data node)) level)
+  (lister-set-item-level (ewoc-data node) level)
   (ewoc-invalidate ewoc node))
 
 (defun lister-get-level-at (ewoc pos)
@@ -718,7 +723,7 @@ inserted with an higher indentation level."
       (if (listp item)
           (lister--walk-insert ewoc item (1+ level) node item-fn)
         ;; wrap the item in an item object:
-;;        (setq item (lister--new-item item level))
+;;        (setq item (lister--new-data-item item level))
         (setq item (funcall item-fn item level))
         (if node
             (ewoc-enter-before ewoc node item)
@@ -764,7 +769,7 @@ unless INSERT-AFTER is set."
       (setq node (ewoc-next ewoc node)))) ;; => insert before its next node
     ;;
     (lister--walk-insert ewoc data-list this-level node
-                         (or item-fn #'lister--new-item))))
+                         (or item-fn #'lister--new-data-item))))
 
 (defun lister-insert (ewoc pos data  &optional level insert-after)
   "In EWOC, insert DATA at POS, printing it.
@@ -817,7 +822,7 @@ consequence, `lister-get-list' returns `(A (B C))' with only one
 sublist.  In that case, there is no way to tell that B and C once
 belonged to different lists."
   (lister-delete-all ewoc)
-  (lister--walk-insert ewoc l 0 nil #'lister--new-item))
+  (lister--walk-insert ewoc l 0 nil #'lister--new-data-item))
 
 ;; * Moving Functions (next, prev)
 
@@ -864,15 +869,19 @@ backwards from POS, which is a position understood by
 
 ;; * Get the data list
 
-(defun lister-get-list (ewoc &optional beg end start-level pred-fn)
-  "Return the data fields of EWOC as a list.
-Collect the data of all nodes unless BEG and END set a specific
-limit.  BEG and END can be any position understood by
-`lister--parse-position'.
+(defun lister-get-list (ewoc &optional beg end start-level pred-fn item-fn)
+  "Return the data fields of EWOC as a list, preserving hierarchy.
+Collect the data slots of all items between BEG and END.  BEG and
+END can be any position understood by `lister--parse-position'.
+If they are nil, traverse the whole list.
 
 If PRED-FN is set, restrict to matching nodes.  Note that the
 predicate here is checking against the whole ewoc node, not the
-item or the item's data!
+item or the item's data slot!
+
+Collect the results of applying ITEM-FN to the ewoc data of the
+node.  If ITEM-FN is nil, interpret the ewoc data as lister item
+struct and return its data field.
 
 The result will always start with the indentation level 0, so
 sublists will be returned as nested lists, even if BEG and END
@@ -884,6 +893,8 @@ indentation level."
     (when pred-fn
       (setq beg (lister--next-or-this-node-matching ewoc beg pred-fn #'ewoc-next))
       (setq end (lister--next-or-this-node-matching ewoc end pred-fn #'ewoc-prev)))
+    ;; set the default item-fn:
+    (setq item-fn (or item-fn #'lister--item-data))
     ;; We traverse the list recursively using 'node' as a global
     ;; pointer to the current item so that nested 'inner' functions
     ;; can move forward that global node which is also used by the
@@ -898,7 +909,8 @@ indentation level."
                                       (push (walk ewoc nil (1+ prev-level)) acc)
                                     (when (or (not pred-fn)
                                               (funcall pred-fn node))
-                                      (push (lister--item-data (ewoc-data node)) acc))
+                                      (push (funcall item-fn (ewoc-data node)) acc))
+;;                                      (push (lister--item-data (ewoc-data node)) acc))
                                     (setq node (unless (eq node end)
                                                  (ewoc-next ewoc node)))))
                                 (nreverse acc))))
