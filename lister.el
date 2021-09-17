@@ -962,6 +962,12 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
       (< (lister-node-get-level node)
          (lister-node-get-level next)))))
 
+(defun lister-sublist-at-p (ewoc pos)
+  "Check if in EWOC, there is a sublist at POS."
+  (lister-with-sublist-at ewoc pos beg end
+    (and (not (eq beg (lister--parse-position ewoc :first)))
+         (not (eq end (lister--parse-position ewoc :last))))))
+
 (defun lister-insert-sublist-below (ewoc pos l)
   "In EWOC, insert L as an indented list below POS."
   (lister-insert-list ewoc pos l 999 t))
