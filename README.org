@@ -64,16 +64,17 @@ Current release is =0.9=.
 
 This is an overview of features done or planned.
 
-| Feature                         | State   | Automated tests? |
-|---------------------------------+---------+------------------|
-| build simple or large lists     | stable  | yes              |
-| build nested lists              | stable  | yes              |
-| retrieve data, with hierarchies | stable  | yes              |
-| loop over the list              | stable  | yes              |
-| marking or unmarking items      | stable  | yes              |
-| filter items                    | stable  | yes              |
-| move items and sublists         | planned | -                |
-|---------------------------------+---------+------------------|
+| Feature                              | State   | Automated tests? |
+|--------------------------------------+---------+------------------|
+| build simple or large lists          | stable  | yes              |
+| build nested lists                   | stable  | yes              |
+| retrieve data, with hierarchies      | stable  | yes              |
+| loop over the list                   | stable  | yes              |
+| marking or unmarking items           | stable  | yes              |
+| filter items                         | stable  | yes              |
+| hide and show sublists outline-style | works   | no               |
+| move items and sublists              | planned | -                |
+|--------------------------------------+---------+------------------|
 
 * Example
 
@@ -213,7 +214,18 @@ deletes them. To get the currently installed =header= or =footer=, use the
 =Ewoc= function =ewoc-get-hf=.
 
 =Lister-setup= returns an ewoc object, which is then used as the basic
-reference for all =Lister= operations.
+reference for all =Lister= operations. The ewoc object is also stored in
+the buffer local variable =lister-local-ewoc=. It can be used to access
+the ewoc in an interactive function, like this:
+
+#+begin_src emacs-lisp
+(defun do-something (ewoc pos)
+  "Do something at point."
+  (interactive (list lister-local-ewoc :point))
+  (when-let ((node (lister-get-node-at ewoc pos)))
+    (message "You want to do something with %s."
+             (lister-node-get-data node))))
+#+end_src
 
 ** Inserting, adding, deleting or replacing single items
 
@@ -414,6 +426,25 @@ Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
 position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 =:point=.
 
+** Outline
+
+You can hide or show sublists as an outline:
+
+#+begin_src emacs-lisp
+;; Hide the sublist below POS as an outline:
+(lister-outline-hide-sublist-below ewoc pos)
+;; Show it:
+(lister-outline-show-sublist-below ewoc pos)
+;; Cycle it:
+(lister-outline-cycle-sublist-below ewoc pos)
+;; Show all hidden outlines:
+(lister-outline-show-all ewoc)
+#+end_src
+
+Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
+position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
+=:point=.
+
 ** Finding nodes
 
 #+begin_src emacs-lisp
@@ -428,7 +459,7 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 Argument =POS= can be either an =Ewoc= node, an integer position, or one
 of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 
-**  Looping 
+** Looping 
 
 Basic macros, imperative style:
 
@@ -507,6 +538,11 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 =:point=.
 
 * Changelog
+
+** Current version
+
+ - Added outline style hiding of sublists
+
 ** 0.9
 
  - Rewrite the whole package basing it now on =Ewoc=.

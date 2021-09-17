@@ -31,6 +31,11 @@
 
 ;;; * Global Variables
 
+(defvar-local lister-local-ewoc nil
+  "Buffer local store of the ewoc object.
+This is useful for interactive functions called in the Lister
+buffer.")
+
 (defvar-local lister-local-filter nil
   "Buffer local filter predicate for Lister lists.
 Do not set this directly; use `lister-set-filter' instead.")
@@ -1105,6 +1110,69 @@ PRED nil effectively removes any existing filter."
       (lister--invisibilize-item (ewoc-data node)
                               (and pred (funcall pred data))))))
 
+;;; * Outline
+
+;; Most of that code is adapted from outline.el.  I considered simply
+;; adapting outline minor mode by changing outline-regexp, but there
+;; are too many function keys in that mode which would have to be
+;; either turned off or changed.  So just for getting the "cycle"
+;; stuff, it would end up in a new minor mode and a lots of
+;; modifications. Rather focus on that functionality here.
+
+(defun lister--outline-invisible-p (ewoc pos)
+  "Non-nil if the item at POS is hidden as part of an outline.
+EWOC is a lister Ewoc object."
+  (when-let ((node (lister--parse-position ewoc pos)))
+    (let* ((pos (lister--item-beg (ewoc-data node))))
+      (eq (get-char-property pos 'invisible) 'outline))))
+
+(defun lister--outline-reveal-at-point (_ovl)
+  "In current buffer, reveal the outline item at point."
+  (when-let ((ewoc lister-local-ewoc))
+    (save-excursion
+      (let ((node (lister-get-node-at ewoc :point)))
+        (lister-with-sublist-at ewoc node beg end
+          (lister--outline-hide-show ewoc beg end nil))))))
+
+(defun lister--outline-hide-show (ewoc beg end state)
+  "In EWOC, hide or show the outline from BEG to END.
+If STATE is nil, show the items between BEG and END, else hide
+them as an outline."
+  (lister-with-region ewoc beg end
+    (with-current-buffer (ewoc-buffer ewoc)
+      (let ((from (1- (lister--item-beg (ewoc-data beg))))
+            (to   (1- (lister--item-end (ewoc-data end)))))
+        (remove-overlays from to 'invisible 'outline)
+        (when state
+          (let ((o (make-overlay from to)))
+            (overlay-put o 'evaporate t)
+            (overlay-put o 'invisible 'outline)
+            ;; the value of the property 'isearch-open-invisible
+            ;; is called as a function when exiting isearch within
+            ;; an invisible region:
+            (overlay-put o 'isearch-open-invisible 'lister--outline-reveal-at-point)))))))
+
+(defun lister-outline-hide-sublist-below (ewoc pos)
+  "In EWOC, hide the sublist below POS as part of an outline."
+  (lister-with-sublist-below ewoc pos beg end
+    (lister--outline-hide-show ewoc beg end t)))
+
+(defun lister-outline-show-sublist-below (ewoc pos)
+  "In EWOC, unhide the sublist below POS as part of an outline."
+  (lister-with-sublist-below ewoc pos beg end
+    (lister--outline-hide-show ewoc beg end nil)))
+
+(defun lister-outline-cycle-sublist-below (ewoc pos)
+  "Toggle the outline visibility of the sublist below POS.
+EWOC is a lister Ewoc object."
+  (lister-with-sublist-below ewoc pos beg end
+    (let* ((state (lister--outline-invisible-p ewoc beg)))
+      (lister--outline-hide-show ewoc beg end (not state)))))
+
+(defun lister-outline-show-all (ewoc)
+  "In EWOC, show all hidden outlines."
+  (lister--outline-hide-show ewoc :first :last nil))
+
 ;;; * Set up buffer for printing:
 ;;;
 ;;;###autoload
@@ -1126,6 +1194,9 @@ Optionally pass a HEADER or FOOTER string, or lists of strings."
                           'front-sticky t
                           'field t))
       (goto-char (point-min)))
+    ;; Prepare for outline
+    (set (make-local-variable 'line-move-ignore-invisible) t)
+    (add-to-invisibility-spec '(outline . t))
     (read-only-mode +1)
     (cursor-intangible-mode +1)
     (setq-local lister-local-mapper mapper)
@@ -1134,7 +1205,7 @@ Optionally pass a HEADER or FOOTER string, or lists of strings."
       ;; set separate pprinter for header and footer:
       (setf (ewoc--hf-pp ewoc) #'lister--insert-as-hf)
       (ewoc-set-hf ewoc header footer)
-      ewoc)))
+      (setq-local lister-local-ewoc ewoc))))
 
 (provide 'lister)
 ;;; lister.el ends here
