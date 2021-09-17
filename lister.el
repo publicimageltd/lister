@@ -357,6 +357,9 @@ item of the list, respectively.
 The node bound to VAR can be safely destroyed without quitting
 the loop.
 
+BODY is wrapped in an implicit `cl-block'.  To quit it
+immediately, use (cl-return).
+
 \(fn (EWOC VAR [BEG] [END]) BODY...)"
   (declare (indent 1) (debug ((sexp symbolp &optional sexp sexp)
                               body)))
@@ -374,13 +377,14 @@ the loop.
       (signal 'wrong-type-argument (list 'symbolp node-sym)))
     `(let ((,node-sym (lister--parse-position ,ewoc (or ,beg :first)))
            (,last-var (lister--parse-position ,ewoc (or ,end :last))))
-       (while ,node-sym
-         ;; get the next node before BODY, since BODY might delete
-         ;; the current node pointer:
-         (let ((,temp-node (ewoc-next ,ewoc ,node-sym)))
-           ,@body
-           (setq ,node-sym (unless (eq ,node-sym ,last-var)
-                             ,temp-node)))))))
+       (cl-block nil
+         (while ,node-sym
+           ;; get the next node before BODY, since BODY might delete
+           ;; the current node pointer:
+           (let ((,temp-node (ewoc-next ,ewoc ,node-sym)))
+             ,@body
+             (setq ,node-sym (unless (eq ,node-sym ,last-var)
+                               ,temp-node))))))))
 
 (cl-defmacro lister-dolist (spec &rest body)
   "In EWOC, execute BODY looping over a list of item data.
@@ -395,6 +399,9 @@ The first argument SPEC is a list with the following arguments:
 
 If BEG or END are not provided or nil, use the first or the last
 item of the list, respectively.
+
+BODY is wrapped in an implicit `cl-block'.  To quit it
+immediately, use (cl-return).
 
 \(fn (EWOC VAR [BEG] [END] [NODE-VAR]) BODY...)"
   (declare (indent 1) (debug ((sexp symbolp &optional sexp sexp symbolp)

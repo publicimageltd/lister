@@ -474,13 +474,14 @@ Basic macros, imperative style:
   ;; Delete the whole list:
   (lister-dolist-nodes (ewoc node :first :last)
     (lister-delete-at ewoc node))
-  ;; Delete the whole list and return the deleted content:
-  (let (acc)
-    (lister-dolist (ewoc data :first :last node)
-      (push data acc)
-      (lister-delete-at ewoc node))
-   (nreverse acc))
+  ;; Return t if one list item matches X:
+  (lister-dolist (ewoc data)
+    (when (equal data x)
+      (cl-return t)))
 #+end_src
+
+The body of the loop macros are all wrappend in an implicit =cl-block=.
+To quit the loop immediately, use =(cl-return)=.
 
 More specific functions, more functional style:
 
