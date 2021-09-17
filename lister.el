@@ -534,8 +534,9 @@ is invalid (i.e. index is out of bounds) or invisible."
 
 ;; this is used by lister--walk-insert when copying lists:
 (defun lister-set-item-level (item level)
-  "Set the LEVEL of ITEM."
-  (setf (lister--item-level item) level))
+  "Set the LEVEL of ITEM and return ITEM."
+  (setf (lister--item-level item) level)
+  item)
 
 (defun lister-set-node-level (ewoc node level)
   "In EWOC, set indentation of NODE to LEVEL, refreshing it."
@@ -1248,7 +1249,7 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
 (defun lister--move-list (ewoc beg-node end-node target-node)
   "Move list from BEG-NODE to END-NODE to TARGET-NODE.
 Throw an error if TARGET-NODE is part of the list.  EWOC is an
-ewoc object."
+ewoc object.  Move the item with its data and its mark state."
   (when (lister-node-in-region-p target-node beg-node end-node)
     (error "Cannot move; target is part of the list to be moved"))
   (let* (;; which direction are we moving?
@@ -1268,17 +1269,20 @@ ewoc object."
                            nil))
          ;; now copy the list to be re-inserted:
          (from-level   (lister-get-level-at ewoc beg-node))
-         (l            (lister-get-list ewoc beg-node end-node from-level)))
+         (l            (lister-get-list ewoc beg-node end-node from-level
+                                        nil #'lister--minimal-copy)))
     (lister-delete-list ewoc beg-node end-node)
-    (lister-insert-list ewoc target-node l from-level insert-after)))
+    (lister-insert-list ewoc target-node l from-level insert-after #'lister-set-item-level)))
 
 ;;; TODO Write tests
 (defun lister-move-sublist-up (ewoc pos)
   "In EWOC, move sublist at POS one up."
   (lister-with-sublist-at ewoc pos beg end
-    (if-let ((target (ewoc-prev ewoc beg)))
-        (lister--move-list ewoc beg end target)
-      (error "Cannot move sublist further up"))))
+    (let ((target (ewoc-prev ewoc beg)))
+      (if (or (not target)
+              (eq target (ewoc-nth ewoc 0)))
+          (error "Cannot move sublist further up")
+        (lister--move-list ewoc beg end target)))))
 
 ;;; TODO Write tests
 (defun lister-move-sublist-down (ewoc pos)
