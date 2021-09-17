@@ -242,6 +242,8 @@ If POS is a node, pass it through.
 
 If POS is neither a node, nor an integer, nor one of the symbols
 above, throw an error."
+  (unless ewoc
+    (error "%s is not a valid ewoc object" ewoc))
   ;; ewoc-locate uses (point) without checking the current buffer,
   ;; so we do it instead:
   (with-current-buffer (ewoc-buffer ewoc)
