@@ -730,6 +730,7 @@ inserted with an higher indentation level."
             (ewoc-enter-before ewoc node item)
           (ewoc-enter-last ewoc item))))))
 
+;; this argument list has grown really long, but what can we do?
 (defun lister-insert-list (ewoc pos data-list &optional
                             level insert-after item-fn)
   "In EWOC, insert DATA-LIST as printed items at POS.
@@ -1269,10 +1270,13 @@ ewoc object.  Move the item with its data and its mark state."
                            nil))
          ;; now copy the list to be re-inserted:
          (from-level   (lister-get-level-at ewoc beg-node))
-         (l            (lister-get-list ewoc beg-node end-node from-level
-                                        nil #'lister--minimal-copy)))
+         (l            (lister-get-list ewoc beg-node end-node
+                                        from-level
+                                        nil
+                                        #'lister--minimal-copy)))
     (lister-delete-list ewoc beg-node end-node)
-    (lister-insert-list ewoc target-node l from-level insert-after #'lister-set-item-level)))
+    (lister-insert-list ewoc target-node l from-level insert-after
+                        #'lister-set-item-level)))
 
 ;;; TODO Write tests
 (defun lister-move-sublist-up (ewoc pos)
@@ -1313,7 +1317,7 @@ Throw an error if there is no next position."
 Move upwards from the item at POS in EWOC.  Unless
 DONT-RESTRICT-LEVEL is non-nil, only move within the same
 indentation level."
-  (lister--move-item ewoc pos #'ewoc-prev dont-restrict-level))
+  (lister--move-item ewoc pos #'ewoc-prev (not dont-restrict-level)))
 
 ;;; TODO Write tests
 (defun lister-move-item-down (ewoc pos &optional dont-restrict-level)
@@ -1321,7 +1325,7 @@ indentation level."
 Move downwards from the item at POS in EWOC.  Unless
 DONT-RESTRICT-LEVEL is non-nil, only move within the same
 indentation level."
-  (lister--move-item ewoc pos #'ewoc-next dont-restrict-level))
+  (lister--move-item ewoc pos #'ewoc-next (not dont-restrict-level)))
 
 ;;; TODO Write tests
 (defun lister-move-item-right (ewoc pos)
