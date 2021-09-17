@@ -1189,7 +1189,6 @@ EWOC is a lister Ewoc object."
 
 ;;; * Interactive Editing
 
-;; TODO Write tests
 (defun lister--next-same-level (ewoc pos move-fn)
   "In EWOC, find next visible node with the same level as POS.
 MOVE-FN can be either `ewoc-next' or `ewoc-prev'."

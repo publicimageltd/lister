@@ -1163,6 +1163,40 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (expect (lister-get-list ewoc)
               :to-equal '("1" "3" "5" "6" "7" "8" "9" "10")))))
 
+(describe "Editing"
+  :var (ewoc l)
+  (before-each
+    (setq ewoc (lister-test-setup-minimal-buffer))
+    (setq l '("0" "1" "2" ("A" "B" "C") "3" "4" "5")))
+  (after-each
+    (kill-buffer (ewoc-buffer ewoc)))
+
+  (describe "lister--next-same-level"
+    (it "finds the next node with the same level:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (let ((expected (lister-get-node-at ewoc 2)))
+        (expect (lister--next-same-level ewoc 0 #'ewoc-next)
+                :to-be-node expected)))
+    (it "finds the prev node with the same level:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (let ((expected (lister-get-node-at ewoc 0)))
+        (expect (lister--next-same-level ewoc 2 #'ewoc-prev)
+                :to-be-node expected)))
+    (it "finds the next node within a sublist:"
+      (lister-set-list ewoc '("0" ("1" "2" "3")))
+      (let ((expected (lister-get-node-at ewoc 3)))
+        (expect (lister--next-same-level ewoc 2 #'ewoc-next)
+                :to-be-node expected)))
+    (it "finds the next node within a sublist:"
+      (lister-set-list ewoc '("0" ("1" "2" "3")))
+      (let ((expected (lister-get-node-at ewoc 1)))
+        (expect (lister--next-same-level ewoc 2 #'ewoc-prev)
+                :to-be-node expected)))
+    (it "find no node:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (expect (lister--next-same-level ewoc 1 #'ewoc-next)
+                :to-be nil))))
+
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
 
