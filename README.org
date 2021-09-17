@@ -49,10 +49,12 @@ or otherwise edit lists from various sources.
   - [[#marking][Marking]]
   - [[#sorting][Sorting]]
   - [[#filter][Filter]]
+  - [[#outline][Outline]]
   - [[#finding-nodes][Finding nodes]]
   - [[#looping][Looping]]
   - [[#miscellaneous][Miscellaneous]]
 - [[#changelog][Changelog]]
+  - [[#current-version][Current version]]
   - [[#09][0.9]]
 :END:
 
@@ -547,4 +549,3 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 
  - Rewrite the whole package basing it now on =Ewoc=.
  
-
