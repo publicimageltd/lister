@@ -485,21 +485,17 @@ restrict action only to matching nodes."
               (funcall pred-fn node))
       (funcall action-fn ewoc node))))
 
-;; * Check the whole list
+;; * Some stuff which does not fit anywhere else
 
 (defun lister-empty-p (ewoc)
   "Return t if EWOC has no list."
   (null (ewoc-nth ewoc 0)))
 
-(defun lister-point-min (ewoc)
-  "Return the start position of the very first item in EWOC.
-This is the position after the header."
-  (ewoc--node-start-marker (ewoc--header ewoc)))
-
-(defun lister-point-max (ewoc)
-  "Return the end position of the very last item in EWOC.
-This is one character before the beginning of the footer."
-  (1- (ewoc--node-start-marker (ewoc--footer ewoc))))
+(defun lister-node-in-region-p (node node-beg node-end)
+  "Check if NODE is part of the list from nodes NODE-BEG to NODE-END.
+Do only check the positions of the nodes, not their content."
+  (and (>= (ewoc-location node) (ewoc-location node-beg))
+       (<= (ewoc-location node) (ewoc-location node-end))))
 
 ;; * Goto Nodes
 

@@ -517,15 +517,31 @@ it is very likely you will need the ewoc object.
 Arguments =BEG= and =END= can be either an =Ewoc= node, an integer position,
 or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 
+** Interactive editing
+
+#+begin_src emacs-lisp
+;; Move items vertically:
+(lister-move-item-up ewoc pos &optional dont-restrict-level)
+(lister-move-item-down ewoc pos &optional dont-restrict-level)
+;; Move items horizontally:
+(lister-move-item-right ewoc pos)
+(lister-move-item-left ewoc pos)
+;; Move sublists:
+(lister-move-sublist-up ewoc pos)
+(lister-move-sublist-down ewoc pos)
+#+end_src
+
+Argument =POS= can be either an =Ewoc= node, an integer position, or one
+of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+
 ** Miscellaneous 
 
 #+begin_src emacs-lisp
   ;; Check if the list is empty:
   (lister-empty-p ewoc)
-  ;; Return the first and last char of the list, that is, the region
-  ;; between header and footer:
-  (lister-point-min ewoc)
-  (lister-point-max ewoc)
+  ;; Check if a node is part of the list from beg to end:
+  (lister-node-in-region-p node beg end)
   ;; Move point:
   (lister-goto ewoc pos)
   ;; Manually re-set the level of an item:
