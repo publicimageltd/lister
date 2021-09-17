@@ -1225,7 +1225,30 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                 :not :to-be-truthy)
         (expect (lister-node-marked-p
                  (lister-get-node-at ewoc 1))
-                :to-be-truthy)))))
+                :to-be-truthy))))
+
+  (describe "lister--move-item"
+    ;; TODO Also catch error conditions
+    (it "moves item up:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (lister--move-item ewoc 2 #'ewoc-prev)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" "2" ("1"))))
+    (it "moves item down:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (lister--move-item ewoc 1 #'ewoc-next)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" "2" ("1"))))
+    (it "skips sublists when moving up:"
+      (lister-set-list ewoc '("0" ("1" "2") "3"))
+      (lister--move-item ewoc 3 #'ewoc-prev t)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" "3" ("1" "2"))))
+    (it "skips sublists when moving down:"
+      (lister-set-list ewoc '("0" ("1" "2") "3"))
+      (lister--move-item ewoc 0 #'ewoc-next t)
+      (expect (lister-get-list ewoc)
+              :to-equal '(("1" "2") "0" "3")))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here

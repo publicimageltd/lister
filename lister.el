@@ -71,6 +71,17 @@ The slot DATA contains the 'real' data, which is printed using
   the mapper."
   level marked invisible beg end data)
 
+(defun lister--minimal-copy (item)
+  "Create a minimal copy of ITEM.
+Copy only the slots `level', `marked' and `data'."
+  (lister--item-create :data (lister--item-data item)
+                       :level (lister--item-level item)
+                       :marked (lister--item-marked item)))
+
+(defun lister--new-item (data &optional level)
+  "Create a new lister item storing DATA and LEVEL."
+  (lister--item-create :data data :level level))
+
 (defun lister--item-visible (item-struct)
   "For ITEM-STRUCT, get negated value of of `lister--item-invisible'."
   (not (lister--item-invisible item-struct)))
@@ -692,12 +703,14 @@ visible.  Alternative predicates can be passed to MARKER-PRED-FN."
 
 ;; * Insert Items
 
-(defun lister--walk-insert (ewoc tail level node)
+(defun lister--walk-insert (ewoc tail level node) ;; item-fn)
   "In EWOC, recursively insert all elements of TAIL.
-The items are inserted from the bottom to top, that is, they are
-'stacked' either on NODE or, if NODE is nil, on the bottom of the
-list.  Insertion starts with indentation level LEVEL; nested
-lists are inserted with an higher indentation level."
+Create each item by calling ITEM-FN with two arguments, the
+current head of TAIL and the calculated level.  The items are
+inserted from the bottom to top, that is, they are 'stacked'
+either on NODE or, if NODE is nil, on the bottom of the list.
+Insertion starts with indentation level LEVEL; nested lists are
+inserted with an higher indentation level."
   (let (item)
     (while tail
       (setq item (car tail)
@@ -705,8 +718,8 @@ lists are inserted with an higher indentation level."
       (if (listp item)
           (lister--walk-insert ewoc item (1+ level) node)
         ;; wrap the item in an item object:
-        (setq item (lister--item-create :level level
-                                     :data  item))
+        (setq item (lister--new-item item level))
+;;        (setq item (funcall item-fn item level))
         (if node
             (ewoc-enter-before ewoc node item)
           (ewoc-enter-last ewoc item))))))
@@ -1198,6 +1211,7 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
                                       level))))
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
+;; TODO Remove this and the tests!
 (defun lister--swap-item (ewoc pos1 pos2)
   "In EWOC, swap the items at POS1 and POS2."
   (let* ((node1 (lister--parse-position ewoc pos1))
@@ -1210,18 +1224,64 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
         (ewoc-invalidate ewoc node1 node2)))))
 
 ;;; TODO Write tests
+;; TODO Also copy marked state!
+(defun lister--move-list (ewoc beg-node end-node target-node)
+  "Move list from BEG-NODE to END-NODE to TARGET-NODE.
+Throw an error if TARGET-NODE is part of the list.  EWOC is an
+ewoc object."
+  (when (lister-node-in-region-p target-node beg-node end-node)
+    (error "Cannot move; target is part of the list to be moved"))
+  (let* (;; which direction are we moving?
+         (upwards?  (< (ewoc-location target-node)
+                       (ewoc-location beg-node)))
+         ;; find immediate neighbour of the list
+         (neighbour (if upwards?
+                        (ewoc-prev ewoc beg-node)
+                      (ewoc-next ewoc end-node)))
+         ;; check if target is immediate neighbour:
+         (no-distance? (eq neighbour target-node))
+         ;; determine how to re-insert it after deletion:
+         (insert-after (or (and (not upwards?)
+                                no-distance?)
+                           (and upwards?
+                                (not no-distance?))
+                           nil))
+         ;; now copy the list to be re-inserted:
+         (from-level   (lister-get-level-at ewoc beg-node))
+         (l            (lister-get-list ewoc beg-node end-node from-level)))
+    (lister-delete-list ewoc beg-node end-node)
+    (lister-insert-list ewoc target-node l from-level insert-after)))
+
+;;; TODO Write tests
+(defun lister-move-sublist-up (ewoc pos)
+  "In EWOC, move sublist at POS one up."
+  (lister-with-sublist-at ewoc pos beg end
+    (if-let ((target (ewoc-prev ewoc beg)))
+        (lister--move-list ewoc beg end target)
+      (error "Cannot move sublist further up"))))
+
+;;; TODO Write tests
+(defun lister-move-sublist-down (ewoc pos)
+  "In EWOC, move sublist at POS one down."
+  (lister-with-sublist-at ewoc pos beg end
+    (if-let ((target (ewoc-next ewoc end)))
+        (lister--move-list ewoc beg end target)
+      (error "Cannot move sublist further down"))))
+
+;;; TODO Write tests
 (defun lister--move-item (ewoc pos move-fn &optional restrict-level)
   "In EWOC, move item at POS up or down.
-Move item to the next visible node in direction of MOVE-FN.  If
-RESTRICT-LEVEL is non-nil, only consider items with the same
-indentation level.  Throw an error if there is no next position."
+Move item to the next visible node in direction of
+MOVE-FN (either `ewoc-next' or `ewoc-prev').  If RESTRICT-LEVEL is
+non-nil, only consider items with the same indentation level.
+Throw an error if there is no next position."
   (let* ((from   (lister--parse-position ewoc pos))
          (to     (if restrict-level
                      (lister--next-same-level ewoc from move-fn)
-                   (funcall move-fn from))))
+                   (funcall move-fn ewoc from))))
     (unless to
       (error "No movement possible"))
-    (lister--swap-item ewoc from to)))
+    (lister--move-list ewoc from from to)))
 
 ;;; TODO Write tests
 (defun lister-move-item-up (ewoc pos &optional dont-restrict-level)
@@ -1238,36 +1298,6 @@ Move downwards from the item at POS in EWOC.  Unless
 DONT-RESTRICT-LEVEL is non-nil, only move within the same
 indentation level."
   (lister--move-item ewoc pos #'ewoc-next dont-restrict-level))
-
-;;; TODO Write tests
-(defun lister--move-list (ewoc beg-node end-node target-node)
-  "Move list from BEG-NODE to END-NODE to TARGET-NODE.
-Throw an error if TARGET-NODE is the first item.  Throw an error
-if TARGET-POS is itself part of the list.  EWOC is an ewoc
-object."
-  (unless (and target-node
-               (ewoc-prev ewoc target-node))
-    (error "Cannot move in that direction"))
-  (when (lister-node-in-region-p target-node beg-node end-node)
-    (error "Cannot move; target is part of the list to be moved"))
-  (let* ((from-level   (lister-get-level-at ewoc beg-node))
-         (l            (lister-get-list ewoc beg-node end-node from-level))
-         (insert-after (< (ewoc-location end-node)
-                          (ewoc-location target-node))))
-    (lister-delete-list ewoc beg-node end-node)
-    (lister-insert-list ewoc target-node l from-level insert-after)))
-
-;;; TODO Write tests
-(defun lister-move-sublist-up (ewoc pos)
-  "In EWOC, move sublist at POS one up."
-  (lister-with-sublist-at ewoc pos beg end
-    (lister--move-list ewoc beg end (ewoc-prev ewoc beg))))
-
-;;; TODO Write tests
-(defun lister-move-sublist-down (ewoc pos)
-  "In EWOC, move sublist at POS one down."
-  (lister-with-sublist-at ewoc pos beg end
-    (lister--move-list ewoc beg end (ewoc-next ewoc end))))
 
 ;;; TODO Write tests
 (defun lister-move-item-right (ewoc pos)
