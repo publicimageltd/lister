@@ -1246,7 +1246,7 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
         (ewoc-invalidate ewoc node1 node2)))))
 
 ;;; TODO Write tests
-;; TODO Also copy marked state!
+;;; FIXME There must be an easier way to do this!
 (defun lister--move-list (ewoc beg-node end-node target-node)
   "Move list from BEG-NODE to END-NODE to TARGET-NODE.
 Throw an error if TARGET-NODE is part of the list.  EWOC is an
@@ -1274,9 +1274,22 @@ ewoc object.  Move the item with its data and its mark state."
                                         from-level
                                         nil
                                         #'lister--minimal-copy)))
-    (lister-delete-list ewoc beg-node end-node)
-    (lister-insert-list ewoc target-node l from-level insert-after
-                        #'lister-set-item-level)))
+    ;; save position to find target node again after re-insertion:
+    (let ((target-pos (marker-position (ewoc-location target-node))))
+      ;; delete + insert
+      (lister-delete-list ewoc beg-node end-node)
+      (lister-insert-list ewoc target-node l from-level insert-after
+                          #'lister-set-item-level)
+      ;; re-set point:
+      (let ((new-target-node (ewoc-locate ewoc target-pos)))
+        (ewoc-goto-node ewoc (if no-distance?
+                                 ;; we just swapped it:
+                                 new-target-node
+                               ;; else we inserted it before or after
+                               ;; the target node:
+                               (if insert-after
+                                   (ewoc-next ewoc new-target-node)
+                                 (ewoc-prev ewoc new-target-node))))))))
 
 ;;; TODO Write tests
 (defun lister-move-sublist-up (ewoc pos)
