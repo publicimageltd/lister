@@ -27,8 +27,8 @@
 
 ;;; Code:
 ;;                   Data                    State Item
-;; Inserting: #'lister--new-data-item; #'lister-set-item-level
-;; Getting:   #'lister--item-data;     #'lister--minimal-copy
+;; Inserting: #'lister--new-item-from-data; #'lister--item-with-new-level
+;; Getting:   #'lister--item-data;     #'lister--item-copy
 ;; Deleting          --                          --
 ;;
 ;; Mögliche Weisen, die Differenz zu kommunizieren:
@@ -83,23 +83,34 @@ representation of that data.")
   "The list item plus some additional extra informations.
 The slot DATA contains the 'real' data, which is printed using
   the mapper."
+  ;; do not add slots 'copy', 'visible' and 'with-new-level', they
+  ;; would interfere with the functions defined below
   level marked invisible beg end data)
-
-(defun lister--minimal-copy (item)
-  "Create a minimal copy of ITEM.
-Copy only the slots `level', `marked' and `data'."
-  (lister--item-create :data (lister--item-data item)
-                       :level (lister--item-level item)
-                       :marked (lister--item-marked item)))
-
-;; This is used to insert data lists
-(defun lister--new-data-item (data &optional level)
-  "Create a new lister item storing DATA and LEVEL."
-  (lister--item-create :data data :level level))
 
 (defun lister--item-visible (item-struct)
   "For ITEM-STRUCT, get negated value of of `lister--item-invisible'."
   (not (lister--item-invisible item-struct)))
+
+;;; * Functions used as item accessors or for creating list items
+
+(defun lister--item-with-new-level (item level)
+  "Set the LEVEL of ITEM and return ITEM."
+  (setf (lister--item-level item) level)
+  item)
+
+(defun lister--new-item-from-data (data &optional level)
+  "Create a new lister item storing DATA and LEVEL."
+  (lister--item-create :data data :level level))
+
+(defun lister--item-copy (item)
+  "Create a minimal copy of ITEM.
+Only copy the slots `level', `marked' and `data'.  The function
+name is analogous to the accessor function `lister--item-data':
+Both accept an item, but while the latter returns the data, this
+one creates a minimal copy."
+  (lister--item-create :data (lister--item-data item)
+                       :level (lister--item-level item)
+                       :marked (lister--item-marked item)))
 
 ;;; * Helper
 
@@ -547,15 +558,9 @@ is invalid (i.e. index is out of bounds) or invisible."
   "Get the indentation level of NODE."
   (lister--item-level (ewoc-data node)))
 
-;; this is used by lister--insert-nested when copying lists:
-(defun lister-set-item-level (item level)
-  "Set the LEVEL of ITEM and return ITEM."
-  (setf (lister--item-level item) level)
-  item)
-
 (defun lister-set-node-level (ewoc node level)
   "In EWOC, set indentation of NODE to LEVEL, refreshing it."
-  (lister-set-item-level (ewoc-data node) level)
+  (setf (lister--item-level (ewoc-data node)) level)
   (ewoc-invalidate ewoc node))
 
 (defun lister-get-level-at (ewoc pos)
@@ -775,7 +780,7 @@ times, but never more then one level than the previous item.
 Items inserted at top always have level 0. Insert L before (or
 visually 'above') the node at POS, unless INSERT-AFTER is set."
   (lister--insert-nested ewoc pos data-list level insert-after
-                         #'lister--new-data-item))
+                         #'lister--new-item-from-data))
 
 (defalias 'lister-insert-list-at 'lister-insert)
 
@@ -825,7 +830,7 @@ BEG and END can be a node, a position symbol or an index value.
 Optionally indent the new items according to LEVEL, else use the
 level of the item before BEG."
   (lister--replace-nested ewoc l beg end level
-                          #'lister--new-data-item))
+                          #'lister--new-item-from-data))
 
 (defun lister-set-list (ewoc l)
   "Insert data list L in EWOC, replacing any previous content.
@@ -837,7 +842,7 @@ Inserting the list `(A (B) (C))' produces two items B and C with
 the same indentation level, which will be then treated as the
 list '(A (B C))'."
   (lister-delete-all ewoc)
-  (lister---walk-insert ewoc l 0 nil #'lister--new-data-item))
+  (lister---walk-insert ewoc l 0 nil #'lister--new-item-from-data))
 
 ;; * Moving Functions (next, prev)
 
@@ -1247,7 +1252,7 @@ EWOC is a lister Ewoc object."
 (defun lister--copy-region (ewoc beg end)
   "Return the region in EWOC from BEG to END as lister-items."
   (ignore ewoc beg end))
-;;                     #'lister--minimal-copy)))
+;;                     #'lister--item-copy)))
 
 ;; TODO Spell out
 ;; TODO Write test
@@ -1298,13 +1303,13 @@ ewoc object.  Move the item with its data and its mark state."
           (lister--get-nested ewoc beg-node end-node
                               from-level
                               #'identity
-                              #'lister--minimal-copy)))
+                              #'lister--item-copy)))
     ;; save position to find target node again after re-insertion:
     (let ((target-pos (marker-position (ewoc-location target-node))))
       ;; delete + insert
       (lister-delete-list ewoc beg-node end-node)
       (lister--insert-nested ewoc target-node l from-level insert-after
-                          #'lister-set-item-level)
+                          #'lister--item-with-new-level)
       ;; re-set point:
       (let ((new-target-node (ewoc-locate ewoc target-pos)))
         (ewoc-goto-node ewoc (if no-distance?
