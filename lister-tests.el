@@ -1171,61 +1171,31 @@ low-lewel ewoc functions instead of `lister--parse-position'."
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
 
-  (describe "lister--next-same-level"
+  (describe "lister--next-node-same-level"
     (it "finds the next node with the same level:"
       (lister-set-list ewoc '("0" ("1") "2"))
       (let ((expected (lister-get-node-at ewoc 2)))
-        (expect (lister--next-same-level ewoc 0 #'ewoc-next)
+        (expect (lister--next-node-same-level ewoc 0 #'ewoc-next)
                 :to-be-node expected)))
     (it "finds the prev node with the same level:"
       (lister-set-list ewoc '("0" ("1") "2"))
       (let ((expected (lister-get-node-at ewoc 0)))
-        (expect (lister--next-same-level ewoc 2 #'ewoc-prev)
+        (expect (lister--next-node-same-level ewoc 2 #'ewoc-prev)
                 :to-be-node expected)))
     (it "finds the next node within a sublist:"
       (lister-set-list ewoc '("0" ("1" "2" "3")))
       (let ((expected (lister-get-node-at ewoc 3)))
-        (expect (lister--next-same-level ewoc 2 #'ewoc-next)
+        (expect (lister--next-node-same-level ewoc 2 #'ewoc-next)
                 :to-be-node expected)))
     (it "finds the prev node within a sublist:"
       (lister-set-list ewoc '("0" ("1" "2" "3")))
       (let ((expected (lister-get-node-at ewoc 1)))
-        (expect (lister--next-same-level ewoc 2 #'ewoc-prev)
+        (expect (lister--next-node-same-level ewoc 2 #'ewoc-prev)
                 :to-be-node expected)))
     (it "find no node:"
       (lister-set-list ewoc '("0" ("1") "2"))
-      (expect (lister--next-same-level ewoc 1 #'ewoc-next)
+      (expect (lister--next-node-same-level ewoc 1 #'ewoc-next)
               :to-be nil)))
-
-  (describe "lister--swap-item"
-    (it "swaps two items:"
-      (lister-set-list ewoc '("0" "1"))
-      (let ((pos1 (lister-get-node-at ewoc 0))
-            (pos2 (lister-get-node-at ewoc 1)))
-        (lister--swap-item ewoc pos1 pos2)
-        (expect (lister-get-list ewoc)
-                :to-equal '("1" "0"))))
-    (it "preserves indentation:"
-      (lister-set-list ewoc '("0" ("1")))
-      (let ((pos1 (lister-get-node-at ewoc 0))
-            (pos2 (lister-get-node-at ewoc 1)))
-        (lister--swap-item ewoc pos1 pos2)
-        (expect (lister-get-level-at ewoc pos1)
-                :to-be 1)
-        (expect (lister-get-level-at ewoc pos2)
-                :to-be 0)))
-    (it "preserves marking state:"
-      (lister-set-list ewoc '("0" "1"))
-      (lister-mark-unmark-at ewoc 0 t)
-      (let ((pos1 (lister-get-node-at ewoc 0))
-            (pos2 (lister-get-node-at ewoc 1)))
-        (lister--swap-item ewoc pos1 pos2)
-        (expect (lister-node-marked-p
-                 (lister-get-node-at ewoc 0))
-                :not :to-be-truthy)
-        (expect (lister-node-marked-p
-                 (lister-get-node-at ewoc 1))
-                :to-be-truthy))))
 
   (describe "lister--move-item"
     ;; TODO Also catch error conditions
