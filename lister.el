@@ -26,33 +26,11 @@
 ;; A library for creating interactive list buffers.
 
 ;;; Code:
-;;                   Data                    State Item
-;; Inserting: #'lister--new-item-from-data; #'lister--item-with-new-level
-;; Getting:   #'lister--item-data;     #'lister--item-copy
-;; Deleting          --                          --
-;;
-;; Mögliche Weisen, die Differenz zu kommunizieren:
-;;   - Optionales Argument am Ende
-;;
-;;      Alternativ: lister-get-list-by;        (oder :key ----)
-;;                  lister--insert-nested
-;;                  lister-replace-list-using
-;;
-;; TODO Ja! das ist eleganter und lesbarer!
 
 (require 'cl-lib)
 (require 'ewoc)
 
 ;;; * Global Variables
-
-(defvar-local lister-local-ewoc nil
-  "Buffer local store of the ewoc object.
-This is useful for interactive functions called in the Lister
-buffer.")
-
-(defvar-local lister-local-filter nil
-  "Buffer local filter predicate for Lister lists.
-Do not set this directly; use `lister-set-filter' instead.")
 
 (defcustom lister-default-left-margin 2
   "Default padding for every item."
@@ -76,6 +54,15 @@ of a face."
 The mapper function converts a data object (any kind of list
 object) to a list of strings, which will then be inserted as a
 representation of that data.")
+
+(defvar-local lister-local-ewoc nil
+  "Buffer local store of the ewoc object.
+This is useful for interactive functions called in the Lister
+buffer.")
+
+(defvar-local lister-local-filter nil
+  "Buffer local filter predicate for Lister lists.
+Do not set this directly; use `lister-set-filter' instead.")
 
 ;;; * Data Types
 
