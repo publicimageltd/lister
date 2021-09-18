@@ -78,6 +78,7 @@ Copy only the slots `level', `marked' and `data'."
                        :level (lister--item-level item)
                        :marked (lister--item-marked item)))
 
+;; This is used to insert data lists
 (defun lister--new-data-item (data &optional level)
   "Create a new lister item storing DATA and LEVEL."
   (lister--item-create :data data :level level))
@@ -532,7 +533,7 @@ is invalid (i.e. index is out of bounds) or invisible."
   "Get the indentation level of NODE."
   (lister--item-level (ewoc-data node)))
 
-;; this is used by lister--walk-insert when copying lists:
+;; this is used by lister--insert-nested when copying lists:
 (defun lister-set-item-level (item level)
   "Set the LEVEL of ITEM and return ITEM."
   (setf (lister--item-level item) level)
@@ -651,13 +652,9 @@ and END can be nodes, positions such as `:first', `:point' or
   "In EWOC, get all items which are marked and visible.
 BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.  Return a flat
-list of all marked items.
-
+list of all marked items unless DO-NOT-FLATTEN-LIST is non-nil.
 Per default, return those items which are marked and visible.
-Alternative predicates can be passed to MARKER-PRED-FN.
-
-Return a flattened list with all items matching MARKER-PRED-FN.  If
-DO-NOT-FLATTEN-LIST is non-nil, respect hierarchy levels."
+Alternative node predicates can be passed to MARKER-PRED-FN."
   (let ((l (lister-get-list ewoc beg end 0
                             (or marker-pred-fn #'lister-node-marked-and-visible-p))))
     (if (not do-not-flatten-list)
@@ -709,22 +706,20 @@ visible.  Alternative predicates can be passed to MARKER-PRED-FN."
 
 ;; * Insert Items
 
-(defun lister--walk-insert (ewoc tail level node item-fn)
+(defun lister--insert-nested (ewoc tail level node item-fn)
   "In EWOC, recursively insert all elements of TAIL.
-Create each item by calling ITEM-FN with two arguments, the
+Insert each element of TAIL with indentation LEVEL.  If there are
+lists in TAIL, recurse into that list one level deeper.  Create
+each inserted item by calling ITEM-FN with two arguments, the
 current head of TAIL and the calculated level.  The items are
-inserted from the bottom to top, that is, they are 'stacked'
-either on NODE or, if NODE is nil, on the bottom of the list.
-Insertion starts with indentation level LEVEL; nested lists are
-inserted with an higher indentation level."
+inserted from bottom to top, that is, they are 'stacked' either
+on NODE or, if NODE is nil, on the bottom of the list."
   (let (item)
     (while tail
       (setq item (car tail)
             tail (cdr tail))
       (if (listp item)
-          (lister--walk-insert ewoc item (1+ level) node item-fn)
-        ;; wrap the item in an item object:
-;;        (setq item (lister--new-data-item item level))
+          (lister--insert-nested ewoc item (1+ level) node item-fn)
         (setq item (funcall item-fn item level))
         (if node
             (ewoc-enter-before ewoc node item)
@@ -732,7 +727,7 @@ inserted with an higher indentation level."
 
 ;; this argument list has grown really long, but what can we do?
 (defun lister-insert-list (ewoc pos data-list &optional
-                            level insert-after item-fn)
+                            level insert-after)
   "In EWOC, insert DATA-LIST as printed items at POS.
 POS can be either an ewoc node, an index position, or one of the
 symbols `:first', `:last', `:point', `:next' or `:prev'.
@@ -748,13 +743,6 @@ predecessor.  If LEVEL is an integer value, indent the item LEVEL
 times.  Silently correct invalid values, e.g. positive ones at
 the beginning of the list.
 
-Set ITEM-FN for full control over how DATA-LIST is interpreted
-and what is inserted in the node.  Per default, each element of
-DATA-LIST fills the `data' slot of a new `lister--item'.  You can
-use any other function to create the `lister--item' object as you
-like it, as long as it accepts two arguments, the list atom and
-the indentation level.
-
 Insert data-list before (or visually 'above') the node at POS,
 unless INSERT-AFTER is set."
   (let* (;; determine the level:
@@ -762,7 +750,7 @@ unless INSERT-AFTER is set."
          (prev (if insert-after node (ewoc-prev ewoc node)))
          (prev-level (if prev (lister--item-level (ewoc-data prev))      0))
          (this-level (if prev (lister--determine-level prev-level level) 0)))
-    ;; Per default, lister--walk-insert inserts before NODE. Adjust
+    ;; Per default, lister--insert-nested inserts before NODE. Adjust
     ;; the other cases to that scheme:
     (cond
      ((and (null node) insert-after)      ;; insert at top?
@@ -770,8 +758,8 @@ unless INSERT-AFTER is set."
      ((and node insert-after)             ;; insert after NODE?
       (setq node (ewoc-next ewoc node)))) ;; => insert before its next node
     ;;
-    (lister--walk-insert ewoc data-list this-level node
-                         (or item-fn #'lister--new-data-item))))
+    (lister--insert-nested ewoc data-list this-level node
+                         #'lister--new-data-item)))
 
 (defun lister-insert (ewoc pos data  &optional level insert-after)
   "In EWOC, insert DATA at POS, printing it.
@@ -810,21 +798,19 @@ Optionally indent the new items according to LEVEL."
       (setq insert-at (ewoc-next ewoc end))
       (lister-delete-list ewoc beg end))
     (lister-insert-list ewoc (or insert-at :last)
-                     l level (null insert-at))))
+                        l level (null insert-at))))
 
 (defun lister-set-list (ewoc l)
-  "Insert L as current list in EWOC, replacing any previous content.
-Nested lists will be inserted with nested indentation and can be
-retreived with `lister-get-list'.
+  "Insert data list L in EWOC, replacing any previous content.
+Insert nested lists with nested indentation.
 
-Note that in some cases, `lister-get-list' will not return the exact
-list inserted.  Inserting the list `(A (B) (C))' inserts both
-sublists B and C with the same indentation level.  In
-consequence, `lister-get-list' returns `(A (B C))' with only one
-sublist.  In that case, there is no way to tell that B and C once
-belonged to different lists."
+Note that in some cases, the complementary function
+`lister-get-list' will not reproduce the exact list inserted.
+Inserting the list `(A (B) (C))' produces two items B and C with
+the same indentation level, which will be then treated as the
+list '(A (B C))'."
   (lister-delete-all ewoc)
-  (lister--walk-insert ewoc l 0 nil #'lister--new-data-item))
+  (lister--insert-nested ewoc l 0 nil #'lister--new-data-item))
 
 ;; * Moving Functions (next, prev)
 
@@ -871,32 +857,20 @@ backwards from POS, which is a position understood by
 
 ;; * Get the data list
 
-(defun lister-get-list (ewoc &optional beg end start-level pred-fn item-fn)
-  "Return the data fields of EWOC as a list, preserving hierarchy.
-Collect the data slots of all items between BEG and END.  BEG and
+(defun lister--get-nested (ewoc beg end start-level pred-fn key-fn)
+  "Return the data from EWOC as a nested list.
+Collect the data slots of all nodes between BEG and END.  BEG and
 END can be any position understood by `lister--parse-position'.
-If they are nil, traverse the whole list.
-
-If PRED-FN is set, restrict to matching nodes.  Note that the
-predicate here is checking against the whole ewoc node, not the
-item or the item's data slot!
-
-Collect the results of applying ITEM-FN to the ewoc data of the
-node.  If ITEM-FN is nil, interpret the ewoc data as lister item
-struct and return its data field.
-
-The result will always start with the indentation level 0, so
-sublists will be returned as nested lists, even if BEG and END
-coincide with the sublist boundaries.  In these cases, to get
-sublists as flat lists, set START-LEVEL to the sublist's
-indentation level."
+If they are nil, traverse the whole list.  Restrict the result to
+only those node matching PRED-FN.  Access the data slots by using
+KEY-FN with the ewoc data as its sole argument.  Use START-LEVEL
+as the level of the first node; higher node levels will result in
+nested lists."
   (lister-with-region ewoc beg end
     ;; make sure begin and end match pred-fn:
     (when pred-fn
       (setq beg (lister--next-or-this-node-matching ewoc beg pred-fn #'ewoc-next))
       (setq end (lister--next-or-this-node-matching ewoc end pred-fn #'ewoc-prev)))
-    ;; set the default item-fn:
-    (setq item-fn (or item-fn #'lister--item-data))
     ;; We traverse the list recursively using 'node' as a global
     ;; pointer to the current item so that nested 'inner' functions
     ;; can move forward that global node which is also used by the
@@ -911,20 +885,35 @@ indentation level."
                                       (push (walk ewoc nil (1+ prev-level)) acc)
                                     (when (or (not pred-fn)
                                               (funcall pred-fn node))
-                                      (push (funcall item-fn (ewoc-data node)) acc))
-;;                                      (push (lister--item-data (ewoc-data node)) acc))
+                                      (push (funcall key-fn (ewoc-data node)) acc))
                                     (setq node (unless (eq node end)
                                                  (ewoc-next ewoc node)))))
                                 (nreverse acc))))
         ;;
-        (walk ewoc nil (or start-level 0))))))
+        (walk ewoc nil start-level)))))
+
+(defun lister-get-list (ewoc &optional beg end start-level pred-fn)
+  "Return the data of EWOC as a list, preserving hierarchy.
+Collect the data slots of all items between BEG and END.  BEG and
+END can be any position understood by `lister--parse-position'.
+If they are nil, traverse the whole list.  Use START-LEVEL as the
+level of the first node; higher node levels will result in nested
+lists.
+
+If PRED-FN is set, only return matching nodes.  Note that the
+predicate here is checking against the whole ewoc node, not the
+item nor the item's data slot!"
+  (lister--get-nested ewoc beg end
+                      (or start-level 0)
+                      (or pred-fn #'identity)
+                      #'lister--item-data))
 
 (defun lister-get-visible-list (ewoc &optional beg end start-level)
   "Like `lister-get-list', but only consider visible items.
 Collect the data of all visible nodes in EWOC.  Nodes or
 positions BEG and END set a specific limit.  Use START-LEVEL to
 set an initial indentation level for the first item."
-  (lister-get-list ewoc beg end (or start-level 0) #'lister-node-visible-p))
+  (lister-get-list ewoc beg end start-level #'lister-node-visible-p))
 
 ;;; * Sublist handling
 
@@ -1070,6 +1059,7 @@ If no list is found, return nil."
           (setq walk (cdr walk))))
     (nreverse acc)))
 
+;; TODO Decide how to handle "itemlists"
 (defun lister--reorder-wrapped-list (wrapped-l fn)
   "Reorder WRAPPED-L using FN and return result as a plain list.
 WRAPPED-L is a wrapped list as returned by `lister--wrap-list'.
@@ -1106,6 +1096,7 @@ Example:
         (setq tail (cdr tail))))
     (nreverse acc)))
 
+;; TODO Decide how to handle "itemlists"
 (defun lister--reorder-list (ewoc fn &optional beg end)
   "In EWOC, reorder all items from BEG to END using FN.
 BEG and END are nodes or positions understood by
@@ -1224,7 +1215,24 @@ EWOC is a lister Ewoc object."
 
 ;;; * Interactive Editing
 
-(defun lister--next-same-level (ewoc pos move-fn)
+;; TODO Spell out
+;; TODO Write test
+(defun lister--copy-region (ewoc beg end)
+  "Return the region in EWOC from BEG to END as lister-items."
+  (ignore ewoc beg end))
+;;                     #'lister--minimal-copy)))
+
+;; TODO Spell out
+;; TODO Write test
+(defun lister--cut-region (ewoc beg end)
+  "Return all lister-items from BEG to END and delete them.
+EWOC is a lister ewoc object."
+  (lister-with-region ewoc beg end
+    (let ((l (lister--copy-region ewoc beg end)))
+      (lister-delete-list ewoc beg end)
+      l)))
+
+(defun lister--next-node-same-level (ewoc pos move-fn)
   "In EWOC, find next visible node with the same level as POS.
 MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
   (when-let* ((node    (lister--parse-position ewoc pos))
@@ -1233,19 +1241,8 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
                                       level))))
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
-;; TODO Remove this and the tests!
-(defun lister--swap-item (ewoc pos1 pos2)
-  "In EWOC, swap the items at POS1 and POS2."
-  (let* ((node1 (lister--parse-position ewoc pos1))
-         (node2 (lister--parse-position ewoc pos2)))
-    (when (and node1 node2)
-      (let* ((item1 (ewoc-data node1))
-             (item2 (ewoc-data node2)))
-        (setf (ewoc-data node1) item2
-              (ewoc-data node2) item1)
-        (ewoc-invalidate ewoc node1 node2)))))
-
 ;;; TODO Write tests
+;;; TODO Decide how to handle "itemlists"
 ;;; FIXME There must be an easier way to do this!
 (defun lister--move-list (ewoc beg-node end-node target-node)
   "Move list from BEG-NODE to END-NODE to TARGET-NODE.
@@ -1270,14 +1267,20 @@ ewoc object.  Move the item with its data and its mark state."
                            nil))
          ;; now copy the list to be re-inserted:
          (from-level   (lister-get-level-at ewoc beg-node))
-         (l            (lister-get-list ewoc beg-node end-node
-                                        from-level
-                                        nil
-                                        #'lister--minimal-copy)))
+         (l
+          (lister--get-nested ewoc beg-node end-node
+                              from-level
+                              #'identity
+                              #'lister--minimal-copy)))
+          ;; (lister-get-list ewoc beg-node end-node
+          ;;                  from-level
+          ;;                  nil
+          ;;                  #'lister--minimal-copy)))
     ;; save position to find target node again after re-insertion:
     (let ((target-pos (marker-position (ewoc-location target-node))))
       ;; delete + insert
       (lister-delete-list ewoc beg-node end-node)
+      ;; TODO Adapt to new itemlist scheme 
       (lister-insert-list ewoc target-node l from-level insert-after
                           #'lister-set-item-level)
       ;; re-set point:
@@ -1318,7 +1321,7 @@ non-nil, only consider items with the same indentation level.
 Throw an error if there is no next position."
   (let* ((from   (lister--parse-position ewoc pos))
          (to     (if restrict-level
-                     (lister--next-same-level ewoc from move-fn)
+                     (lister--next-node-same-level ewoc from move-fn)
                    (funcall move-fn ewoc from))))
     (unless to
       (error "No movement possible"))
