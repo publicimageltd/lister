@@ -739,6 +739,8 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                  "HEY" "THEY" "OBEY"))
     ;; filters the first 4 items:
     (setq filter-a (apply-partially #'string-match "A"))
+    ;; filters the second item:
+    (setq filter-2nd (apply-partially #'string-match-p "BAZ"))
     ;; filter everything but the first 4:
     (setq filter-non-a (lambda (s)
                          (not (string-match "A" s))))
@@ -846,8 +848,37 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (lister-set-list ewoc l)
         (lister-set-filter ewoc filter-*)
         (expect (lister--last-visible-node ewoc)
-                :to-be nil))))
+                :to-be nil)))
 
+    (describe "lister-next-visible-matching:"
+      (it "skips hidden nodes when searching for an item:"
+        (lister-set-list ewoc l)
+        (lister-set-filter ewoc filter-2nd)
+        (let ((pred (lambda (s) (string-match-p "AZ" s))))
+          (expect (lister-next-visible-matching ewoc :first pred)
+                  :to-be-node (ewoc-nth ewoc 2))))
+      (it "returns nil when searching for an hidden item:"
+        (lister-set-list ewoc l)
+        (lister-set-filter ewoc filter-i)
+        (let ((pred (lambda (s) (string-match-p "ITEM4" s))))
+          (expect (lister-next-visible-matching ewoc :first pred)
+                  :to-be nil))))
+
+    (describe "lister-prev-visible-matching"
+      (it "skips hidden nodes when searching for an item:"
+        (lister-set-list ewoc l)
+        (lister-set-filter ewoc filter-2nd)
+        (let ((pred (lambda (s) (string-match-p "AZ" s))))
+          (expect (lister-prev-visible-matching ewoc 2 pred)
+                  :to-be-node (ewoc-nth ewoc 0))))
+      (it "returns nil when searching for a hiden item:"
+        (lister-set-list ewoc l)
+        (lister-set-filter ewoc filter-i)
+        (let ((pred (lambda (s) (string-match-p "ITEM4" s))))
+          (expect (lister-prev-visible-matching ewoc :last pred)
+                  :to-be nil)))))
+
+  
   (describe "retreiving lists with filter ON:"
     (describe "lister-get-list:"
       (it "returns complete list if everything is hidden:"

@@ -874,41 +874,44 @@ list '(A (B C))'."
 PRED is checked against the node's data.  Begin searching from
 POS, which is a position understood by `lister--parse-position'.
 Return the node found or nil."
-  (let* ((node (lister--parse-position ewoc pos)))
+  (let ((node (lister--parse-position ewoc pos)))
     (lister--next-node-matching ewoc node
-                             (lambda (n) (funcall pred (lister--item-data (ewoc-data n)))))))
+                                (lambda (n)
+                                  (funcall pred (lister--item-data (ewoc-data n)))))))
 
 (defun lister-next-visible-matching (ewoc pos pred)
   "In EWOC, moving from POS, find the next visible match for PRED.
 PRED is checked against the node's data.  Begin searching from
 POS, which is a position understood by `lister--parse-position'.
 Return the node found or nil."
-  (lister-next-matching ewoc pos
-                     ;; we actually compose functions, there should be
-                     ;; a generic function for that
-                     (lambda (n) (and (lister-node-visible-p n)
-                                      (funcall pred (lister--item-data (ewoc-data n)))))))
+  (let ((node (lister--parse-position ewoc pos)))
+    (lister--next-node-matching ewoc node
+                                (lambda (n)
+                                  (and (lister-node-visible-p n)
+                                       (funcall pred (lister--item-data (ewoc-data n))))))))
 
 (cl-defun lister-prev-matching (ewoc pos pred)
   "Moving from POS via MOVE-FN, find the prev node in EWOC matching PRED.
 PRED is checked against the node's data.  Begin searching
 backwards from POS, which is a position understood by
 `lister--parse-position'.  Return the node found or nil."
-  (let* ((node (lister--parse-position ewoc pos)))
+  (let ((node (lister--parse-position ewoc pos)))
     (lister--next-node-matching ewoc node
-                             (lambda (n) (funcall pred (lister--item-data (ewoc-data n))))
-                             #'ewoc-prev)))
+                                (lambda (n)
+                                  (funcall pred (lister--item-data (ewoc-data n))))
+                                #'ewoc-prev)))
 
 (defun lister-prev-visible-matching (ewoc pos pred)
   "Moving from POS, find the prev visible node in EWOC matching PRED.
 PRED is checked against the node's data.  Begin searching
 backwards from POS, which is a position understood by
 `lister--parse-position'.  Return the node found or nil."
-  (lister-prev-matching ewoc pos
-                     ;; we actually compose functions, there should be
-                     ;; a generic function for that
-                     (lambda (n) (and (lister-node-visible-p n)
-                                      (funcall pred (lister--item-data (ewoc-data n)))))))
+  (let ((node (lister--parse-position ewoc pos)))
+    (lister--next-node-matching ewoc node
+                                (lambda (n)
+                                  (and (lister-node-visible-p n)
+                                       (funcall pred (lister--item-data (ewoc-data n)))))
+                                #'ewoc-prev)))
 
 ;; * Getting items
 
