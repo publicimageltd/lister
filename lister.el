@@ -867,7 +867,7 @@ list '(A (B C))'."
   (lister-delete-all ewoc)
   (lister---walk-insert ewoc l 0 nil #'lister--new-item-from-data))
 
-;; * Moving Functions (next, prev)
+;; * Functions to find nodes (next, prev)
 
 (cl-defun lister-next-matching (ewoc pos pred)
   "In EWOC, find next match for PRED starting from POS.

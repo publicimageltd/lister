@@ -754,7 +754,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
 
-  (describe "Movement while filter is OFF:"
+  (describe "Finding nodes while filter is OFF:"
     (describe "lister--next-visible-node:"
       (it "moves to the next node:"
         (lister-set-list ewoc l)
@@ -787,7 +787,23 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (it "returns last node:"
         (lister-set-list ewoc l)
         (expect (lister--last-visible-node ewoc)
-                :to-be-node (ewoc-nth ewoc -1)))))
+                :to-be-node (ewoc-nth ewoc -1))))
+
+    (describe "lister-next-matching"
+      (it "finds next node matching a data predicate:"
+        (lister-set-list ewoc l)
+        (let ((pred (lambda (s) (string-match-p "ITEM4" s))))
+          (expect (lister-next-matching ewoc
+                                        :first
+                                        pred)
+                  :to-be-node (ewoc-nth ewoc 4)))))
+
+    (describe "lister-prev-matching"
+      (it "finds prev node matching a data predicate:"
+        (lister-set-list ewoc l)
+        (let ((pred (lambda (s) (string-match-p "ITEM4" s))))
+          (expect (lister-prev-matching ewoc :last pred)
+                  :to-be-node (ewoc-nth ewoc 4))))))
 
   (describe "Hide visible items:"
     (describe "lister-set-filter:"
@@ -797,7 +813,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (expect (ewoc-buffer ewoc)
                 :to-have-as-visible-content " "))))
 
-  (describe "Movement while filter is ON:"
+  (describe "Finding nodes while filter is ON:"
     (describe "lister--first-visible-node:"
       (it "finds the first visible node with filter-a:"
         (lister-set-list ewoc l)
@@ -832,7 +848,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (expect (lister--last-visible-node ewoc)
                 :to-be nil))))
 
-  (describe "retrieving lists with filter ON:"
+  (describe "retreiving lists with filter ON:"
     (describe "lister-get-list:"
       (it "returns complete list if everything is hidden:"
         (lister-set-list ewoc l)
