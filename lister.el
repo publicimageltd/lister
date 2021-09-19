@@ -1377,7 +1377,6 @@ Throw an error if there is no next position."
       (error "No movement possible"))
     (lister--move-list ewoc from from to)))
 
-;;; TODO Write tests
 (defun lister-move-item-up (ewoc pos &optional dont-restrict-level)
   "Move item one up.
 Move upwards from the item at POS in EWOC.  Unless
@@ -1385,7 +1384,6 @@ DONT-RESTRICT-LEVEL is non-nil, only move within the same
 indentation level."
   (lister--move-item ewoc pos #'ewoc-prev (not dont-restrict-level)))
 
-;;; TODO Write tests
 (defun lister-move-item-down (ewoc pos &optional dont-restrict-level)
   "Move item one down.
 Move downwards from the item at POS in EWOC.  Unless

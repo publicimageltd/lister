@@ -1310,7 +1310,39 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-set-list ewoc '("0" ("1" "2") "3"))
       (lister--move-item ewoc 0 #'ewoc-next t)
       (expect (lister-get-list ewoc)
-              :to-equal '(("1" "2") "0" "3")))))
+              :to-equal '(("1" "2") "0" "3"))))
+
+  (describe "lister-move-item-up"
+    (it "throws an error if no movement is possible:"
+      (lister-set-list ewoc '("0"))
+      (expect (lister-move-item-up ewoc 0)
+              :to-throw))
+    (it "moves within same level per default:"
+      (lister-set-list ewoc '("0" ("1" "1" "1") "2"))
+      (lister-move-item-up ewoc :last)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" "2" ("1" "1" "1"))))
+    (it "optionally ignores level when moving:"
+      (lister-set-list ewoc '("0" ("1" "1" "1") "2"))
+      (lister-move-item-up ewoc :last t)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" ("1" "1") "2" ("1")))))
+
+  (describe "lister-move-item-down"
+    (it "throws an error if no movement is possible:"
+      (lister-set-list ewoc '("0"))
+      (expect (lister-move-item-down ewoc 0)
+              :to-throw))
+    (it "moves within same level per default:"
+      (lister-set-list ewoc '("0" ("1" "1" "1") "2"))
+      (lister-move-item-down ewoc :first)
+      (expect (lister-get-list ewoc)
+              :to-equal '(("1" "1" "1") "0" "2")))
+    (it "optionally ignores level when moving:"
+      (lister-set-list ewoc '("0" ("1" "1" "1") "2"))
+      (lister-move-item-down ewoc :first t)
+      (expect (lister-get-list ewoc)
+              :to-equal '(("1") "0" ("1" "1") "2")))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
