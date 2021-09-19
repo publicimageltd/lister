@@ -1300,51 +1300,6 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
                                       level))))
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
-;;; TODO Write tests
-;;; FIXME There must be an easier way to do this!
-(defun lister--move-list (ewoc beg-node end-node target-node)
-  "Move list from BEG-NODE to END-NODE to TARGET-NODE.
-Throw an error if TARGET-NODE is part of the list.  EWOC is an
-ewoc object.  Move the item with its data and its mark state."
-  (when (lister-node-in-region-p target-node beg-node end-node)
-    (error "Cannot move; target is part of the list to be moved"))
-  (let* (;; which direction are we moving?
-         (upwards?  (< (ewoc-location target-node)
-                       (ewoc-location beg-node)))
-         ;; find immediate neighbour of the list
-         (neighbour (if upwards?
-                        (ewoc-prev ewoc beg-node)
-                      (ewoc-next ewoc end-node)))
-         ;; check if target is immediate neighbour:
-         (no-distance? (eq neighbour target-node))
-         ;; determine how to re-insert it after deletion:
-         (insert-after (or (and (not upwards?)
-                                no-distance?)
-                           (and upwards?
-                                (not no-distance?))
-                           nil))
-         ;; now copy the list to be re-inserted:
-         (from-level   (lister-get-level-at ewoc beg-node))
-         (l
-          (lister--get-items ewoc beg-node end-node
-                                from-level
-                                #'identity)))
-    ;; save position to find target node again after re-insertion:
-    (let ((target-pos (marker-position (ewoc-location target-node))))
-      ;; delete + insert
-      (lister-delete-list ewoc beg-node end-node)
-      (lister--insert-items ewoc target-node l from-level insert-after)
-      ;; re-set point:
-      (let ((new-target-node (ewoc-locate ewoc target-pos)))
-        (ewoc-goto-node ewoc (if no-distance?
-                                 ;; we just swapped it:
-                                 new-target-node
-                               ;; else we inserted it before or after
-                               ;; the target node:
-                               (if insert-after
-                                   (ewoc-next ewoc new-target-node)
-                                 (ewoc-prev ewoc new-target-node))))))))
-
 (defun lister-move-sublist-up (ewoc pos)
   "In EWOC, move sublist at POS one up."
   (lister-with-sublist-at ewoc pos beg end
@@ -1352,28 +1307,56 @@ ewoc object.  Move the item with its data and its mark state."
       (if (or (not target)
               (eq target (ewoc-nth ewoc 0)))
           (error "Cannot move sublist further up")
-        (lister--move-list ewoc beg end target)))))
+        (let* ((level (lister-get-level-at ewoc beg))
+               (l (lister--get-items ewoc beg end level #'identity)))
+          (lister-delete-list ewoc beg end)
+          (lister--insert-items ewoc target l level nil))))))
 
 (defun lister-move-sublist-down (ewoc pos)
   "In EWOC, move sublist at POS one down."
   (lister-with-sublist-at ewoc pos beg end
-    (if-let ((target (ewoc-next ewoc end)))
-        (lister--move-list ewoc beg end target)
-      (error "Cannot move sublist further down"))))
+    (let ((target (ewoc-next ewoc end)))
+      (if (not target)
+          (error "Cannot move sublist further down")
+        (let* ((level (lister-get-level-at ewoc beg))
+               (l (lister--get-items ewoc beg end level #'identity)))
+          (lister-delete-list ewoc beg end)
+          (lister--insert-items ewoc target l level t))))))
+
+(defun lister--swap-item (ewoc pos1 pos2)
+  "In EWOC, swap the items at POS1 and POS2."
+  (let* ((node1 (lister--parse-position ewoc pos1))
+         (node2 (lister--parse-position ewoc pos2)))
+    (when (and node1 node2)
+      (let* ((item1 (ewoc-data node1))
+             (item2 (ewoc-data node2)))
+        (setf (ewoc-data node1) item2
+              (ewoc-data node2) item1)
+        (ewoc-invalidate ewoc node1 node2)))))
 
 (defun lister--move-item (ewoc pos move-fn &optional restrict-level)
   "In EWOC, move item at POS up or down.
 Move item to the next visible node in direction of
-MOVE-FN (either `ewoc-next' or `ewoc-prev').  If RESTRICT-LEVEL is
-non-nil, only consider items with the same indentation level.
+MOVE-FN (either `ewoc-next' or `ewoc-prev').  If RESTRICT-LEVEL
+is non-nil, only consider items with the same indentation level.
 Throw an error if there is no next position."
   (let* ((from   (lister--parse-position ewoc pos))
+         (next   (funcall move-fn ewoc from))
          (to     (if restrict-level
                      (lister--next-node-same-level ewoc from move-fn)
                    (funcall move-fn ewoc from))))
     (unless to
       (error "No movement possible"))
-    (lister--move-list ewoc from from to)))
+    (if (eq next to)
+        (lister--swap-item ewoc from to)
+      (let* ((from-item (ewoc-data from))
+             (to-item   (ewoc-data to))
+             (level     (lister--item-level from-item)))
+        (lister-delete-at ewoc from)
+        (lister--insert-items ewoc to
+                              (list from-item)
+                              level
+                              (eq move-fn #'ewoc-prev))))))
 
 (defun lister-move-item-up (ewoc pos &optional dont-restrict-level)
   "Move item one up.

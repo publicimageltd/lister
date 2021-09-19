@@ -1243,7 +1243,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
     (setq l '("0" "1" "2" ("3" "4" "5") "6" "7" "8")))
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
-
+  
   (describe "lister--next-node-same-level"
     (it "finds the next node with the same level:"
       (lister-set-list ewoc '("0" ("1") "2"))
