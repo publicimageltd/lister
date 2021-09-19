@@ -1345,7 +1345,6 @@ ewoc object.  Move the item with its data and its mark state."
                                    (ewoc-next ewoc new-target-node)
                                  (ewoc-prev ewoc new-target-node))))))))
 
-;;; TODO Write tests
 (defun lister-move-sublist-up (ewoc pos)
   "In EWOC, move sublist at POS one up."
   (lister-with-sublist-at ewoc pos beg end
@@ -1355,7 +1354,6 @@ ewoc object.  Move the item with its data and its mark state."
           (error "Cannot move sublist further up")
         (lister--move-list ewoc beg end target)))))
 
-;;; TODO Write tests
 (defun lister-move-sublist-down (ewoc pos)
   "In EWOC, move sublist at POS one down."
   (lister-with-sublist-at ewoc pos beg end

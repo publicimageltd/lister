@@ -1368,7 +1368,45 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-move-item-left ewoc :first)
       (lister-move-item-left ewoc :first)
       (expect (lister-get-level-at ewoc :first)
-              :to-be 0))))
+              :to-be 0)))
+
+  (describe "lister-move-sublist-up"
+    (it "throws an error if no movement is possible:"
+      (lister-set-list ewoc '("0" ("A" "B")))
+      (expect (lister-move-sublist-up ewoc 2)
+              :to-throw))
+    (it "moves sublist up:"
+      (lister-set-list ewoc '("0" "1" ("A" "B")))
+      (lister-move-sublist-up ewoc 2)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" ("A" "B") "1")))
+    (it "preserves marking state:"
+      (lister-set-list ewoc '("0" "1" ("A" "B")))
+      (lister-mark-unmark-sublist-at ewoc 2 t)
+      (lister-move-sublist-up ewoc 2)
+      (let ((n1 (lister-get-node-at ewoc 1)) ;; "A"
+            (n2 (lister-get-node-at ewoc 2))) ;; "B"
+        (expect (lister-node-marked-p n1) :to-be-truthy)
+        (expect (lister-node-marked-p n2) :to-be-truthy))))
+
+  (describe "lister-move-sublist-down"
+    (it "throws an error if no movement is possible:"
+      (lister-set-list ewoc '("0" ("A" "B")))
+      (expect (lister-move-sublist-down ewoc 2)
+              :to-throw))
+    (it "moves sublist down:"
+      (lister-set-list ewoc '("0" ("A" "B") "1"))
+      (lister-move-sublist-down ewoc 2)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" "1" ("A" "B"))))
+    (it "preserves marking state:"
+      (lister-set-list ewoc '("0" ("A" "B") "1"))
+      (lister-mark-unmark-sublist-at ewoc 2 t)
+      (lister-move-sublist-down ewoc 2)
+      (let ((n1 (lister-get-node-at ewoc 2)) ;; "A"
+            (n2 (lister-get-node-at ewoc 3))) ;; "B"
+        (expect (lister-node-marked-p n1) :to-be-truthy)
+        (expect (lister-node-marked-p n2) :to-be-truthy)))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
