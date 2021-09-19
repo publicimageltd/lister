@@ -1311,6 +1311,22 @@ EWOC is a lister ewoc object."
           (error "Cannot move sublist further down")
         (lister--move-list ewoc beg end target t)))))
 
+(defun lister-move-sublist-right (ewoc pos)
+  "In EWOC, indent sublist at POS one level."
+  (lister-with-sublist-at ewoc pos beg end
+    (lister-dolist-nodes (ewoc node beg end)
+      (cl-incf (lister--item-level (ewoc-data node)))
+      (ewoc-invalidate ewoc node))))
+
+(defun lister-move-sublist-left (ewoc pos)
+  "In EWOC, decrease level of sublist at POS."
+  (lister-with-sublist-at ewoc pos beg end
+    (if (eq 0 (lister-node-get-level beg))
+        (error "Sublist cannot be moved further left"))
+    (lister-dolist-nodes (ewoc node beg end)
+      (cl-decf (lister--item-level (ewoc-data node)))
+      (ewoc-invalidate ewoc node))))
+
 (defun lister--swap-item (ewoc pos1 pos2)
   "In EWOC, swap the items at POS1 and POS2."
   (let* ((node1 (lister--parse-position ewoc pos1))

@@ -1406,7 +1406,25 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (let ((n1 (lister-get-node-at ewoc 2)) ;; "A"
             (n2 (lister-get-node-at ewoc 3))) ;; "B"
         (expect (lister-node-marked-p n1) :to-be-truthy)
-        (expect (lister-node-marked-p n2) :to-be-truthy)))))
+        (expect (lister-node-marked-p n2) :to-be-truthy))))
+
+  (describe "lister-move-sublist-left"
+    (it "throws an error if no movement is possible:"
+      (lister-set-list ewoc '("0" "A" "B"))
+      (expect (lister-move-sublist-left ewoc 1)
+              :to-throw))
+    (it "moves sublist left:"
+      (lister-set-list ewoc '("0" ("A" "B")))
+      (lister-move-sublist-left ewoc 1)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" "A" "B"))))
+
+  (describe "lister-move-sublist-right"
+    (it "moves sublist right:"
+      (lister-set-list ewoc '("0" ("A" "B")))
+      (lister-move-sublist-right ewoc 1)
+      (expect (lister-get-list ewoc)
+              :to-equal '("0" (("A" "B")))))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
