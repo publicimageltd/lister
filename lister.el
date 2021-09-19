@@ -1391,12 +1391,10 @@ DONT-RESTRICT-LEVEL is non-nil, only move within the same
 indentation level."
   (lister--move-item ewoc pos #'ewoc-next (not dont-restrict-level)))
 
-;;; TODO Write tests
 (defun lister-move-item-right (ewoc pos)
   "In EWOC, increase indentation level of the item at POS."
   (lister-set-level-at ewoc pos (1+ (lister-get-level-at ewoc pos))))
 
-;;; TODO Write tests
 (defun lister-move-item-left (ewoc pos)
   "In EWOC, decrease indentation level of the item at POS."
   (lister-set-level-at ewoc pos (1- (lister-get-level-at ewoc pos))))

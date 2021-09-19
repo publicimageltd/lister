@@ -1342,7 +1342,33 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-set-list ewoc '("0" ("1" "1" "1") "2"))
       (lister-move-item-down ewoc :first t)
       (expect (lister-get-list ewoc)
-              :to-equal '(("1") "0" ("1" "1") "2")))))
+              :to-equal '(("1") "0" ("1" "1") "2"))))
+
+  (describe "lister-move-item-right"
+    (it "indents item by one:"
+      (lister-set-list ewoc '("0"))
+      (lister-move-item-right ewoc :first)
+      (expect (lister-get-level-at ewoc :first)
+              :to-be 1))
+    (it "indents level by two if called two times:"
+      (lister-set-list ewoc '("0"))
+      (lister-move-item-right ewoc :first)
+      (lister-move-item-right ewoc :first)
+      (expect (lister-get-level-at ewoc :first)
+              :to-be 2)))
+
+  (describe "lister-move-item-left"
+    (it "dedents item by one:"
+      (lister-set-list ewoc '(("0")))
+      (lister-move-item-left ewoc :first)
+      (expect (lister-get-level-at ewoc :first)
+              :to-be 0))
+    (it "dedents level by two if called two times:"
+      (lister-set-list ewoc '((("0"))))
+      (lister-move-item-left ewoc :first)
+      (lister-move-item-left ewoc :first)
+      (expect (lister-get-level-at ewoc :first)
+              :to-be 0))))
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here
