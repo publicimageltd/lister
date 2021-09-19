@@ -1274,22 +1274,8 @@ EWOC is a lister Ewoc object."
 
 ;;; * Interactive Editing
 
-;; TODO Spell out
-;; TODO Write test
-(defun lister--copy-region (ewoc beg end)
-  "Return the region in EWOC from BEG to END as lister-items."
-  (ignore ewoc beg end))
-;;                     #'lister--item-copy)))
+;; TODO Add functions for "copy and paste"
 
-;; TODO Spell out
-;; TODO Write test
-(defun lister--cut-region (ewoc beg end)
-  "Return all lister-items from BEG to END and delete them.
-EWOC is a lister ewoc object."
-  (lister-with-region ewoc beg end
-    (let ((l (lister--copy-region ewoc beg end)))
-      (lister-delete-list ewoc beg end)
-      l)))
 
 (defun lister--next-node-same-level (ewoc pos move-fn)
   "In EWOC, find next visible node with the same level as POS.
