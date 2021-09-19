@@ -760,6 +760,20 @@ visually 'above') the node at POS, unless INSERT-AFTER is set."
     ;;
     (lister---walk-insert ewoc l this-level node item-fn)))
 
+(defun lister--insert-items (ewoc pos item-list level insert-after)
+  "In EWOC, insert ITEM-LIST at POS.
+POS can be either an ewoc node, an index position, or one of the
+symbols `:first', `:last', `:point', `:next' or `:prev'.  If
+LEVEL is nil, align the new data item's level with its
+predecessor.  If LEVEL is an integer value, indent the item LEVEL
+times, but never more then one level than the previous item.
+Items inserted at top always have level 0. Insert L before (or
+visually 'above') the node at POS, unless INSERT-AFTER is set.
+
+ITEM-LIST must be a lists of `lister--item' objects."
+  (lister--insert-nested ewoc pos item-list level insert-after
+                         #'lister--item-with-new-level))
+
 (defun lister-insert-list (ewoc pos data-list &optional level insert-after)
   "In EWOC, insert DATA-LIST at POS.
 POS can be either an ewoc node, an index position, or one of the
@@ -768,7 +782,10 @@ LEVEL is nil, align the new data item's level with its
 predecessor.  If LEVEL is an integer value, indent the item LEVEL
 times, but never more then one level than the previous item.
 Items inserted at top always have level 0. Insert L before (or
-visually 'above') the node at POS, unless INSERT-AFTER is set."
+visually 'above') the node at POS, unless INSERT-AFTER is set.
+
+DATA-LIST must be a list of data elements which are accepted by
+the buffer local mapper function."
   (lister--insert-nested ewoc pos data-list level insert-after
                          #'lister--new-item-from-data))
 
@@ -814,17 +831,27 @@ element and its assigned level."
                            (null insert-at)
                            item-fn)))
 
-(defun lister-replace-list (ewoc l beg end &optional level)
-  "In EWOC, insert list L replacing the list from BEG to END.
+(defun lister--replace-items (ewoc item-list beg end level)
+  "In EWOC, insert ITEM-LIST replacing the list from BEG to END.
+BEG and END can be a node, a position symbol or an index value.
+Indent the new items according to LEVEL.  ITEM-LIST must be a
+list of `lister--item' objects."
+  (lister--replace-nested ewoc item-list beg end level
+                          #'lister--item-with-new-level))
+
+(defun lister-replace-list (ewoc data-list beg end &optional level)
+  "In EWOC, insert DATA-LIST replacing the list from BEG to END.
 BEG and END can be a node, a position symbol or an index value.
 Optionally indent the new items according to LEVEL, else use the
-level of the item before BEG."
-  (lister--replace-nested ewoc l beg end level
+level of the item before BEG.  DATA-LIST must be a list of data
+objects understood by the buffer local mapper function."
+  (lister--replace-nested ewoc data-list beg end level
                           #'lister--new-item-from-data))
 
 (defun lister-set-list (ewoc l)
   "Insert data list L in EWOC, replacing any previous content.
-Insert nested lists with nested indentation.
+Insert nested lists with nested indentation.  L must be a list of
+data objects understood by the buffer local mapper function.
 
 Note that in some cases, the complementary function
 `lister-get-list' will not reproduce the exact list inserted.
@@ -1134,7 +1161,7 @@ as elements) and must not undo the wrapping."
                                              #'lister--item-copy))
            (wrapped-list (lister--wrap-list l))
            (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
-      (lister--replace-nested ewoc new-list beg end level #'lister--item-with-new-level))))
+      (lister--replace-items ewoc new-list beg end level))))
 
 (defun lister-reverse-list (ewoc &optional beg end)
   "Reverse the list in EWOC, preserving sublist associatios.
@@ -1304,8 +1331,7 @@ ewoc object.  Move the item with its data and its mark state."
     (let ((target-pos (marker-position (ewoc-location target-node))))
       ;; delete + insert
       (lister-delete-list ewoc beg-node end-node)
-      (lister--insert-nested ewoc target-node l from-level insert-after
-                          #'lister--item-with-new-level)
+      (lister--insert-items ewoc target-node l from-level insert-after)
       ;; re-set point:
       (let ((new-target-node (ewoc-locate ewoc target-pos)))
         (ewoc-goto-node ewoc (if no-distance?
