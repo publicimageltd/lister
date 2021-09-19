@@ -79,10 +79,7 @@ The slot DATA contains the 'real' data, which is printed using
   (not (lister--item-invisible item-struct)))
 
 ;;; * Functions used as item accessors or for creating list items
-;; TODO That's still too hard to remember. Maybe just add a further
-;; function lister--get-items and lister--insert-items,
-;; lister--replace-items which alway refer to the item instead of the
-;; data.
+
 (defun lister--item-with-new-level (item level)
   "Set the LEVEL of ITEM and return ITEM."
   (setf (lister--item-level item) level)
@@ -413,9 +410,10 @@ immediately, use (cl-return).
              (setq ,node-sym (unless (eq ,node-sym ,last-var)
                                ,temp-node))))))))
 
-(cl-defmacro lister-dolist (spec &rest body)
+(cl-defmacro lister-dolist ((ewoc var &optional beg end node-var)
+                            &rest body)
   "In EWOC, execute BODY looping over a list of item data.
-The first argument SPEC is a list with the following arguments:
+The first argument is a list with the following arguments:
 
  EWOC  - An ewoc object.
  VAR   - A variable which is bound to the current data in the loop.
@@ -433,19 +431,9 @@ immediately, use (cl-return).
 \(fn (EWOC VAR [BEG] [END] [NODE-VAR]) BODY...)"
   (declare (indent 1) (debug ((sexp symbolp &optional sexp sexp symbolp)
                               body)))
-  (unless (consp spec)
-    (signal 'wrong-type-argument (list 'consp spec)))
-  (unless (<= 2 (length spec) 5)
-    (signal 'wrong-number-of-arguments (list '(2 . 5) (length spec))))
-  (let ((ewoc     (nth 0 spec))
-        (data-sym (nth 1 spec))
-        (node-sym (or (nth 4 spec) (make-symbol "--node--"))))
-    (unless (symbolp data-sym)
-      (signal 'wrong-type-argument (list 'symbolp data-sym)))
-    (unless (symbolp node-sym)
-      (signal 'wrong-type-argument (list 'symbolp node-sym)))
-    `(lister-dolist-nodes (,ewoc ,node-sym ,(nth 2 spec) ,(nth 3 spec))
-       (let ((,data-sym (lister--item-data (ewoc-data ,node-sym))))
+  (let ((node-sym (or node-var (make-symbol "--node--"))))
+    `(lister-dolist-nodes (,ewoc ,node-sym ,beg ,end)
+       (let ((,var (lister--item-data (ewoc-data ,node-sym))))
          ,@body))))
 
 ;; * More Specific Loop Functions
