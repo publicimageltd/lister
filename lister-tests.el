@@ -955,7 +955,15 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (let ((l '("1" "2" "3")))
         (lister-set-list ewoc l)
         (lister-reverse-list ewoc)
-        (expect (lister-get-list ewoc) :to-equal (reverse l)))))
+        (expect (lister-get-list ewoc) :to-equal (reverse l))))
+    (it "keeps marking state of items:"
+      (let ((l '("1" "2" "3")))
+        (lister-set-list ewoc l)
+        (lister-mark-unmark-at ewoc 0 t)
+        (lister-reverse-list ewoc)
+        (let ((last-node (lister-get-node-at ewoc :last)))
+          (expect (lister-node-marked-p last-node)
+                  :to-be-truthy)))))
 
   (describe "lister-sort-list"
     (it "sorts a flat list:"
@@ -963,7 +971,16 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (lister-set-list ewoc l)
         (lister-sort-list ewoc #'string>)
         (expect (lister-get-list ewoc)
-                :to-equal (seq-sort #'string> l)))))
+                :to-equal (seq-sort #'string> l))))
+    (it "keeps marking state of items:"
+      (let ((l '("a" "b" "d" "f" "c")))
+        (lister-set-list ewoc l)
+        (lister-mark-unmark-at ewoc :first t)
+        (lister-sort-list ewoc #'string>)
+        (let ((last-node (lister-get-node-at ewoc :last)))
+          (expect (lister-node-marked-p last-node)
+                  :to-be-truthy)))))
+
   (describe "lister-sort-sublist-at"
     (it "sorts a sublist:"
       (let ((l '("b" "a" ("bb" "ba" "bc") "c")))
@@ -978,6 +995,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (lister-sort-sublist-below ewoc 1 #'string>)
         (expect (lister-get-list ewoc)
                 :to-equal '("b" "a" ("bc" "bb" "ba") "c"))))))
+
 ;; * Update
 
 (describe "Update:"
