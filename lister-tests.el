@@ -474,7 +474,16 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-dolist-nodes (ewoc node)
         (let ((inhibit-read-only t))
           (ewoc-delete ewoc node)))
-      (expect (lister-empty-p ewoc) :to-be-truthy)))
+      (expect (lister-empty-p ewoc) :to-be-truthy))
+    (it "breaks out of the loop with a cl-return:"
+      (lister-set-list ewoc l)
+      (let ((target-node (ewoc-nth ewoc 2))
+            acc)
+        (lister-dolist-nodes (ewoc node)
+          (push (lister--item-data (ewoc-data node)) acc)
+          (when (eq target-node node)
+            (cl-return)))
+        (expect (nreverse acc) :to-equal '("A" "B" "C")))))
 
   (describe "lister-dolist:"
     (it "loops over the data items:"
