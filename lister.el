@@ -941,7 +941,7 @@ nested lists."
         ;;
         (walk ewoc nil start-level)))))
 
-(defun lister--get-itemlist (ewoc beg end start-level pred-fn)
+(defun lister--get-items (ewoc beg end start-level pred-fn)
   "Return the nodes of EWOC as a list of items, preserving hierarchy.
 Collect the item object of all nodes between BEG and END.  BEG
 and END can be any position understood by
@@ -1170,7 +1170,7 @@ as elements) and must not undo the wrapping."
   (lister-with-region ewoc beg end
     (let* ((level        (lister-node-get-level beg))
            ;; reorder the whole item structure, not just the data:
-           (l            (lister--get-itemlist ewoc beg end level #'identity))
+           (l            (lister--get-items ewoc beg end level #'identity))
            (wrapped-list (lister--wrap-list l))
            (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
       (lister--replace-items ewoc new-list beg end level))))
@@ -1334,7 +1334,7 @@ ewoc object.  Move the item with its data and its mark state."
          ;; now copy the list to be re-inserted:
          (from-level   (lister-get-level-at ewoc beg-node))
          (l
-          (lister--get-itemlist ewoc beg-node end-node
+          (lister--get-items ewoc beg-node end-node
                                 from-level
                                 #'identity)))
     ;; save position to find target node again after re-insertion:
