@@ -945,7 +945,7 @@ matching PRED-FN."
                       (or start-level 0)
                       (or pred-fn #'identity)
                       #'lister--item-copy))
-  
+
 (defun lister-get-list (ewoc &optional beg end start-level pred-fn)
   "Return the data of EWOC as a list, preserving hierarchy.
 Collect the data slots of all items between BEG and END.  BEG and
@@ -1276,6 +1276,7 @@ EWOC is a lister Ewoc object."
 
 ;; TODO Add functions for "copy and paste"
 
+;; Move sublists:
 
 (defun lister--next-node-same-level (ewoc pos move-fn)
   "In EWOC, find next visible node with the same level as POS.
@@ -1327,6 +1328,8 @@ EWOC is a lister ewoc object."
       (cl-decf (lister--item-level (ewoc-data node)))
       (ewoc-invalidate ewoc node))))
 
+;; Move item:
+
 (defun lister--swap-item (ewoc pos1 pos2)
   "In EWOC, swap the items at POS1 and POS2."
   (let* ((node1 (lister--parse-position ewoc pos1))
@@ -1338,15 +1341,15 @@ EWOC is a lister ewoc object."
               (ewoc-data node2) item1)
         (ewoc-invalidate ewoc node1 node2)))))
 
-(defun lister--move-item (ewoc pos move-fn &optional restrict-level)
+(defun lister--move-item (ewoc pos move-fn &optional same-level)
   "In EWOC, move item at POS up or down.
 Move item to the next visible node in direction of
-MOVE-FN (either `ewoc-next' or `ewoc-prev').  If RESTRICT-LEVEL
-is non-nil, only consider items with the same indentation level.
+MOVE-FN (either `ewoc-next' or `ewoc-prev').  If SAME-LEVEL is
+non-nil, only consider items with the same indentation level.
 Throw an error if there is no next position."
   (let* ((from   (lister--parse-position ewoc pos))
          (next   (funcall move-fn ewoc from))
-         (to     (if restrict-level
+         (to     (if same-level
                      (lister--next-node-same-level ewoc from move-fn)
                    (funcall move-fn ewoc from))))
     (unless to
@@ -1355,19 +1358,19 @@ Throw an error if there is no next position."
         (lister--swap-item ewoc from to)
       (lister--move-list ewoc from from to (eq move-fn #'ewoc-prev)))))
 
-(defun lister-move-item-up (ewoc pos &optional dont-restrict-level)
+(defun lister-move-item-up (ewoc pos &optional ignore-level)
   "Move item one up.
 Move upwards from the item at POS in EWOC.  Unless
-DONT-RESTRICT-LEVEL is non-nil, only move within the same
+IGNORE-LEVEL is non-nil, only move within the same
 indentation level."
-  (lister--move-item ewoc pos #'ewoc-prev (not dont-restrict-level)))
+  (lister--move-item ewoc pos #'ewoc-prev (not ignore-level)))
 
-(defun lister-move-item-down (ewoc pos &optional dont-restrict-level)
+(defun lister-move-item-down (ewoc pos &optional ignore-level)
   "Move item one down.
 Move downwards from the item at POS in EWOC.  Unless
-DONT-RESTRICT-LEVEL is non-nil, only move within the same
+IGNORE-LEVEL is non-nil, only move within the same
 indentation level."
-  (lister--move-item ewoc pos #'ewoc-next (not dont-restrict-level)))
+  (lister--move-item ewoc pos #'ewoc-next (not ignore-level)))
 
 (defun lister-move-item-right (ewoc pos)
   "In EWOC, increase indentation level of the item at POS."
