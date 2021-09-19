@@ -1287,7 +1287,7 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
 (defun lister--move-list (ewoc beg end target insert-after)
-"Insert items from BEG to END at TARGET according to INSERT-AFTER.
+  "Insert items from BEG to END at TARGET according to INSERT-AFTER.
 EWOC is a lister ewoc object."
 (let* ((level (lister-get-level-at ewoc beg))
        (l (lister--get-items ewoc beg end level #'identity)))
