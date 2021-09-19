@@ -941,6 +941,19 @@ nested lists."
         ;;
         (walk ewoc nil start-level)))))
 
+(defun lister--get-itemlist (ewoc beg end start-level pred-fn)
+  "Return the nodes of EWOC as a list of items, preserving hierarchy.
+Collect the item object of all nodes between BEG and END.  BEG
+and END can be any position understood by
+`lister--parse-position'.  If they are nil, traverse the whole
+list.  Use START-LEVEL as the level of the first node; higher
+node levels will result in nested lists.  Only consider nodes
+matching PRED-FN."
+  (lister--get-nested ewoc beg end
+                      (or start-level 0)
+                      (or pred-fn #'identity)
+                      #'lister--item-copy))
+  
 (defun lister-get-list (ewoc &optional beg end start-level pred-fn)
   "Return the data of EWOC as a list, preserving hierarchy.
 Collect the data slots of all items between BEG and END.  BEG and
@@ -1157,8 +1170,7 @@ as elements) and must not undo the wrapping."
   (lister-with-region ewoc beg end
     (let* ((level        (lister-node-get-level beg))
            ;; reorder the whole item structure, not just the data:
-           (l            (lister--get-nested ewoc beg end level #'identity
-                                             #'lister--item-copy))
+           (l            (lister--get-itemlist ewoc beg end level #'identity))
            (wrapped-list (lister--wrap-list l))
            (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
       (lister--replace-items ewoc new-list beg end level))))
@@ -1297,7 +1309,6 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
 ;;; TODO Write tests
-;;; TODO Decide how to handle "itemlists"
 ;;; FIXME There must be an easier way to do this!
 (defun lister--move-list (ewoc beg-node end-node target-node)
   "Move list from BEG-NODE to END-NODE to TARGET-NODE.
@@ -1323,10 +1334,9 @@ ewoc object.  Move the item with its data and its mark state."
          ;; now copy the list to be re-inserted:
          (from-level   (lister-get-level-at ewoc beg-node))
          (l
-          (lister--get-nested ewoc beg-node end-node
-                              from-level
-                              #'identity
-                              #'lister--item-copy)))
+          (lister--get-itemlist ewoc beg-node end-node
+                                from-level
+                                #'identity)))
     ;; save position to find target node again after re-insertion:
     (let ((target-pos (marker-position (ewoc-location target-node))))
       ;; delete + insert
