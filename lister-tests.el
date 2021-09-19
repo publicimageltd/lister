@@ -455,7 +455,6 @@ low-lewel ewoc functions instead of `lister--parse-position'."
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
 
-
   (describe "lister-dolist-nodes"
     (it "loops over the complete list of nodes with explicit boundaries:"
       (lister-set-list ewoc l)
@@ -887,7 +886,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
           (expect (lister-prev-visible-matching ewoc :last pred)
                   :to-be nil)))))
 
-  
+
   (describe "retreiving lists with filter ON:"
     (describe "lister-get-list:"
       (it "returns complete list if everything is hidden:"
@@ -1272,7 +1271,14 @@ low-lewel ewoc functions instead of `lister--parse-position'."
               :to-be nil)))
 
   (describe "lister--move-item"
-    ;; TODO Also catch error conditions
+    (it "throws an error if no movement is possible - down:"
+      (lister-set-list ewoc '("0"))
+      (expect (lister--move-item ewoc 0 #'ewoc-next)
+              :to-throw))
+    (it "throws an error if no movement is possible - up:"
+      (lister-set-list ewoc '("0"))
+      (expect (lister--move-item ewoc 0 #'ewoc-prev)
+              :to-throw))
     (it "moves item up:"
       (lister-set-list ewoc '("0" ("1") "2"))
       (lister--move-item ewoc 2 #'ewoc-prev)
@@ -1283,6 +1289,18 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister--move-item ewoc 1 #'ewoc-next)
       (expect (lister-get-list ewoc)
               :to-equal '("0" "2" ("1"))))
+    (it "preserves mark when moving down:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (lister-mark-unmark-at ewoc 1 t)
+      (lister--move-item ewoc 1 #'ewoc-next)
+      (expect (lister-node-marked-p (lister-get-node-at ewoc 2))
+              :to-be-truthy))
+    (it "preserves mark when moving up:"
+      (lister-set-list ewoc '("0" ("1") "2"))
+      (lister-mark-unmark-at ewoc 2 t)
+      (lister--move-item ewoc 2 #'ewoc-prev)
+      (expect (lister-node-marked-p (lister-get-node-at ewoc 1))
+              :to-be-truthy))
     (it "skips sublists when moving up:"
       (lister-set-list ewoc '("0" ("1" "2") "3"))
       (lister--move-item ewoc 3 #'ewoc-prev t)

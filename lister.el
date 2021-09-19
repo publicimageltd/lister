@@ -1363,7 +1363,6 @@ ewoc object.  Move the item with its data and its mark state."
         (lister--move-list ewoc beg end target)
       (error "Cannot move sublist further down"))))
 
-;;; TODO Write tests
 (defun lister--move-item (ewoc pos move-fn &optional restrict-level)
   "In EWOC, move item at POS up or down.
 Move item to the next visible node in direction of
