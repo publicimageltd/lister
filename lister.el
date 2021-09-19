@@ -1286,6 +1286,14 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
                                       level))))
     (lister--next-node-matching ewoc node pred-fn move-fn)))
 
+(defun lister--move-list (ewoc beg end target insert-after)
+"Insert items from BEG to END at TARGET according to INSERT-AFTER.
+EWOC is a lister ewoc object."
+(let* ((level (lister-get-level-at ewoc beg))
+       (l (lister--get-items ewoc beg end level #'identity)))
+  (lister-delete-list ewoc beg end)
+  (lister--insert-items ewoc target l level insert-after)))
+
 (defun lister-move-sublist-up (ewoc pos)
   "In EWOC, move sublist at POS one up."
   (lister-with-sublist-at ewoc pos beg end
@@ -1293,10 +1301,7 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
       (if (or (not target)
               (eq target (ewoc-nth ewoc 0)))
           (error "Cannot move sublist further up")
-        (let* ((level (lister-get-level-at ewoc beg))
-               (l (lister--get-items ewoc beg end level #'identity)))
-          (lister-delete-list ewoc beg end)
-          (lister--insert-items ewoc target l level nil))))))
+        (lister--move-list ewoc beg end target nil)))))
 
 (defun lister-move-sublist-down (ewoc pos)
   "In EWOC, move sublist at POS one down."
@@ -1304,10 +1309,7 @@ MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
     (let ((target (ewoc-next ewoc end)))
       (if (not target)
           (error "Cannot move sublist further down")
-        (let* ((level (lister-get-level-at ewoc beg))
-               (l (lister--get-items ewoc beg end level #'identity)))
-          (lister-delete-list ewoc beg end)
-          (lister--insert-items ewoc target l level t))))))
+        (lister--move-list ewoc beg end target t)))))
 
 (defun lister--swap-item (ewoc pos1 pos2)
   "In EWOC, swap the items at POS1 and POS2."
@@ -1335,13 +1337,7 @@ Throw an error if there is no next position."
       (error "No movement possible"))
     (if (eq next to)
         (lister--swap-item ewoc from to)
-      (let* ((from-item (ewoc-data from))
-             (level     (lister--item-level from-item)))
-        (lister-delete-at ewoc from)
-        (lister--insert-items ewoc to
-                              (list from-item)
-                              level
-                              (eq move-fn #'ewoc-prev))))))
+      (lister--move-list ewoc from from to (eq move-fn #'ewoc-prev)))))
 
 (defun lister-move-item-up (ewoc pos &optional dont-restrict-level)
   "Move item one up.
