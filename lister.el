@@ -365,9 +365,9 @@ Do nothing if list is empty."
 
 ;; * Basic Loop Macros
 
-(defmacro lister-dolist-nodes (spec &rest body)
+(cl-defmacro lister-dolist-nodes ((ewoc var &optional beg end) &rest body)
   "In EWOC, execute BODY looping over a list of nodes.
-The first argument SPEC is a list with the following arguments:
+The first argument is a list with the following arguments:
 
  EWOC  - An ewoc object.
  VAR   - A variable which is bound to the current node in the loop.
@@ -387,28 +387,18 @@ immediately, use (cl-return).
 \(fn (EWOC VAR [BEG] [END]) BODY...)"
   (declare (indent 1) (debug ((sexp symbolp &optional sexp sexp)
                               body)))
-  (unless (consp spec)
-    (signal 'wrong-type-argument (list 'consp spec)))
-  (unless (<= 2 (length spec) 4)
-    (signal 'wrong-number-of-arguments (list '(2 . 4) (length spec))))
-  (let ((ewoc     (nth 0 spec))
-        (node-sym (nth 1 spec))
-        (beg      (nth 2 spec))
-        (end      (nth 3 spec))
-        (temp-node (make-symbol "--temp-node--"))
+  (let ((temp-node (make-symbol "--temp-node--"))
         (last-var  (make-symbol "--last-node--")))
-    (unless (symbolp node-sym)
-      (signal 'wrong-type-argument (list 'symbolp node-sym)))
-    `(let ((,node-sym (lister--parse-position ,ewoc (or ,beg :first)))
+    `(let ((,var       (lister--parse-position ,ewoc (or ,beg :first)))
            (,last-var (lister--parse-position ,ewoc (or ,end :last))))
        (cl-block nil
-         (while ,node-sym
+         (while ,var
            ;; get the next node before BODY, since BODY might delete
            ;; the current node pointer:
-           (let ((,temp-node (ewoc-next ,ewoc ,node-sym)))
+           (let ((,temp-node (ewoc-next ,ewoc ,var)))
              ,@body
-             (setq ,node-sym (unless (eq ,node-sym ,last-var)
-                               ,temp-node))))))))
+             (setq ,var (unless (eq ,var ,last-var)
+                          ,temp-node))))))))
 
 (cl-defmacro lister-dolist ((ewoc var &optional beg end node-var)
                             &rest body)
