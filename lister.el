@@ -1336,7 +1336,6 @@ Throw an error if there is no next position."
     (if (eq next to)
         (lister--swap-item ewoc from to)
       (let* ((from-item (ewoc-data from))
-             (to-item   (ewoc-data to))
              (level     (lister--item-level from-item)))
         (lister-delete-at ewoc from)
         (lister--insert-items ewoc to
