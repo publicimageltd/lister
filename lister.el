@@ -79,7 +79,10 @@ The slot DATA contains the 'real' data, which is printed using
   (not (lister--item-invisible item-struct)))
 
 ;;; * Functions used as item accessors or for creating list items
-
+;; TODO That's still too hard to remember. Maybe just add a further
+;; function lister--get-items and lister--insert-items,
+;; lister--replace-items which alway refer to the item instead of the
+;; data.
 (defun lister--item-with-new-level (item level)
   "Set the LEVEL of ITEM and return ITEM."
   (setf (lister--item-level item) level)
@@ -1078,7 +1081,6 @@ If no list is found, return nil."
           (setq walk (cdr walk))))
     (nreverse acc)))
 
-;; TODO Decide how to handle "itemlists"
 (defun lister--reorder-wrapped-list (wrapped-l fn)
   "Reorder WRAPPED-L using FN and return result as a plain list.
 WRAPPED-L is a wrapped list as returned by `lister--wrap-list'.
@@ -1104,7 +1106,7 @@ Example:
 
  => \(\"a\" \(\"ba\" \"bb\"\) \"b\"\)"
   (declare (pure t) (side-effect-free t))
-  (let (acc (tail  (funcall fn wrapped-l)))
+  (let (acc (tail   (funcall fn wrapped-l)))
     ;; test at the beginning to ensure that tail is not already empty
     (while tail
       (let ((item    (caar tail))
@@ -1115,33 +1117,40 @@ Example:
         (setq tail (cdr tail))))
     (nreverse acc)))
 
-;; TODO Decide how to handle "itemlists"
-(defun lister--reorder-list (ewoc fn &optional beg end)
+(defun lister--reorder (ewoc fn &optional beg end)
   "In EWOC, reorder all items from BEG to END using FN.
 BEG and END are nodes or positions understood by
-`lister--parse-position'.  If BEG or END are nil, use the beginning
-or the end of the list as boundaries; that is, reorder the
-complete list.
+`lister--parse-position'.  If BEG or END are nil, use the
+beginning or the end of the list as boundaries; that is, reorder
+the complete list.  Retain the marking state of each item when
+reordering.
 
-Note that FN has to reorder a wrapped list and must not undo the
-wrapping.  See `lister--reorder-wrapped-list' for an example."
+Note that FN has to reorder a wrapped list (with `lister--item'
+as elements) and must not undo the wrapping."
   (lister-with-region ewoc beg end
     (let* ((level        (lister-node-get-level beg))
-           (wrapped-list (lister--wrap-list (lister-get-list ewoc beg end level)))
+           ;; reorder the whole item structure, not just the data:
+           (l            (lister--get-nested ewoc beg end level #'identity
+                                             #'lister--item-copy))
+           (wrapped-list (lister--wrap-list l))
            (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
-      (lister-replace-list ewoc new-list beg end level))))
+      (lister--replace-nested ewoc new-list beg end level #'lister--item-with-new-level))))
 
 (defun lister-reverse-list (ewoc &optional beg end)
   "Reverse the list in EWOC, preserving sublist associatios.
 Use BEG and END to specify the first and the last item of the
 list to be reversed."
-  (lister--reorder-list ewoc #'reverse beg end))
+  (lister--reorder ewoc #'reverse beg end))
 
 (defun lister-sort-list (ewoc pred &optional beg end)
   "In EWOC, sort the list and sublists using PRED.
 Use BEG and END to specify the first and the last item of the
 list to be reversed."
-  (lister--reorder-list ewoc (apply-partially #'seq-sort-by #'car pred) beg end))
+  (cl-labels ((key-fn (item)
+                        (lister--item-data (car item))))
+    (lister--reorder ewoc
+                     (apply-partially #'seq-sort-by #'key-fn pred)
+                     beg end)))
 
 (defun lister-sort-sublist-at (ewoc pos pred)
   "In EWOC, sort the sublist at POS using PRED."
