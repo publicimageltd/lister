@@ -715,6 +715,12 @@ visible.  Alternative predicates can be passed to MARKER-PRED-FN."
 
 ;; * Insert Items
 
+;; All higher level insertion function come in two variants: a private
+;; function which inserts items, preserving marking state, and a
+;; public function which inserts data, creating new unmarked items on
+;; the fly. The function lister--insert-nested is the abstract core of
+;; both.
+
 (defun lister---walk-insert (ewoc tail level node item-fn)
   "In EWOC, recursively insert all elements of the list TAIL.
 Insert each element of TAIL with indentation LEVEL.  If there are
@@ -904,7 +910,12 @@ backwards from POS, which is a position understood by
                      (lambda (n) (and (lister-node-visible-p n)
                                       (funcall pred (lister--item-data (ewoc-data n)))))))
 
-;; * Get the data list
+;; * Getting items
+
+;; All higher level functions which return the ewoc list come in two
+;; variants: a private function which returns items, preserving
+;; marking state, and a public function which returns the data only.
+;; The function lister--get-nested is the abstract core of both.
 
 (defun lister--get-nested (ewoc beg end start-level pred-fn key-fn)
   "Return the data from EWOC as a nested list.
