@@ -398,50 +398,50 @@ low-lewel ewoc functions instead of `lister--parse-position'."
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
 
-  (describe "lister-with-region:"
+  (describe "lister-with-boundaries"
     (xit "throws an error if not called with symbols"
       ;; This test does not fail, but causes annoying "eager macro
       ;; expansion" error; so we x it
-      (expect (lister-with-region ewoc 1 0
+      (expect (lister-with-boundaries ewoc 1 0
                 (ignore))
               :to-throw)
-      (expect (lister-with-region ewoc :first :last
+      (expect (lister-with-boundaries ewoc :first :last
                 (ignore))
               :to-throw))
     (it "passes through nodes"
       (lister-set-list ewoc l)
       (let ((first (ewoc-nth ewoc 0))
             (second (ewoc-nth ewoc 1)))
-        (expect (lister-with-region ewoc first second
+        (expect (lister-with-boundaries ewoc first second
                   first)
                 :to-be-node first)))
       (it "accepts :first, :last as values"
         (lister-set-list ewoc l)
         (let ((first :first)
               (second :last))
-          (expect (lister-with-region ewoc first second
+          (expect (lister-with-boundaries ewoc first second
                     first)
                   :to-be-node (ewoc-nth ewoc 0))
-          (expect (lister-with-region ewoc first second
+          (expect (lister-with-boundaries ewoc first second
                     second)
                   :to-be-node (ewoc-nth ewoc -1))))
       (it "accepts indices as values"
         (lister-set-list ewoc l)
         (let ((first 0)
               (second (1- (length l))))
-          (expect (lister-with-region ewoc first second
+          (expect (lister-with-boundaries ewoc first second
                     first)
                   :to-be-node (ewoc-nth ewoc 0))
-          (expect (lister-with-region ewoc first second
+          (expect (lister-with-boundaries ewoc first second
                     second)
                   :to-be-node (ewoc-nth ewoc -1))))
       (it "accepts nil as values"
         (lister-set-list ewoc l)
         (let (first second)
-          (expect (lister-with-region ewoc first second
+          (expect (lister-with-boundaries ewoc first second
                     first)
                   :to-be-node (ewoc-nth ewoc 0))
-          (expect (lister-with-region ewoc first second
+          (expect (lister-with-boundaries ewoc first second
                     second)
                   :to-be-node (ewoc-nth ewoc -1))))))
 

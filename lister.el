@@ -269,7 +269,7 @@ If POS is neither a node, nor an integer, nor one of the symbols
 above, throw an error."
   (unless ewoc
     (error "%s is not a valid ewoc object" ewoc))
-  ;; ewoc-locate uses (point) without checking the current buffer,
+  ;; ewoc-locate uses (point) without setting the current buffer,
   ;; so we do it instead:
   (with-current-buffer (ewoc-buffer ewoc)
     (pcase pos
@@ -346,7 +346,7 @@ If NODE is nil, return the last visible node of the EWOC."
 
 ;;; * Public API
 
-(defmacro lister-with-region (ewoc beg-var end-var &rest body)
+(defmacro lister-with-boundaries (ewoc beg-var end-var &rest body)
   "In EWOC, do BODY binding BEG-VAR and END-VAR to list nodes.
 BEG and END have to be variable names.  When executing BODY, bind
 BEG and END to the nodes indicated by the current value of these
@@ -812,7 +812,7 @@ Indent the new items according to LEVEL.  Create the new items to
 be inserted by calling ITEM-FN with two arguments, the list
 element and its assigned level."
   (let (insert-at)
-    (lister-with-region ewoc beg end
+    (lister-with-boundaries ewoc beg end
       (setq insert-at (ewoc-next ewoc end))
       (lister-delete-list ewoc beg end))
     (lister--insert-nested ewoc (or insert-at :last) l
@@ -912,7 +912,7 @@ only those node matching PRED-FN.  Access the data slots by using
 KEY-FN with the ewoc data as its sole argument.  Use START-LEVEL
 as the level of the first node; higher node levels will result in
 nested lists."
-  (lister-with-region ewoc beg end
+  (lister-with-boundaries ewoc beg end
     ;; make sure begin and end match pred-fn:
     (when pred-fn
       (setq beg (lister--next-or-this-node-matching ewoc beg pred-fn #'ewoc-next))
@@ -1164,7 +1164,7 @@ reordering.
 
 Note that FN has to reorder a wrapped list (with `lister--item'
 as elements) and must not undo the wrapping."
-  (lister-with-region ewoc beg end
+  (lister-with-boundaries ewoc beg end
     (let* ((level        (lister-node-get-level beg))
            ;; reorder the whole item structure, not just the data:
            (l            (lister--get-items ewoc beg end level #'identity))
@@ -1242,7 +1242,7 @@ EWOC is a lister Ewoc object."
   "In EWOC, hide or show the outline from BEG to END.
 If STATE is nil, show the items between BEG and END, else hide
 them as an outline."
-  (lister-with-region ewoc beg end
+  (lister-with-boundaries ewoc beg end
     (with-current-buffer (ewoc-buffer ewoc)
       (let ((from (1- (lister--item-beg (ewoc-data beg))))
             (to   (1- (lister--item-end (ewoc-data end)))))

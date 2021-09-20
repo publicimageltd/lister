@@ -321,13 +321,13 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 
 All of these functions ignore any active filter. 
 
-** Normalizing 'regions'
+** Normalizing boundaries
 
-Since it is often the case tp operate on a 'region' or the whole list,
+Since it is often necessary to operate on a sublist or the whole list,
 we have a macro to normalize these boundaries:
 
 #+begin_src emacs-lisp
-(lister-with-region ewoc beg-var end-var
+(lister-with-boundaries ewoc beg-var end-var
   ...BODY..)
 #+end_src
 
@@ -351,7 +351,7 @@ value:
     "Do something within BEG and END. Both arguments can be a node,
   an integer position, or one of the symbols `:point', `:first',
   `:last', `:next' or `:prev'."
-    (lister-with-region ewoc beg end
+    (lister-with-boundaries ewoc beg end
       (do-something-with-node beg)))
 #+end_src
 
