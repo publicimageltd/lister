@@ -72,17 +72,39 @@ PREFIX is non-nil, mark the sublist at POS."
     (lister-mark-unmark-at ewoc pos state)
     (lister-goto ewoc :next)))
 
+(defun lister-mode--mark-unmark-region (ewoc from to state)
+  "Mark region from buffer positions FROM and TO according to STATE.
+EWOC is a lister ewoc object."
+  (with-current-buffer (ewoc-buffer ewoc)
+    (let* ((beg (ewoc-locate ewoc from))
+           (end (ewoc-locate ewoc to)))
+      (when (= (ewoc-location end) to)
+        (setq end (ewoc-prev ewoc end)))
+      (lister-dolist-nodes (ewoc node beg end)
+        (lister-mark-unmark-at ewoc node state)))))
+    
 (lister-defkey lister-mode-mark (ewoc pos prefix node)
-  "Mark the item or sublist at point.
+  "Mark the item or sublist at point or the items in the region.
 Use EWOC and POS to determine the item to be marked.  If PREFIX
 is non-nil, mark the sublist at POS."
-  (lister-mode--generic-mark ewoc pos prefix t))
+  (if (and (use-region-p)
+           (not (region-noncontiguous-p)))
+      (lister-mode--mark-unmark-region ewoc
+                                       (region-beginning)
+                                       (region-end) t)
+  (lister-mode--generic-mark ewoc pos prefix t)))
 
 (lister-defkey lister-mode-unmark (ewoc pos prefix node)
   "Unmark the item or sublist at point.
 Use EWOC and POS to determine the item to be marked.  If PREFIX
 is non-nil, unmark the sublist at POS."
-  (lister-mode--generic-mark ewoc pos prefix nil))
+  (if (and (use-region-p)
+           (not (region-noncontiguous-p)))
+      (lister-mode--mark-unmark-region ewoc
+                                       (region-beginning)
+                                       (region-end)
+                                       nil)
+  (lister-mode--generic-mark ewoc pos prefix nil)))
 
 ;; Cycle subtree visibility
 
