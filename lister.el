@@ -331,6 +331,11 @@ Return the next node or nil if there is none.  To move backwards,
 set MOVE-FN to `ewoc-prev'."
   (lister--next-node-matching ewoc node #'lister-node-visible-p move-fn))
 
+(cl-defun lister--prev-visible-node (ewoc node)
+  "In EWOC, move from NODE to previous visible node.
+Return the next node or nil if there is none."
+  (lister--next-node-matching ewoc node #'lister-node-visible-p #'ewoc-prev))
+
 (defun lister--first-visible-node (ewoc &optional node)
   "Find the first visible node in EWOC, beginning with NODE.
 If NODE is nil, return the first visible node of the EWOC."
@@ -1279,19 +1284,18 @@ EWOC is a lister Ewoc object."
 
 ;;; * Interactive Editing
 
-;; TODO Add functions for "copy and paste"
-
 ;; Move sublists:
 
-(defmacro lister--finally-moving-to (node &rest body)
-  "Execute BODY and then move to NODE.
-Keep track of position by keeping a reference to its data object.
-It is safe to delete and reinsert NODE in BODY.  If the data
-object is not printed after BODY exits, do nothing."
-  (declare (indent 1) (debug (sexp symbolp body)))
+(defmacro lister--finally-moving-to (ewoc pos &rest body)
+  "Execute BODY and then move to POS in EWOC.
+Keep track of the position of the node at POS by keeping a
+reference to its data object.  It is safe to delete and reinsert
+the node in BODY.  If the node's data object is invalid or not
+re-inserted after BODY exits, do nothing."
+  (declare (indent 2) (debug (sexp symbolp body)))
   (let ((pos-var  (make-symbol "--pos--"))
         (item-var (make-symbol "--item--")))
-    `(let ((,item-var (ewoc-data ,node)))
+    `(let ((,item-var (ewoc-data (lister--parse-position ,ewoc ,pos))))
      ,@body
      (when-let ((,pos-var (and ,item-var (lister--item-beg ,item-var))))
        (with-current-buffer (marker-buffer ,pos-var)
@@ -1299,10 +1303,9 @@ object is not printed after BODY exits, do nothing."
 
 (defun lister--next-node-same-level (ewoc pos move-fn)
   "Move to next node, skipping items with bigger indentation.
-In EWOC, find next continuous visible node with the same level as
+In EWOC, use MOVE-FN to find the next node with the same level as
 POS, skipping nodes with bigger indentation.  Return nil if no
-node is found.  MOVE-FN can be either `ewoc-next' or
-`ewoc-prev'."
+node is found."
   (when-let* ((node    (lister--parse-position ewoc pos))
               (level   (lister-get-level-at ewoc node)))
     (while (and node
@@ -1316,7 +1319,7 @@ node is found.  MOVE-FN can be either `ewoc-next' or
 (defun lister--move-list (ewoc beg end target insert-after)
   "Insert items from BEG to END at TARGET according to INSERT-AFTER.
 EWOC is a lister ewoc object.  Keep cursor at the node at point."
-  (lister--finally-moving-to (lister-get-node-at ewoc :point)
+  (lister--finally-moving-to ewoc :point
     (let* ((level (lister-get-level-at ewoc beg))
            (l (lister--get-items ewoc beg end level #'identity)))
       (lister-delete-list ewoc beg end)
@@ -1324,6 +1327,8 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
 
 (defun lister-move-sublist-up (ewoc pos)
   "In EWOC, move sublist at POS one up."
+  (when (lister-filter-active-p ewoc)
+    (error "Cannot move sublists when filter is active"))
   (lister-with-sublist-at ewoc pos beg end
     (let ((target (ewoc-prev ewoc beg)))
       (if (or (not target)
@@ -1333,6 +1338,8 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
 
 (defun lister-move-sublist-down (ewoc pos)
   "In EWOC, move sublist at POS one down."
+  (when (lister-filter-active-p ewoc)
+    (error "Cannot move sublists when filter is active"))
   (lister-with-sublist-at ewoc pos beg end
     (let ((target (ewoc-next ewoc end)))
       (if (not target)
@@ -1345,7 +1352,7 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
     (if (and (eq beg (ewoc-nth ewoc 0))
              (eq end (ewoc-nth ewoc -1)))
         (error "No sublist at this position")
-      (lister--finally-moving-to (lister-get-node-at ewoc :point)
+      (lister--finally-moving-to ewoc :point
         (lister-dolist-nodes (ewoc node beg end)
           (cl-incf (lister--item-level (ewoc-data node)))
           (ewoc-invalidate ewoc node))))))
@@ -1355,7 +1362,7 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
   (lister-with-sublist-at ewoc pos beg end
     (if (eq 0 (lister-node-get-level beg))
         (error "Sublist cannot be moved further left"))
-    (lister--finally-moving-to (lister-get-node-at ewoc :point)
+    (lister--finally-moving-to ewoc :point
       (lister-dolist-nodes (ewoc node beg end)
         (cl-decf (lister--item-level (ewoc-data node)))
         (ewoc-invalidate ewoc node)))))
@@ -1374,34 +1381,38 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
         (ewoc-invalidate ewoc node1 node2))
       (lister-goto ewoc node2))))
 
-(defun lister--move-item (ewoc pos move-fn &optional same-level)
+(defun lister--move-item (ewoc pos move-fn up keep-level)
   "In EWOC, move item at POS up or down.
-Move item to the next visible node in direction of
-MOVE-FN (either `ewoc-next' or `ewoc-prev').  If SAME-LEVEL is
-non-nil, only consider items with the same indentation level.
+Move item to the next node in direction of MOVE-FN.  Set UP to a
+non-nil value if MOVE-FN goes backwards (upwards).  If KEEP-LEVEL
+is non-nil, only consider items with the same indentation level.
 Throw an error if there is no next position."
   (let* ((from   (lister--parse-position ewoc pos))
          (next   (funcall move-fn ewoc from))
-         (to     (if same-level
+         (to     (if keep-level
                      (lister--next-node-same-level ewoc from move-fn)
-                   (funcall move-fn ewoc from))))
+                   next)))
     (unless to
       (error "No movement possible"))
     (if (eq next to)
         (lister--swap-item ewoc from to)
-      (lister--move-list ewoc from from to (eq move-fn #'ewoc-prev)))))
+      (lister--move-list ewoc from from to up))))
 
 (defun lister-move-item-up (ewoc pos &optional ignore-level)
   "Move item one up.
-Move upwards from the item at POS in EWOC.  Only move within the
-same indentation level unless IGNORE-LEVEL is non-nil, ."
-  (lister--move-item ewoc pos #'ewoc-prev (not ignore-level)))
+Move the item at POS in EWOC up to the next visible item,
+swapping both.  Only move within the same indentation level
+unless IGNORE-LEVEL is non-nil."
+  (lister--move-item ewoc pos #'lister--prev-visible-node
+                     t (not ignore-level)))
 
 (defun lister-move-item-down (ewoc pos &optional ignore-level)
   "Move item one down.
-Move downwards from the item at POS in EWOC.  Only move within
-the same indentation level unless IGNORE-LEVEL is non-nil."
-  (lister--move-item ewoc pos #'ewoc-next (not ignore-level)))
+Move the item at POS in EWOC down to the next visible item,
+swapping both.  Only move within the same indentation level
+unless IGNORE-LEVEL is non-nil."
+  (lister--move-item ewoc pos #'lister--next-visible-node
+                     nil (not ignore-level)))
 
 (defun lister-move-item-right (ewoc pos)
   "In EWOC, increase indentation level of the item at POS."
