@@ -1236,13 +1236,41 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (expect (lister-get-list ewoc)
               :to-equal '("1" "3" "5" "6" "7" "8" "9" "10")))))
 
-(describe "Editing"
+(describe "Interactive Editing"
   :var (ewoc l)
   (before-each
     (setq ewoc (lister-test-setup-minimal-buffer))
     (setq l '("0" "1" "2" ("3" "4" "5") "6" "7" "8")))
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
+
+  (describe "lister--finally-moving-to"
+    (it "leaves point at node when other nodes are changed:"
+      (lister-set-list ewoc '("0" "1" "2"))
+      (with-current-buffer (ewoc-buffer ewoc)
+        (let* ((node (lister-get-node-at ewoc 2))
+               (p    (marker-position (lister--item-beg (ewoc-data node)))))
+          (lister--finally-moving-to node
+            (lister-delete-at ewoc 1)
+            (lister-insert-at ewoc 1 "1"))
+          (expect (point) :to-equal p))))
+    (it "follows NODE when it moves:"
+      (lister-set-list ewoc '("0" "1" "2"))
+      (with-current-buffer (ewoc-buffer ewoc)
+        (let* ((node (lister-get-node-at ewoc 2)))
+          (lister--finally-moving-to node
+            (lister-insert-list ewoc 2 '("NEU" "NEW" "NEUF")))
+          (expect (point) :to-equal (marker-position (lister--item-beg (ewoc-data node)))))))
+    (it "leaves point untouched when item is gone:"
+      (lister-set-list ewoc '("0" "1" "2" "3" "4" "5"))
+      (lister-goto ewoc :first)
+      (with-current-buffer (ewoc-buffer ewoc)
+        (let* ((node (lister-get-node-at ewoc 2))
+               (p    (point)))
+          (lister--finally-moving-to node
+            (lister-delete-at ewoc node)
+            (setq item nil))
+          (expect (point) :to-be p)))))
   
   (describe "lister--next-node-same-level"
     (it "finds the next node with the same level:"

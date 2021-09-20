@@ -70,7 +70,7 @@ Do not set this directly; use `lister-set-filter' instead.")
   "The list item plus some additional extra informations.
 The slot DATA contains the 'real' data, which is printed using
   the mapper."
-  ;; do not add slots 'copy', 'visible' and 'with-new-level', they
+  ;; do not add slots 'visible' and 'with-new-level', they
   ;; would interfere with the functions defined below
   level marked invisible beg end data)
 
@@ -89,15 +89,14 @@ The slot DATA contains the 'real' data, which is printed using
   "Create a new lister item storing DATA and LEVEL."
   (lister--item-create :data data :level level))
 
-(defun lister--item-copy (item)
-  "Create a minimal copy of ITEM.
-Only copy the slots `level', `marked' and `data'.  The function
-name is analogous to the accessor function `lister--item-data':
-Both accept an item, but while the latter returns the data, this
-one creates a minimal copy."
-  (lister--item-create :data (lister--item-data item)
-                       :level (lister--item-level item)
-                       :marked (lister--item-marked item)))
+(defun lister--cleaned-item (item)
+  "Return ITEM cleaned of position and visibility information.
+Returns ITEM cleaned of all information which will be overwritten
+anyways when re-inserting the item."
+  (setf (lister--item-beg item) nil
+        (lister--item-end item) nil
+        (lister--item-invisible item) nil)
+  item)
 
 ;;; * Helper
 
@@ -241,9 +240,11 @@ list of strings."
          (strings   (if (listp strings) strings (list strings)))
          ;; flatten it and remove nil values:
          (strings   (lister--flatten strings))
-         (beg (point-marker)))
+         (beg       (point-marker)))
     (lister--insert-intangible strings (lister--item-level item))
     ;; store positions for post-insertion modifications
+    ;; FIXME necessary?
+    (set-marker-insertion-type beg t)
     (setf (lister--item-beg item) beg
           (lister--item-end item) (point-marker))
     ;; maybe display marker:
@@ -588,16 +589,20 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
 (defun lister-delete-at (ewoc pos)
   "In EWOC, delete node specified by POS."
   (let* ((node (lister--parse-position ewoc pos))
-         (inhibit-read-only t))
+         (inhibit-read-only t)
+         (item  (ewoc-data node)))
+    ;; deleting the marker saves memory and makes sure that
+    ;; `lister--finally-moving-to' works well
+    (setf (lister--item-beg item) nil
+          (lister--item-end item) nil)
     (ewoc-delete ewoc node)))
 
 (defun lister-delete-list (ewoc beg end)
   "In EWOC, delete all nodes from BEG up to END.
 BEG and END is a node or a position, or nil standing for the
 first or the last node, respectively."
-  (let* ((inhibit-read-only t)
-         (nodes (lister-collect-nodes ewoc beg end)))
-    (apply #'ewoc-delete ewoc nodes)))
+  (lister-dolist-nodes (ewoc node beg end)
+    (lister-delete-at ewoc node)))
 
 (defun lister-delete-all (ewoc)
   "Delete all items in EWOC."
@@ -934,7 +939,7 @@ nested lists."
         (walk ewoc nil start-level)))))
 
 (defun lister--get-items (ewoc beg end start-level pred-fn)
-  "Return the nodes of EWOC as a list of items, preserving hierarchy.
+  "Return the items stored in the nodes of EWOC, preserving hierarchy.
 Collect the item object of all nodes between BEG and END.  BEG
 and END can be any position understood by
 `lister--parse-position'.  If they are nil, traverse the whole
@@ -944,7 +949,7 @@ matching PRED-FN."
   (lister--get-nested ewoc beg end
                       (or start-level 0)
                       (or pred-fn #'identity)
-                      #'lister--item-copy))
+                      #'lister--cleaned-item))
 
 (defun lister-get-list (ewoc &optional beg end start-level pred-fn)
   "Return the data of EWOC as a list, preserving hierarchy.
@@ -1278,6 +1283,20 @@ EWOC is a lister Ewoc object."
 
 ;; Move sublists:
 
+(defmacro lister--finally-moving-to (node &rest body)
+  "Execute BODY and then move to NODE.
+Keep track of position by keeping a reference to its data object.
+It is safe to delete and reinsert NODE in BODY.  If the data
+object is not printed after BODY exits, do nothing."
+  (declare (indent 1) (debug (sexp symbolp body)))
+  (let ((pos-var  (make-symbol "--pos--"))
+        (item-var (make-symbol "--item--")))
+    `(let ((,item-var (ewoc-data ,node)))
+     ,@body
+     (when-let ((,pos-var (and ,item-var (lister--item-beg ,item-var))))
+       (with-current-buffer (marker-buffer ,pos-var)
+         (goto-char ,pos-var))))))
+
 (defun lister--next-node-same-level (ewoc pos move-fn)
   "Move to next node, skipping items with bigger indentation.
 In EWOC, find next continuous visible node with the same level as
@@ -1294,14 +1313,14 @@ node is found.  MOVE-FN can be either `ewoc-next' or
          (and (= (lister--item-level (ewoc-data node)) level)
               node))))
 
-;; TODO Add "keep cursor"
 (defun lister--move-list (ewoc beg end target insert-after)
   "Insert items from BEG to END at TARGET according to INSERT-AFTER.
-EWOC is a lister ewoc object."
-(let* ((level (lister-get-level-at ewoc beg))
-       (l (lister--get-items ewoc beg end level #'identity)))
-  (lister-delete-list ewoc beg end)
-  (lister--insert-items ewoc target l level insert-after)))
+EWOC is a lister ewoc object.  Keep cursor at the node at point."
+  (lister--finally-moving-to (lister-get-node-at ewoc :point)
+    (let* ((level (lister-get-level-at ewoc beg))
+           (l (lister--get-items ewoc beg end level #'identity)))
+      (lister-delete-list ewoc beg end)
+      (lister--insert-items ewoc target l level insert-after))))
 
 (defun lister-move-sublist-up (ewoc pos)
   "In EWOC, move sublist at POS one up."
@@ -1339,7 +1358,7 @@ EWOC is a lister ewoc object."
 ;; Move item:
 
 (defun lister--swap-item (ewoc pos1 pos2)
-  "In EWOC, swap the items at POS1 and POS2."
+  "In EWOC, swap the items at POS1 and POS2, moving point to POS1."
   (let* ((node1 (lister--parse-position ewoc pos1))
          (node2 (lister--parse-position ewoc pos2)))
     (when (and node1 node2)
@@ -1347,9 +1366,9 @@ EWOC is a lister ewoc object."
              (item2 (ewoc-data node2)))
         (setf (ewoc-data node1) item2
               (ewoc-data node2) item1)
-        (ewoc-invalidate ewoc node1 node2)))))
+        (ewoc-invalidate ewoc node1 node2))
+      (lister-goto ewoc node2))))
 
-;; TODO Add "keep cursor"
 (defun lister--move-item (ewoc pos move-fn &optional same-level)
   "In EWOC, move item at POS up or down.
 Move item to the next visible node in direction of
