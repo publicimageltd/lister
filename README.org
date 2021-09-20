@@ -4,7 +4,7 @@
 
 # NOTE: Do not forget to update the release in PROJECT STATUS and
 # CHANGELOG!
-This is the documentation for =Lister= version =0.9=
+This is the documentation for =Lister= version =0.9.1=
 
 *NOTE*: *This version is a complete rewrite* and it *breaks all code* which
 had been using the previous version =0.7.2=. To retain the legacy code,
@@ -60,7 +60,7 @@ or otherwise edit lists from various sources.
 
 * Project status
 
-Current release is =0.9=. 
+Current release is =0.9.1=
 
 * Feature overview
 
@@ -74,9 +74,10 @@ This is an overview of features done or planned.
 | loop over the list                   | stable | yes              |
 | marking or unmarking items           | stable | yes              |
 | filter items                         | stable | yes              |
-| hide and show sublists outline-style | works  | -                |
-| move items and sublists              | works  | -                |
+| hide and show sublists outline-style | stable | yes              |
+| move items and sublists              | works  | yes              |
 |--------------------------------------+--------+------------------|
+
 
 * Example
 
@@ -227,6 +228,9 @@ the ewoc in an interactive function, like this:
     (message "You want to do something with %s."
              (lister-node-get-data node))))
 #+end_src
+
+See also =lister-mode.el= for some exemplary interactive functions and
+for a macro which helps to define them.
 
 ** Lister Mode (minor mode)
 
@@ -432,6 +436,8 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 (lister-sort-sublist-below ewoc pos pred)
 #+end_src
 
+Sorting or reversing a list keeps the individual mark state.
+
 Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
 position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 =:point=.
@@ -595,8 +601,11 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 
 ** Current version
  
- - Added functions to move items and sublists.
- - Added outline style hiding of sublists
+** 0.9.1
+  - Some bugfixes; add more tests.
+  - Added minor-mode.
+  - Added functions to move items and sublists.
+  - Added outline style hiding of sublists.
 
 ** 0.9
 
