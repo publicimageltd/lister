@@ -1342,18 +1342,23 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
 (defun lister-move-sublist-right (ewoc pos)
   "In EWOC, indent sublist at POS one level."
   (lister-with-sublist-at ewoc pos beg end
-    (lister-dolist-nodes (ewoc node beg end)
-      (cl-incf (lister--item-level (ewoc-data node)))
-      (ewoc-invalidate ewoc node))))
+    (if (and (eq beg (ewoc-nth ewoc 0))
+             (eq end (ewoc-nth ewoc -1)))
+        (error "No sublist at this position")
+      (lister--finally-moving-to (lister-get-node-at ewoc :point)
+        (lister-dolist-nodes (ewoc node beg end)
+          (cl-incf (lister--item-level (ewoc-data node)))
+          (ewoc-invalidate ewoc node))))))
 
 (defun lister-move-sublist-left (ewoc pos)
   "In EWOC, decrease level of sublist at POS."
   (lister-with-sublist-at ewoc pos beg end
     (if (eq 0 (lister-node-get-level beg))
         (error "Sublist cannot be moved further left"))
-    (lister-dolist-nodes (ewoc node beg end)
-      (cl-decf (lister--item-level (ewoc-data node)))
-      (ewoc-invalidate ewoc node))))
+    (lister--finally-moving-to (lister-get-node-at ewoc :point)
+      (lister-dolist-nodes (ewoc node beg end)
+        (cl-decf (lister--item-level (ewoc-data node)))
+        (ewoc-invalidate ewoc node)))))
 
 ;; Move item:
 
