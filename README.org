@@ -242,6 +242,10 @@ basic keybindings. Here's the keymap:
 | S-M-up, S-M-down    | Move sublist at point one up, down                                    |
 | S-M-right, S-M-left | Indent or unindent sublist at point                                   |
 | <TAB>               | Cycle outline visibility of sublist below point                       |
+|---------------------+-----------------------------------------------------------------------|
+
+The commands to mark and unmark also recognize the region. So you can
+mark the whole list by pressing =C-x h m=. 
 
 ** Inserting, adding, deleting or replacing single items
 

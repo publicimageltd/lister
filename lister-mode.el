@@ -86,7 +86,8 @@ EWOC is a lister ewoc object."
 (lister-defkey lister-mode-mark (ewoc pos prefix node)
   "Mark the item or sublist at point or the items in the region.
 Use EWOC and POS to determine the item to be marked.  If PREFIX
-is non-nil, mark the sublist at POS."
+is non-nil, mark the sublist at POS.  If the region is active,
+unmark all items in the region and ignore PREFIX."
   (if (and (use-region-p)
            (not (region-noncontiguous-p)))
       (lister-mode--mark-unmark-region ewoc
@@ -95,9 +96,10 @@ is non-nil, mark the sublist at POS."
   (lister-mode--generic-mark ewoc pos prefix t)))
 
 (lister-defkey lister-mode-unmark (ewoc pos prefix node)
-  "Unmark the item or sublist at point.
+  "Unmark the item or sublist at point or the items in the region.
 Use EWOC and POS to determine the item to be marked.  If PREFIX
-is non-nil, unmark the sublist at POS."
+is non-nil, unmark the sublist at POS.  If the region is active,
+unmark all items in the region and ignore PREFIX."
   (if (and (use-region-p)
            (not (region-noncontiguous-p)))
       (lister-mode--mark-unmark-region ewoc
