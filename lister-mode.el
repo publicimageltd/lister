@@ -41,11 +41,8 @@ EWOC-VAR be bound to the buffer local ewoc object, POS-VAR to the
 symbol `:point', PREFIX-VAR to the current prefix arg and
 NODE-VAR to the node at point."
   (declare (indent 2)
-           (debug
-            (&define name
-                     (symbolp symbolp symbolp symbolp)
-                     stringp
-                     def-body))
+           (debug (&define name (symbolp symbolp symbolp symbolp)
+                     stringp def-body))
            (doc-string 3))
   `(defun ,fn-name (,ewoc-var ,pos-var &optional ,prefix-var)
      ,(concat docstring
