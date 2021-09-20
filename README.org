@@ -195,7 +195,6 @@ into a printable representation with a /mapper function/.
    once this becomes a real need.
  
 * API
-
 ** Setting up the buffer
 
 #+begin_src emacs-lisp
@@ -228,6 +227,21 @@ the ewoc in an interactive function, like this:
     (message "You want to do something with %s."
              (lister-node-get-data node))))
 #+end_src
+
+** Lister Mode (minor mode)
+
+There is a minor mode shipped with the package which provides some
+basic keybindings. Here's the keymap:
+
+| Key                 | Function                                                              |
+|---------------------+-----------------------------------------------------------------------|
+| m                   | Mark item at point (or sublist if prefixed)                           |
+| u                   | Unmark item at point (or sublist if prefixed)                         |
+| M-up, M-down        | Move item at point one up, or down (prefix lifts level restriction)   |
+| M-left, M-right     | Indent or unindent the item at point (prefix lifts level restriction) |
+| S-M-up, S-M-down    | Move sublist at point one up, down                                    |
+| S-M-right, S-M-left | Indent or unindent sublist at point                                   |
+| <TAB>               | Cycle outline visibility of sublist below point                       |
 
 ** Inserting, adding, deleting or replacing single items
 
@@ -537,9 +551,10 @@ or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 ** Interactive editing
 
 #+begin_src emacs-lisp
-;; Move items vertically:
-(lister-move-item-up ewoc pos &optional dont-restrict-level)
-(lister-move-item-down ewoc pos &optional dont-restrict-level)
+;; Move items vertically. Per default, only move to
+;; items with the same indentation level:
+(lister-move-item-up ewoc pos &optional ignore-level)
+(lister-move-item-down ewoc pos &optional ignore-level)
 ;; Move items horizontally:
 (lister-move-item-right ewoc pos)
 (lister-move-item-left ewoc pos)
@@ -550,7 +565,6 @@ or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 
 Argument =POS= can be either an =Ewoc= node, an integer position, or one
 of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
-
 
 ** Miscellaneous 
 
@@ -576,7 +590,8 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 * Changelog
 
 ** Current version
-
+ 
+ - Added functions to move items and sublists.
  - Added outline style hiding of sublists
 
 ** 0.9
