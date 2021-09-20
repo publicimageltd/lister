@@ -1279,14 +1279,22 @@ EWOC is a lister Ewoc object."
 ;; Move sublists:
 
 (defun lister--next-node-same-level (ewoc pos move-fn)
-  "In EWOC, find next visible node with the same level as POS.
-MOVE-FN can be either `ewoc-next' or `ewoc-prev'."
+  "Move to next node, skipping items with bigger indentation.
+In EWOC, find next continuous visible node with the same level as
+POS, skipping nodes with bigger indentation.  Return nil if no
+node is found.  MOVE-FN can be either `ewoc-next' or
+`ewoc-prev'."
   (when-let* ((node    (lister--parse-position ewoc pos))
-              (level   (lister-get-level-at ewoc node))
-              (pred-fn (lambda (n) (= (or (lister--item-level (ewoc-data n)) 0)
-                                      level))))
-    (lister--next-node-matching ewoc node pred-fn move-fn)))
+              (level   (lister-get-level-at ewoc node)))
+    (while (and node
+                (setq node (funcall move-fn ewoc node))
+                (> (lister--item-level (ewoc-data node)) level)))
+    ;; now node is either nil or <= level
+    (and node
+         (and (= (lister--item-level (ewoc-data node)) level)
+              node))))
 
+;; TODO Add "keep cursor"
 (defun lister--move-list (ewoc beg end target insert-after)
   "Insert items from BEG to END at TARGET according to INSERT-AFTER.
 EWOC is a lister ewoc object."
@@ -1341,6 +1349,7 @@ EWOC is a lister ewoc object."
               (ewoc-data node2) item1)
         (ewoc-invalidate ewoc node1 node2)))))
 
+;; TODO Add "keep cursor"
 (defun lister--move-item (ewoc pos move-fn &optional same-level)
   "In EWOC, move item at POS up or down.
 Move item to the next visible node in direction of
@@ -1360,16 +1369,14 @@ Throw an error if there is no next position."
 
 (defun lister-move-item-up (ewoc pos &optional ignore-level)
   "Move item one up.
-Move upwards from the item at POS in EWOC.  Unless
-IGNORE-LEVEL is non-nil, only move within the same
-indentation level."
+Move upwards from the item at POS in EWOC.  Only move within the
+same indentation level unless IGNORE-LEVEL is non-nil, ."
   (lister--move-item ewoc pos #'ewoc-prev (not ignore-level)))
 
 (defun lister-move-item-down (ewoc pos &optional ignore-level)
   "Move item one down.
-Move downwards from the item at POS in EWOC.  Unless
-IGNORE-LEVEL is non-nil, only move within the same
-indentation level."
+Move downwards from the item at POS in EWOC.  Only move within
+the same indentation level unless IGNORE-LEVEL is non-nil."
   (lister--move-item ewoc pos #'ewoc-next (not ignore-level)))
 
 (defun lister-move-item-right (ewoc pos)
