@@ -65,12 +65,15 @@ point.")
 
 (defun lister-mode--generic-mark (ewoc pos prefix state)
   "Mark or unmark item or sublist.
-In EWOC, mark or unmark the item at POS according to STATE.  If
-PREFIX is non-nil, mark the sublist at POS."
-  (if prefix
-      (lister-mark-unmark-sublist-at ewoc pos state)
-    (lister-mark-unmark-at ewoc pos state)
-    (lister-goto ewoc :next)))
+In EWOC, mark or unmark the item at POS according to STATE and
+move forward one item.  If PREFIX is '(4), mark the sublist at
+POS.  If PREFIX is '(16), mark the sublist below POS."
+  (pcase prefix
+    (`(4)  (lister-mark-unmark-sublist-at ewoc pos state))
+    (`(16) (lister-mark-unmark-sublist-below ewoc pos state))
+    (null   (progn
+             (lister-mark-unmark-at ewoc pos state)
+             (lister-goto ewoc :next)))))
 
 (defun lister-mode--mark-unmark-region (ewoc from to state)
   "Mark region from buffer positions FROM and TO according to STATE.
@@ -82,7 +85,7 @@ EWOC is a lister ewoc object."
         (setq end (ewoc-prev ewoc end)))
       (lister-dolist-nodes (ewoc node beg end)
         (lister-mark-unmark-at ewoc node state)))))
-    
+
 (lister-defkey lister-mode-mark (ewoc pos prefix node)
   "Mark the item or sublist at point or the items in the region.
 Use EWOC and POS to determine the item to be marked.  If PREFIX
@@ -137,7 +140,7 @@ Only move within the same level unless PREFIX is set."
 (lister-defkey lister-mode-left (ewoc pos prefix node)
   "Move the item at point to the left."
   (lister-move-item-left ewoc pos))
-               
+
 ;; Move subtlists up or down
 
 (lister-defkey lister-mode-sublist-up (ewoc pos prefix node)
