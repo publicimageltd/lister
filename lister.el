@@ -1444,7 +1444,9 @@ unless IGNORE-LEVEL is non-nil."
 
 (defun lister-move-item-left (ewoc pos)
   "In EWOC, decrease indentation level of the item at POS."
-  (lister-set-level-at ewoc pos (1- (lister-get-level-at ewoc pos))))
+  (let ((level (lister-get-level-at ewoc pos)))
+    (unless (eq level 0)
+      (lister-set-level-at ewoc pos (1- level)))))
 
 ;;; * Set up buffer for printing:
 ;;;
