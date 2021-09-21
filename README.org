@@ -404,6 +404,7 @@ of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 lister-mark-face-or-property 
 ;; Check if there are marked items:
 (lister-items-marked-p ewoc &optional beg end)
+(lister-count-marked-items ewoc &optional beg end)
 ;; Mark or unmark the item at POS:
 (lister-mark-unmark-at ewoc pos state)
 ;; Mark or unmark a whole list:
@@ -606,6 +607,9 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 
 ** Current version
  
+ - Add new function =lister-items-marked-p=
+ - Bugfixes
+
 ** 0.9.1
   - Some bugfixes; add more tests.
   - Added minor-mode.

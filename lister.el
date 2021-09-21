@@ -630,6 +630,15 @@ first or the last node, respectively."
 
 ;; * Marking
 
+(defun lister-count-marked-items (ewoc &optional beg end)
+  "Count all marked items in EWOC.
+Use BEG and END to restrict the items checked."
+  (let ((n 0))
+    (lister-dolist-nodes (ewoc node beg end)
+      (when (lister-node-marked-p node)
+        (cl-incf n)))
+    n))
+
 (defun lister-items-marked-p (ewoc &optional beg end)
   "Return non-nil if there are marked items in EWOC.
 Use BEG and END to restrict the items checked."
