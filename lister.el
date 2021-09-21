@@ -25,6 +25,9 @@
 
 ;; A library for creating interactive list buffers.
 
+;;; TODO When marking, allow hook to additionally check if item at
+;;; point is markable (~ to "marking predicate")
+
 ;;; Code:
 
 (require 'cl-lib)
@@ -1453,7 +1456,8 @@ Optionally pass a HEADER or FOOTER string, or lists of strings."
     (let ((ewoc (ewoc-create #'lister--ewoc-printer nil nil t)))
       ;; set separate pprinter for header and footer:
       (setf (ewoc--hf-pp ewoc) #'lister--insert-as-hf)
-      (ewoc-set-hf ewoc header footer)
+      (lister-set-header ewoc header)
+      (lister-set-footer ewoc footer)
       (setq-local lister-local-ewoc ewoc))))
 
 (provide 'lister)
