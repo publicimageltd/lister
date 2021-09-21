@@ -639,6 +639,11 @@ Use BEG and END to restrict the items checked."
         (cl-incf n)))
     n))
 
+(defun lister-marked-at-p (ewoc pos)
+  "Check if EWOC item at POS is marked."
+  (when-let ((node (lister--parse-position ewoc pos)))
+    (lister-node-marked-p node)))
+
 (defun lister-items-marked-p (ewoc &optional beg end)
   "Return non-nil if there are marked items in EWOC.
 Use BEG and END to restrict the items checked."
