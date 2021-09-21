@@ -630,6 +630,13 @@ first or the last node, respectively."
 
 ;; * Marking
 
+(defun lister-items-marked-p (ewoc &optional beg end)
+  "Return non-nil if there are marked items in EWOC.
+Use BEG and END to restrict the items checked."
+  (lister-dolist-nodes (ewoc node beg end)
+    (when (lister-node-marked-p node)
+      (cl-return t))))
+
 (defun lister-mark-unmark-at (ewoc pos state)
   "In EWOC, mark or unmark node at POS using boolean STATE."
   (when-let ((node (lister--parse-position ewoc pos)))
