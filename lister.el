@@ -485,6 +485,8 @@ set, restrict action only to matching nodes."
         (setf (lister--item-data (ewoc-data node)) new-data)
         (ewoc-invalidate ewoc node)))))
 
+;;; TODO Add return value counter for all calls to ACTION-FN
+;;; TODO Document counter in lister-walk-marked-nodes
 (defun lister-walk-nodes (ewoc action-fn &optional beg end pred-fn)
   "Call ACTION-FN on each item's node.
 In EWOC, call ACTION-FN on each item's node within the node

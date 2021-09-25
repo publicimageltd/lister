@@ -111,6 +111,14 @@ unmark all items in the region and ignore PREFIX."
                                        nil)
   (lister-mode--generic-mark ewoc pos prefix nil)))
 
+(defun lister-mode-unmark-all ()
+  "Unmark all items in the current Lister buffer."
+  (unless lister-local-ewoc
+    (error "Functions needs to be called in a Lister buffer with an Ewoc object"))
+  (lister-walk-marked-nodes (lister-local-ewoc node)
+                            (lambda (node)
+                              (lister-mark-unmark-at ewoc node nil))))
+
 ;; Cycle subtree visibility
 
 (lister-defkey lister-mode-cycle-sublist (ewoc pos prefix node)
@@ -165,6 +173,7 @@ Only move within the same level unless PREFIX is set."
     (set-keymap-parent map special-mode-map)
     (define-key map "m" 'lister-mode-mark)
     (define-key map "u" 'lister-mode-unmark)
+    (define-key map "U" 'lister-mode-unmark-all)
     (define-key map "\t" 'lister-mode-cycle-sublist)
     (define-key map (kbd "<M-up>")      'lister-mode-up)
     (define-key map (kbd "<M-down>")    'lister-mode-down)
