@@ -242,8 +242,9 @@ basic keybindings. Here's the keymap:
 
 | Key                 | Function                                                              |
 |---------------------+-----------------------------------------------------------------------|
-| m                   | Mark item at point (or sublist if prefixed)                           |
-| u                   | Unmark item at point (or sublist if prefixed)                         |
+| m                   | Mark item at point, or active region, or sublist if prefixed          |
+| u                   | Unmark item at point, or active region, or sublist if prefixed        |
+| U                   | Unmark all items in the buffer                                        |
 | M-up, M-down        | Move item at point one up, or down (prefix lifts level restriction)   |
 | M-left, M-right     | Indent or unindent the item at point (prefix lifts level restriction) |
 | S-M-up, S-M-down    | Move sublist at point one up, down                                    |
