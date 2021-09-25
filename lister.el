@@ -639,7 +639,7 @@ first or the last node, respectively."
   (when-let ((node (lister--parse-position ewoc pos)))
     (ewoc-invalidate ewoc node)))
 
-(defun lister-refresh-list (ewoc beg end)
+(defun lister-refresh-list (ewoc &optional beg end)
   "In EWOC, redisplay the nodes from BEG to END."
   (when-let ((nodes (lister-collect-nodes ewoc beg end)))
     (apply #'ewoc-invalidate ewoc nodes)))
