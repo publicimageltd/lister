@@ -47,8 +47,13 @@ of a face."
 
 ;;; * Buffer Local Variables
 
-(defvar-local lister-left-margin 2
+(defvar-local lister-local-left-margin 2
   "Default padding for every item.")
+
+(defvar-local lister-local-padding-string "  "
+  "Padding string for indentation.
+Each item is inserted padded with this string, n times for
+indentation level n.")
 
 (defvar-local lister-local-mapper nil
   "Buffer local mapper function for printing lister list items.
@@ -114,13 +119,23 @@ This is a simple copy of dash's `-flatten' using `seq'."
 
 ;; Insert the item strings:
 
+(defun lister--padding-string (margin level s)
+  "Return string for padding.
+Return a string which adds on a new string of MARGIN spaces LEVEL
+times the string S.  If LEVEL is nil, use 0 instead."
+  (concat
+   (make-string margin ? )
+   (string-join (make-list (or level 0) s))))
+
 (defun lister--insert-intangible (strings padding-level)
   "In current buffer, insert all STRINGS with text property 'intangible'.
 Insert a newline after each single string in STRINGS.  Pad all
 strings according to PADDING-LEVEL and the buffer local value of
-`lister-left-margin'."
+`lister-local-left-margin'."
   (when strings
-    (let* ((padding-string (make-string (+ lister-left-margin (or padding-level 0)) ? ))
+    (let* ((padding-string (lister--padding-string lister-local-left-margin
+                                                   padding-level
+                                                   lister-local-padding-string))
            (strings        (mapcar (apply-partially #'concat padding-string)
                                    strings)))
       ;; Assumes rear-stickiness.
@@ -135,7 +150,8 @@ This basically means that there will be no gap to place the
 cursor on, so that this item cannot be moved to."
   (when strings
     (let ((beg (point)))
-      (lister--insert-intangible strings (- 0 lister-left-margin))
+      (let ((lister-local-left-margin 0))
+        (lister--insert-intangible strings 0))
       (put-text-property beg (1+ beg) 'front-sticky t))))
 
 (defun lister--set-h-or-f (ewoc h-or-f strings)
