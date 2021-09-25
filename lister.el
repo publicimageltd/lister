@@ -67,9 +67,6 @@ buffer.")
   "Buffer local filter predicate for Lister lists.
 Do not set this directly; use `lister-set-filter' instead.")
 
-(defvar-local lister-local-undo-stack nil
-  "Buffer local undo stack.")
-
 ;;; * Data Types
 
 (cl-defstruct (lister--item (:constructor lister--item-create))
@@ -113,8 +110,6 @@ This is a simple copy of dash's `-flatten' using `seq'."
   (if (and (listp l) (listp (cdr l)))
       (seq-mapcat #'lister--flatten l)
     (list l)))
-
-;;; * Undo stack
 
 ;;; * Low-level printing / insertion:
 ;;;
