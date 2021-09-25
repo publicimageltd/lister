@@ -604,6 +604,15 @@ Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
 position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 =:point=.
 
+Padding and indentation of the levels is regulated by the following
+variables:
+#+begin_src emacs-lisp
+;; integer: add so many whitespaces in front of each item
+lister-local-left-margin
+;; string: add this string in front of each item according to the item's level
+;; level 0 means no padding; level 1 means one time; 2 means 2 time, etc.
+lister-local-padding-string
+#+end_src
 * Changelog
 
 ** Current version
