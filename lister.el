@@ -48,7 +48,7 @@ of a face."
 ;;; * Buffer Local Variables
 
 (defvar-local lister-local-left-margin 2
-  "Default padding for every item.")
+  "Default margin (integer length) for every item.")
 
 (defvar-local lister-local-padding-string "  "
   "Padding string for indentation.
