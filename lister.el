@@ -35,11 +35,6 @@
 
 ;;; * Global Variables
 
-(defcustom lister-default-left-margin 2
-  "Default padding for every item."
-  :group 'lister
-  :type 'integer)
-
 (defcustom lister-mark-face-or-property
   '(:background "darkorange3"
                 :foreground "white")
@@ -51,6 +46,9 @@ of a face."
                  (plist :tag "Plist of face attributes")))
 
 ;;; * Buffer Local Variables
+
+(defvar-local lister-left-margin 2
+  "Default padding for every item.")
 
 (defvar-local lister-local-mapper nil
   "Buffer local mapper function for printing lister list items.
@@ -120,9 +118,9 @@ This is a simple copy of dash's `-flatten' using `seq'."
   "In current buffer, insert all STRINGS with text property 'intangible'.
 Insert a newline after each single string in STRINGS.  Pad all
 strings according to PADDING-LEVEL and the buffer local value of
-`lister-default-left-margin'."
+`lister-left-margin'."
   (when strings
-    (let* ((padding-string (make-string (+ lister-default-left-margin (or padding-level 0)) ? ))
+    (let* ((padding-string (make-string (+ lister-left-margin (or padding-level 0)) ? ))
            (strings        (mapcar (apply-partially #'concat padding-string)
                                    strings)))
       ;; Assumes rear-stickiness.
@@ -137,7 +135,7 @@ This basically means that there will be no gap to place the
 cursor on, so that this item cannot be moved to."
   (when strings
     (let ((beg (point)))
-      (lister--insert-intangible strings (- 0 lister-default-left-margin))
+      (lister--insert-intangible strings (- 0 lister-left-margin))
       (put-text-property beg (1+ beg) 'front-sticky t))))
 
 (defun lister--set-h-or-f (ewoc h-or-f strings)

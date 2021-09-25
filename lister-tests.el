@@ -34,14 +34,14 @@
 
 ;; (setq buttercup-stack-frame-style 'pretty)
 
-(defvar lister-default-left-margin)
+(defvar lister-left-margin)
 
 (defun lister-test-setup-minimal-buffer ()
   "Set up a minimal buffer, with no margins and a simple list mapper.
 Return the ewoc object"
   (let ((ewoc (lister-setup "*LISTER*" #'list)))
     (with-current-buffer (ewoc-buffer ewoc)
-      (setq-local lister-default-left-margin 0))
+      (setq-local lister-left-margin 0))
     ewoc))
 
 (defun lister-test-get-node-at-point (ewoc)
