@@ -146,9 +146,8 @@ times the string S.  If LEVEL is nil, use 0 instead."
 ;;; TODO Write tests
 (defun lister--make-string-intangible (string)
   "Make STRING intangible except where it has a field property."
-  (let ((s      (propertize string
-                            'cursor-intangible t)))
-    (pcase-dolist (`(,from ,to) (lister--get-prop s 'field))
+  (let ((s (propertize string 'cursor-intangible t)))
+    (pcase-dolist (`(,from ,to) (lister--get-prop string 'field))
       (add-text-properties
        ;; The first field character is not tangible, even though
        ;; `describe-text-properties' says it has `cursor-intangible'
@@ -156,7 +155,7 @@ times the string S.  If LEVEL is nil, use 0 instead."
        ;; works, however.  Something with stickiness, I think.
        (max 0 (1- from))
        to
-       '(cursor-intangible nil) ;; here we could a special field face?
+       '(cursor-intangible nil) ;; maybe add a special field face?
        s))
     s))
 
@@ -172,9 +171,8 @@ strings according to PADDING-LEVEL and the buffer local value of
            (strings        (mapcar (apply-partially #'concat padding-string)
                                    strings)))
       ;; Assumes rear-stickiness.
-      (insert (lister--make-string-intangible (string-join strings "\n"))
-       ;; (propertize (string-join strings "\n")
-       ;;             'cursor-intangible t)
+      (insert (lister--make-string-intangible
+               (string-join strings "\n"))
               "\n")))) ;; <- this leaves the "tangible" gap for the next item!
 
 (defun lister--insert-as-hf (strings)
@@ -205,8 +203,19 @@ STRINGS can be a string or a list of strings."
 (defun lister-set-footer (ewoc strings)
   "Set STRINGS as a list header in EWOC.
 STRINGS can be a string or a list of strings."
-  (lister--set-h-or-f ewoc nil strings))
-
+  (when (eq "" strings)
+    (setq strings nil))
+  (when strings
+    (setq strings (propertize strings 'footer t))
+    (add-text-properties 0 1 '(field t) strings))
+  (lister--set-h-or-f ewoc nil strings)
+  (when strings
+    (with-current-buffer (ewoc-buffer ewoc)
+      (let ((inhibit-read-only t))
+        (save-excursion
+          (goto-char (point-max))
+          (backward-delete-char 1))))))
+  
 ;; Make the item invisible / visible:
 
 (defun lister--invisibilize-item (item value)
@@ -1513,16 +1522,6 @@ Optionally pass a HEADER or FOOTER string, or lists of strings."
     ;; prepare buffer:
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (insert
-       (propertize " "
-                   'cursor-intangible t
-                   'front-sticky t
-                   'field t))
-      ;; TODO There should be floating marker between last item and
-      ;; footer, a position to "add" items instead of inserting them.
-      ;; We need some kind of abstraction to handle that in keys:
-      ;; Parsing POINT would not be enough, we need the information
-      ;; "insert-at" or "add". Hm. Siehe die NOTE oben!
       (goto-char (point-min)))
     ;; Prepare for outline
     (set (make-local-variable 'line-move-ignore-invisible) t)
