@@ -345,6 +345,12 @@ above, throw an error."
       ((pred vectorp)   pos)
       (_        (error "Unkown position argument: %s" pos)))))
 
+;; TODO Write tests
+(defun lister-eolp ()
+  "Return non-nil if point is after the last item of EWOC."
+  (or (eobp)
+      (get-text-property (point) 'footer)))
+
 (defun lister--determine-level (prev-level new-level)
   "Return the level for new items relative to PREV-LEVEL.
 If PREV-LEVEL is nil, assume the new item to be a top item.
