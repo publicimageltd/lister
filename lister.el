@@ -127,6 +127,39 @@ times the string S.  If LEVEL is nil, use 0 instead."
    (make-string margin ? )
    (string-join (make-list (or level 0) s))))
 
+;; TODO Write tests
+(defun lister--get-prop (string prop &optional start end)
+  "Get all occurences of PROP between START and END of STRING."
+  (let* (acc next-pos
+         (start (or start 0))
+         (end   (or end (length string)))
+         (pos   start))
+    (while (and pos (setq pos (if (get-text-property pos prop string)
+                                  pos
+                                (next-single-property-change pos prop string)))
+                (< pos end))
+      (setq next-pos (next-single-property-change pos prop string))
+      (push `(,pos ,(or next-pos end)) acc)
+      (setq pos next-pos))
+    (nreverse acc)))
+
+;;; TODO Write tests
+(defun lister--make-string-intangible (string)
+  "Make STRING intangible except where it has a field property."
+  (let ((s      (propertize string
+                            'cursor-intangible t)))
+    (pcase-dolist (`(,from ,to) (lister--get-prop s 'field))
+      (add-text-properties
+       ;; The first field character is not tangible, even though
+       ;; `describe-text-properties' says it has `cursor-intangible'
+       ;; set to nil. So we correct that. I don't understand why this
+       ;; works, however.  Something with stickiness, I think.
+       (max 0 (1- from))
+       to
+       '(cursor-intangible nil) ;; here we could a special field face?
+       s))
+    s))
+
 (defun lister--insert-intangible (strings padding-level)
   "In current buffer, insert all STRINGS with text property 'intangible'.
 Insert a newline after each single string in STRINGS.  Pad all
@@ -139,9 +172,9 @@ strings according to PADDING-LEVEL and the buffer local value of
            (strings        (mapcar (apply-partially #'concat padding-string)
                                    strings)))
       ;; Assumes rear-stickiness.
-      (insert (propertize (string-join strings "\n")
-                          'cursor-intangible t
-                          'field t)
+      (insert (lister--make-string-intangible (string-join strings "\n"))
+       ;; (propertize (string-join strings "\n")
+       ;;             'cursor-intangible t)
               "\n")))) ;; <- this leaves the "tangible" gap for the next item!
 
 (defun lister--insert-as-hf (strings)
@@ -1480,10 +1513,16 @@ Optionally pass a HEADER or FOOTER string, or lists of strings."
     ;; prepare buffer:
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (insert (propertize " "
-                          'cursor-intangible t
-                          'front-sticky t
-                          'field t))
+      (insert
+       (propertize " "
+                   'cursor-intangible t
+                   'front-sticky t
+                   'field t))
+      ;; TODO There should be floating marker between last item and
+      ;; footer, a position to "add" items instead of inserting them.
+      ;; We need some kind of abstraction to handle that in keys:
+      ;; Parsing POINT would not be enough, we need the information
+      ;; "insert-at" or "add". Hm. Siehe die NOTE oben!
       (goto-char (point-min)))
     ;; Prepare for outline
     (set (make-local-variable 'line-move-ignore-invisible) t)
