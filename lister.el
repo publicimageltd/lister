@@ -144,20 +144,22 @@ times the string S.  If LEVEL is nil, use 0 instead."
     (nreverse acc)))
 
 ;;; TODO Write tests
-;; TODO Document interpretation of field property in readme.org
 (defun lister--make-string-intangible (string)
-  "Make STRING intangible except where it has a field property."
+  "Make STRING intangible except where it has certain properties.
+Do not make the STRING intangible where the properties `field' or
+`button' are non-nil."
   (let ((s (propertize string 'cursor-intangible t)))
-    (pcase-dolist (`(,from ,to) (lister--get-prop string 'field))
-      (add-text-properties
-       ;; The first field character is not tangible, even though
-       ;; `describe-text-properties' says it has `cursor-intangible'
-       ;; set to nil. So we correct that. I don't understand why this
-       ;; works, however.  Something with stickiness, I think.
-       (max 0 (1- from))
-       to
-       '(cursor-intangible nil) ;; maybe add a special field face?
-       s))
+    (cl-dolist (prop '(field button))
+      (pcase-dolist (`(,from ,to) (lister--get-prop string prop))
+        (add-text-properties
+         ;; The first field character is not tangible, even though
+         ;; `describe-text-properties' says it has `cursor-intangible'
+         ;; set to nil. So we correct that. I don't understand why this
+         ;; works, however.  Something with stickiness, I think.
+         (max 0 (1- from))
+         to
+         '(cursor-intangible nil) ;; maybe add a special field face?
+         s)))
     s))
 
 (defun lister--insert-intangible (strings padding-level)
@@ -352,7 +354,6 @@ above, throw an error."
       ((pred vectorp)   pos)
       (_        (error "Unkown position argument: %s" pos)))))
 
-;; TODO Document in readme.org
 ;; TODO Write tests
 (defun lister-eolp ()
   "Return non-nil if point is after the last item of EWOC."

@@ -81,7 +81,6 @@ This is an overview of features done or planned.
 | move items and sublists              | works  | yes              |
 |--------------------------------------+--------+------------------|
 
-
 * Example
 
 This piece of code creates a new buffer which displays lists of
@@ -235,6 +234,40 @@ the ewoc in an interactive function, like this:
 See also =lister-mode.el= for some exemplary interactive functions and
 for a macro which helps to define them.
 
+** The mapper function
+The mapper function is called for each item. It must return a list of
+strings representing the item.
+
+Per default, the strings are inserted with the property =intangible=. If
+you want to insert special fields which can also do something, e.g.
+editable fields, you can set the =field= property to =t=. The region
+marked by this continuous property will /not/ be intangible, that is,
+the cursor can move to it. Since one very likely use case of that
+feature is to insert =buttons=, the same rule applies to all characters
+which are marked with the property =button=.
+
+Example:
+
+#+begin_src emacs-lisp
+  (defun my-get-button (label &rest properties)
+    "Make a button LABEL in a temporary buffer and return it as a string.
+  Pass PROPERTIES to `insert-text-button', which creates the
+  button."
+    (with-temp-buffer
+      (apply #'insert-text-button label properties)
+      (buffer-string)))
+  
+  (defun my-action (_)
+    (message "I have been clicked!"))
+  
+  (let ((ewoc (lister-setup "NEW "#'list)))
+    (lister-set-list ewoc (list "Intangible item"
+                                "Intangible item"
+                                (my-get-button "Click me!"
+                                  'action 'my-action)))
+    (switch-to-buffer (ewoc-buffer ewoc)))
+#+end_src
+
 ** Lister Mode (minor mode)
 
 There is a minor mode shipped with the package which provides some
@@ -273,6 +306,23 @@ moving the previous content down. This might result in unintuitive
 results, e.g. (=lister-insert-at ewoc :last data)= adds the item at the
 second last position. Set =insert-after= to a non-nil value to insert
 /after/ the position indicated (or use =lister-add=).
+
+The same principle applies to interactive function which insert lists.
+If the cursor is at the bottom of the list, the intended meaning of
+"insert at point" is actually "add to the end of list". The end of
+list can be recognized with the function =(lister-eolp)=, so that the
+following code works:
+
+#+begin_src emacs-lisp
+  (defun insert-something-at-point ()
+    (interactive)
+    (lister-insert-at lister-local-ewoc
+                      :point
+                      some-data
+                      nil
+                      ;; t means: add, don't insert!
+                      (lister-eolp)))
+#+end_src
 
 Argument =POS= can be either an =Ewoc= node, an integer position, or one
 of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
@@ -618,7 +668,10 @@ lister-local-padding-string
 
 ** Current version
  
- - Add new function =lister-items-marked-p=
+ - New feature: item strings with fields =button= or =field= set will not be
+   intangible and can be reached with normal cursor motion, while the
+   rest of the item remains inaccessible
+ - Add new public functions =lister-items-marked-p=, =lister-eolp=
  - Bugfixes
 
 ** 0.9.1
