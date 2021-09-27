@@ -144,6 +144,7 @@ times the string S.  If LEVEL is nil, use 0 instead."
     (nreverse acc)))
 
 ;;; TODO Write tests
+;; TODO Document interpretation of field property in readme.org
 (defun lister--make-string-intangible (string)
   "Make STRING intangible except where it has a field property."
   (let ((s (propertize string 'cursor-intangible t)))
@@ -180,42 +181,48 @@ strings according to PADDING-LEVEL and the buffer local value of
 This basically means that there will be no gap to place the
 cursor on, so that this item cannot be moved to."
   (when strings
-    (let ((beg (point)))
-      (let ((lister-local-left-margin 0))
-        (lister--insert-intangible strings 0))
-      (put-text-property beg (1+ beg) 'front-sticky t))))
+    (let* ((beg (point))
+           (lister-local-left-margin 0))
+      (lister--insert-intangible strings 0)
+      (unless (get-text-property beg 'footer)
+        (put-text-property beg (1+ beg) 'front-sticky t)))))
 
-(defun lister--set-h-or-f (ewoc h-or-f strings)
-  "Set STRINGS as list header or footer in EWOC.
-If H-OR-F is t, set STRINGS as a header, else as a footer.
-STRINGS can be a string or a list of strings."
-  (let* ((strings (if (stringp strings) (list strings) strings))
-         (hf      (ewoc-get-hf ewoc))
-         (new-hf  (if h-or-f (list strings (cdr hf))
-                    (list (car hf) strings))))
-    (apply #'ewoc-set-hf ewoc new-hf)))
+(defun lister--set-h-or-f (ewoc header footer)
+  "Set HEADER and / or FOOTER in EWOC.
+HEADER and FOOTER can be either strings, nil, or a non-nil
+non-string value.  If they are strings or nil, insert them as
+header or footer.  Else ignore that value and do not modify the
+header or footer."
+  (let* ((hf     (ewoc-get-hf ewoc))
+         (header (when header
+                   (if (listp header)
+                       header
+                     (car hf))))
+         (footer (when footer
+                   (if (listp footer)
+                       footer
+                     (cdr hf)))))
+    (ewoc-set-hf ewoc header footer)))
 
 (defun lister-set-header (ewoc strings)
   "Set STRINGS as a list header in EWOC.
 STRINGS can be a string or a list of strings."
-  (lister--set-h-or-f ewoc t strings))
+    (lister--set-h-or-f ewoc
+                        (if (listp strings) strings (list strings))
+                        :keep-footer))
 
 (defun lister-set-footer (ewoc strings)
   "Set STRINGS as a list header in EWOC.
 STRINGS can be a string or a list of strings."
-  (when (eq "" strings)
-    (setq strings nil))
-  (when strings
-    (setq strings (propertize strings 'footer t))
-    (add-text-properties 0 1 '(field t) strings))
-  (lister--set-h-or-f ewoc nil strings)
-  (when strings
-    (with-current-buffer (ewoc-buffer ewoc)
-      (let ((inhibit-read-only t))
-        (save-excursion
-          (goto-char (point-max))
-          (backward-delete-char 1))))))
-  
+  (let ((strings (if (listp strings) strings (list strings))))
+    (when strings
+      (setq strings (mapcar (lambda (s)
+                              (propertize s 'footer t))
+                            strings)))
+    (lister--set-h-or-f ewoc
+                        :keep-header
+                        strings)))
+
 ;; Make the item invisible / visible:
 
 (defun lister--invisibilize-item (item value)
@@ -345,6 +352,7 @@ above, throw an error."
       ((pred vectorp)   pos)
       (_        (error "Unkown position argument: %s" pos)))))
 
+;; TODO Document in readme.org
 ;; TODO Write tests
 (defun lister-eolp ()
   "Return non-nil if point is after the last item of EWOC."
