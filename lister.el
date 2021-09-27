@@ -879,7 +879,7 @@ the buffer local mapper function."
   (lister--insert-nested ewoc pos data-list level insert-after
                          #'lister--new-item-from-data))
 
-(defalias 'lister-insert-list-at 'lister-insert)
+(defalias 'lister-insert-list-at 'lister-insert-list)
 
 (defun lister-insert (ewoc pos data  &optional level insert-after)
   "In EWOC, insert DATA as a single item at POS.
