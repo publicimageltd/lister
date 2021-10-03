@@ -369,16 +369,16 @@ low-lewel ewoc functions instead of `lister--parse-position'."
     (it "sets header in an empty list:"
       (lister-set-header ewoc "TEST")
       (expect (ewoc-buffer ewoc)
-              :to-have-as-content "TEST\n "))
+              :to-have-as-content "TEST\n"))
     (it "removes header when called with nil:"
       (lister-set-header ewoc "TEST")
       (lister-set-header ewoc nil)
       (expect (ewoc-buffer ewoc)
-              :to-have-as-content " "))
+              :to-have-as-content ""))
     (it "accepts a list of strings:"
       (lister-set-header ewoc '("TEST" "TEST"))
       (expect (ewoc-buffer ewoc)
-              :to-have-as-content "TEST\nTEST\n "))
+              :to-have-as-content "TEST\nTEST\n"))
     (it "adds header before a list:"
       (lister-set-list ewoc l)
       (lister-set-header ewoc "TEST")
@@ -386,7 +386,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
               :to-have-as-content
               (concat "TEST\n"
                       (string-join l "\n")
-                      "\n ")))))
+                      "\n")))))
 
 ;;; * Diverse API
 
@@ -821,7 +821,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (lister-set-list ewoc l)
         (lister-set-filter ewoc filter-*)
         (expect (ewoc-buffer ewoc)
-                :to-have-as-visible-content " "))))
+                :to-have-as-visible-content ""))))
 
   (describe "Finding nodes while filter is ON:"
     (describe "lister--first-visible-node:"
