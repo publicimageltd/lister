@@ -1553,10 +1553,11 @@ Optionally pass a HEADER or FOOTER string, or lists of strings."
     ;; create ewoc:
     (let ((ewoc (ewoc-create #'lister--ewoc-printer nil nil t)))
       ;; set separate pprinter for header and footer:
+      (setq-local lister-local-ewoc ewoc)
       (setf (ewoc--hf-pp ewoc) #'lister--insert-as-hf)
       (lister-set-header ewoc header)
       (lister-set-footer ewoc footer)
-      (setq-local lister-local-ewoc ewoc))))
+      ewoc)))
 
 (provide 'lister)
 ;;; lister.el ends here

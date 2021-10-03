@@ -71,7 +71,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
             (setq acc
                   (concat acc (buffer-substring-no-properties (point) next-change))))
           (goto-char next-change)))
-      acc)))
+      (or acc ""))))
 
 ;;; * Custom Matchers
 
@@ -1071,7 +1071,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                 :to-have-as-content
                 (concat (string-join '("NEW" "B" "C" "D")
                                      "\n")
-                        "\n ")))))
+                        "\n")))))
   (describe "lister-refresh-list"
     (it "redraws a list:"
       (lister-set-list ewoc l)
@@ -1083,7 +1083,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (expect (ewoc-buffer ewoc)
                 :to-have-as-content
                 (concat (string-join '("0" "1" "2" "3") "\n")
-                        "\n "))))))
+                        "\n"))))))
 
 
 ;;; * Marking / Unmarking items
