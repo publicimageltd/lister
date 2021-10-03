@@ -183,15 +183,15 @@ strings according to PADDING-LEVEL and the buffer local value of
   "Use HF-DATA to get strings for a header or footer.
 If HF-DATA is a function, call it with the current ewoc buffer
 active and use the result.  Return HF-DATA if it is nil or a
-list.  If HF-DATA is a string, wrap it into a list.  If HF-DATA
-is not a function, nor a string, nor a list, nor nil, throw an
-error."
+list.  If HF-DATA is a string, wrap it into a list.  In any case,
+flatten the list and return nil values.  If HF-DATA is not a
+function, nor a string, nor a list, nor nil, throw an error."
   (when (functionp hf-data)
     (setq hf-data (funcall hf-data)))
   (cl-etypecase hf-data
     (stringp   (list hf-data))
     ;; this also catches nil:
-    (listp     hf-data)))
+    (listp     (lister--flatten hf-data))))
 
 (defun lister--insert-as-hf (hf-data)
   "In current Lister buffer, insert HF-DATA as header or footer.
