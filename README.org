@@ -673,6 +673,7 @@ lister-local-padding-string
 
 ** Current version
  
+ - New feature: header or footer can now also be a function.
  - New feature: item strings with fields =button= or =field= set will not be
    intangible and can be reached with normal cursor motion, while the
    rest of the item remains inaccessible

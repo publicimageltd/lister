@@ -1538,7 +1538,9 @@ access this buffer with (ewoc-buffer).
 
 Store MAPPER as a buffer local variable in BUF.
 
-Optionally pass a HEADER or FOOTER string, or lists of strings."
+Optionally pass a HEADER or FOOTER string, or lists of strings,
+or a function with no arguments returning a string or a lists of
+strings."
   (with-current-buffer (get-buffer-create buf-or-name)
     ;; prepare buffer:
     (let ((inhibit-read-only t))
