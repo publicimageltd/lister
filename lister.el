@@ -178,52 +178,58 @@ strings according to PADDING-LEVEL and the buffer local value of
                (string-join strings "\n"))
               "\n")))) ;; <- this leaves the "tangible" gap for the next item!
 
-(defun lister--insert-as-hf (strings)
-  "In current buffer, insert STRINGS as header or footer.
-This basically means that there will be no gap to place the
-cursor on, so that this item cannot be moved to."
-  (when strings
-    (let* ((beg (point))
+;;; TODO Write tests
+(defun lister--get-hf-strings (hf-data)
+  "Use HF-DATA to get strings for a header or footer.
+If HF-DATA is a function, call it with the current ewoc buffer
+active and use the result.  Return HF-DATA if it is nil or a
+list.  If HF-DATA is a string, wrap it into a list.  If HF-DATA
+is not a function, nor a string, nor a list, nor nil, throw an
+error."
+  (when (functionp hf-data)
+    (setq hf-data (funcall hf-data)))
+  (cl-etypecase hf-data
+    (stringp   (list hf-data))
+    ;; this also catches nil:
+    (listp     hf-data)))
+
+(defun lister--insert-as-hf (hf-data)
+  "In current Lister buffer, insert HF-DATA as header or footer.
+HF-DATA can be either a function, a string or a list of strings."
+  (when hf-data
+    (let* ((strings (lister--get-hf-strings hf-data))
+           (beg (point))
            (lister-local-left-margin 0))
+      ;; Special treatment for footer only:
+      (when (and strings
+                 ;; `ewoc--refresh-node' calculates point using the start
+                 ;; marker of the node to be refreshed, so that should be
+                 ;; safe:
+                 (= beg (ewoc-location (ewoc--footer lister-local-ewoc))))
+        (setq strings (mapcar (lambda (s)
+                                (propertize s 'footer t))
+                              strings)))
       (lister--insert-intangible strings 0)
       (unless (get-text-property beg 'footer)
         (put-text-property beg (1+ beg) 'front-sticky t)))))
 
-(defun lister--set-h-or-f (ewoc header footer)
-  "Set HEADER and / or FOOTER in EWOC.
-HEADER and FOOTER can be either strings, nil, or a non-nil
-non-string value.  If they are strings or nil, insert them as
-header or footer.  Else ignore that value and do not modify the
-header or footer."
-  (let* ((hf     (ewoc-get-hf ewoc))
-         (header (when header
-                   (if (listp header)
-                       header
-                     (car hf))))
-         (footer (when footer
-                   (if (listp footer)
-                       footer
-                     (cdr hf)))))
-    (ewoc-set-hf ewoc header footer)))
+(defun lister-refresh-header-footer (ewoc)
+  "Redisplay the header and the footer of EWOC.
+Mostly makes sense if one them has a function as its data."
+  (let ((hf (ewoc-get-hf ewoc)))
+    (ewoc-set-hf ewoc (car hf) (cdr hf))))
 
-(defun lister-set-header (ewoc strings)
-  "Set STRINGS as a list header in EWOC.
-STRINGS can be a string or a list of strings."
-    (lister--set-h-or-f ewoc
-                        (if (listp strings) strings (list strings))
-                        :keep-footer))
+(defun lister-set-header (ewoc strings-or-fn)
+  "Set STRINGS-OR-FN as a list header in EWOC.
+Use STRINGS-OR-FN to determine the header.  It can be a function,
+a string or a list of strings."
+  (ewoc-set-hf ewoc strings-or-fn (cdr (ewoc-get-hf ewoc))))
 
-(defun lister-set-footer (ewoc strings)
-  "Set STRINGS as a list header in EWOC.
-STRINGS can be a string or a list of strings."
-  (let ((strings (if (listp strings) strings (list strings))))
-    (when strings
-      (setq strings (mapcar (lambda (s)
-                              (propertize s 'footer t))
-                            strings)))
-    (lister--set-h-or-f ewoc
-                        :keep-header
-                        strings)))
+(defun lister-set-footer (ewoc strings-or-fn)
+  "Set STRINGS-OR-FN as a list footer in EWOC.
+Use STRINGS-OR-FN to determine the footer.  It can be a function,
+a string or a list of strings."
+  (ewoc-set-hf ewoc (car (ewoc-get-hf ewoc)) strings-or-fn))
 
 ;; Make the item invisible / visible:
 

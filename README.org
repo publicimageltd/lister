@@ -211,11 +211,16 @@ buffer by adding some text properties and setting some buffer local
 variables.
 
 In addition to defining the buffer and the mapper function, you can
-optionally define a =header= or a =footer= string, or a list of strings,
-which will be inserted before or after the actual list. To change
-them, use =lister-set-{header/footer}=. Passing the value =nil= always
-deletes them. To get the currently installed =header= or =footer=, use the
-=Ewoc= function =ewoc-get-hf=.
+optionally define a =header= or a =footer=. That can be either a string,
+or a list of strings, or a zero-argument function which, called in the
+Ewoc buffer, returns a string or a list of strings. The strings will
+be inserted before or after the actual list. 
+
+Use =lister-set-{header/footer}= to change the header or the footer.
+Pass the value =nil= to delete them. If the header or footer is defined
+by a function, use =lister-refresh-header-footer= to force a redisplay.
+To access the currently installed =header= or =footer=, use the =Ewoc=
+function =ewoc-get-hf=.
 
 =Lister-setup= returns an ewoc object, which is then used as the basic
 reference for all =Lister= operations. The ewoc object is also stored in
