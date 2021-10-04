@@ -148,19 +148,19 @@ times the string S.  If LEVEL is nil, use 0 instead."
   "Make STRING intangible except where it has certain properties.
 Do not make the STRING intangible where the properties `field' or
 `button' are non-nil."
-  (let ((s (propertize string 'cursor-intangible t)))
-    (cl-dolist (prop '(field button))
-      (pcase-dolist (`(,from ,to) (lister--get-prop string prop))
-        (add-text-properties
-         ;; The first field character is not tangible, even though
-         ;; `describe-text-properties' says it has `cursor-intangible'
-         ;; set to nil. So we correct that. I don't understand why this
-         ;; works, however.  Something with stickiness, I think.
-         (max 0 (1- from))
-         to
-         '(cursor-intangible nil) ;; maybe add a special field face?
-         s)))
-    s))
+  (add-text-properties 0 (length string) '(cursor-intangible t) string)
+  (cl-dolist (prop '(field button))
+    (pcase-dolist (`(,from ,to) (lister--get-prop string prop))
+      (add-text-properties
+       ;; The first field character is not tangible, even though
+       ;; `describe-text-properties' says it has `cursor-intangible'
+       ;; set to nil. So we correct that. I don't understand why this
+       ;; works, however.  Something with stickiness, I think.
+       (max 0 (1- from))
+       to
+       '(cursor-intangible nil) ;; maybe add a special field face?
+       string)))
+  string)
 
 (defun lister--insert-intangible (strings padding-level)
   "In current buffer, insert all STRINGS with text property 'intangible'.
