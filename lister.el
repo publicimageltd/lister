@@ -697,9 +697,9 @@ first or the last node, respectively."
 
 ;; * Redisplay items
 
-(defun lister-refresh-at (ewoc pos)
-  "In EWOC, redisplay the node at POS."
-  (when-let ((node (lister--parse-position ewoc pos)))
+(defun lister-refresh-at (ewoc pos-or-node)
+  "In EWOC, redisplay the node at POS-OR-NODE."
+  (when-let ((node (lister--parse-position ewoc pos-or-node)))
     (ewoc-invalidate ewoc node)))
 
 (defun lister-refresh-list (ewoc &optional beg end)
