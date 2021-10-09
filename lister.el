@@ -430,6 +430,10 @@ If NODE is nil, return the last visible node of the EWOC."
                                    #'ewoc-prev))
 
 ;;; * Public API
+(defun lister-get-ewoc (buf)
+  "Get ewoc object associated with BUF."
+  (with-current-buffer buf
+    lister-local-ewoc))
 
 (defmacro lister-with-boundaries (ewoc beg-var end-var &rest body)
   "In EWOC, do BODY binding BEG-VAR and END-VAR to list nodes.
