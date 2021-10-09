@@ -1059,6 +1059,25 @@ matching PRED-FN."
                       (or pred-fn #'identity)
                       #'lister--cleaned-item))
 
+(defun lister-map (ewoc fn &optional pred-fn beg end start-level)
+  "Apply FN to the data tree in EWOC.
+BEG and END can be any position understood by
+`lister--parse-position'.  If they are nil, traverse the whole
+list.  Restrict the result to items matching PRED-FN.  Use
+START-LEVEL as the level of the first node; higher node levels
+will result in nested lists."
+  (let ((pred-fn (or pred-fn #'identity)))
+    (cl-labels ((predicate-fn (node)
+                              (funcall pred-fn
+                                       (lister--item-data (ewoc-data node))))
+                (key-fn       (data)
+                              (funcall fn (lister--item-data data))))
+      ;;
+      (lister--get-nested ewoc beg end
+                          (or start-level 0)
+                          #'predicate-fn
+                          #'key-fn))))
+
 (defun lister-get-list (ewoc &optional beg end start-level pred-fn)
   "Return the data of EWOC as a list, preserving hierarchy.
 Collect the data slots of all items between BEG and END.  BEG and

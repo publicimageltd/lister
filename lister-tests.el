@@ -234,7 +234,32 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (expect (lister-get-list ewoc beg end)
                 :to-equal '("A" "B" "C" "D")))))
 
-  (describe "lister-add:"
+  (describe "lister-map"
+    (it "maps a flat list"
+      (lister-set-list ewoc l)
+      (cl-labels ((map-fn (s)
+                          (concat "MAPPED" s)))
+        (expect (lister-map ewoc #'map-fn)
+                :to-equal (mapcar #'map-fn l))))
+    (it "maps a flat list with predicate"
+      (lister-set-list ewoc l)
+      (cl-labels ((map-fn (s)
+                          (concat "MAPPED" s))
+                  (pred-fn (s)
+                           (string= "A" s)))
+        (expect (lister-map ewoc #'map-fn #'pred-fn)
+                :to-equal '("MAPPEDA"))))
+
+    (it "maps a hierarchical list"
+      (let ((l '("A" "B" "C" ("D" "E" "F"))))
+        (lister-set-list ewoc l)
+        (cl-labels ((map-fn (s)
+                            (concat "MAPPED" s)))
+          (expect (lister-map ewoc #'map-fn)
+                  :to-equal '("MAPPEDA" "MAPPEDB" "MAPPEDC"
+                              ("MAPPEDD" "MAPPEDE" "MAPPEDF")))))))
+  
+  (describe "lister-add"
     (it "adds a single item to an empty list:"
       (lister-add ewoc item)
       (expect (lister-get-list ewoc)
