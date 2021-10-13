@@ -1304,6 +1304,16 @@ as elements) and must not undo the wrapping."
            (new-list     (lister--reorder-wrapped-list wrapped-list fn)))
       (lister--replace-items ewoc new-list beg end level))))
 
+(defun lister-reorder-sublist-at (ewoc pos pred)
+  "Reorder the sublist at POS in EWOC by PRED."
+    (lister-with-sublist-at ewoc pos beg end
+    (lister--reorder ewoc pred beg end)))
+
+(defun lister-reorder-sublist-below (ewoc pos pred)
+  "Reorder the sublist below POS in EWOC by PRED."
+  (lister-with-sublist-at ewoc pos beg end
+    (lister--reorder ewoc pred beg end)))
+
 (defun lister-reverse-list (ewoc &optional beg end)
   "Reverse the list in EWOC, preserving sublist associatios.
 Use BEG and END to specify the first and the last item of the
