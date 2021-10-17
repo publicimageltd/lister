@@ -113,10 +113,11 @@ unmark all items in the region and ignore PREFIX."
 
 (defun lister-mode-unmark-all ()
   "Unmark all items in the current Lister buffer."
+  (interactive)
   (unless lister-local-ewoc
     (error "Functions needs to be called in a Lister buffer with an Ewoc object"))
-  (lister-walk-marked-nodes (lister-local-ewoc node)
-                            (lambda (node)
+  (lister-walk-marked-nodes lister-local-ewoc
+                            (lambda (ewoc node)
                               (lister-mark-unmark-at ewoc node nil))))
 
 ;; Cycle subtree visibility
