@@ -501,13 +501,19 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 ** Sorting
 
 #+begin_src emacs-lisp
-;; Reverse the list items between BEG and END, or the whole list:
-(lister-reverse-list ewoc &optional beg end)
-;; Sort the list according to sorting predicate PRED:
-(lister-sort-list ewoc pred &optional beg end)
-;; The same with sublists:
-(lister-sort-sublist-at ewoc pos pred)
-(lister-sort-sublist-below ewoc pos pred)
+  ;; Reverse the list items between BEG and END, or the whole list:
+  (lister-reverse-list ewoc &optional beg end)
+  ;; Sort the list according to sorting predicate PRED:
+  (lister-sort-list ewoc pred &optional beg end)
+  ;; The same with sublists:
+  (lister-sort-sublist-at ewoc pos pred)
+  (lister-sort-sublist-below ewoc pos pred)
+  ;; Reorder sublists using any kind of predicate:
+  (lister-reorder-sublist-at ewoc pos)
+  (lister-reorder-sublist-below ewoc pos)
+  ;; Note that "reordering" uses a more complicate predicate function
+  ;; than simple sorting. See the documentation of
+  ;; `lister--reorder-wrapped-list' for a more detailed explanation.
 #+end_src
 
 Sorting or reversing a list keeps the individual mark state.
