@@ -224,8 +224,11 @@ function =ewoc-get-hf=.
 
 =Lister-setup= returns an ewoc object, which is then used as the basic
 reference for all =Lister= operations. The ewoc object is also stored in
-the buffer local variable =lister-local-ewoc=. It can be used to access
-the ewoc in an interactive function, like this:
+the buffer local variable =lister-local-ewoc=, which can be retreived
+with =lister-get-ewoc=.
+
+The buffer local variable can be used to access the ewoc in an
+interactive function, like this:
 
 #+begin_src emacs-lisp
 (defun do-something (ewoc pos)
