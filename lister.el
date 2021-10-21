@@ -758,11 +758,12 @@ Use BEG and END to restrict the items checked."
            (old-state (lister--item-marked item)))
       (when (not (eq old-state state))
         (with-current-buffer (ewoc-buffer ewoc)
-          (let ((markable (funcall lister-local-marking-predicate data)))
+          (let ((markable (or (not lister-local-marking-predicate)
+                              (funcall lister-local-marking-predicate data))))
             ;; Can unmark after modifying `lister-local-marking-predicate'
-            (when (or markable old-state))
-            (setf (lister--item-marked item) state)
-            (lister--update-mark-state item)))))))
+            (when (or markable old-state)
+              (setf (lister--item-marked item) state)
+              (lister--update-mark-state item))))))))
 
 (defun lister-mark-unmark-list (ewoc beg end state)
   "In EWOC, mark or unmark the list between BEG and END.
