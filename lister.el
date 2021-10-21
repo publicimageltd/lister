@@ -290,7 +290,7 @@ This is a slightly modified copy of `font-lock--remove-face-from-text-property'.
                       (put-text-property beg next 'face new))))))
       (setq beg (text-property-not-all next end 'face nil)))))
 
-(defun lister--update-mark-state (item)
+(defun lister--update-mark-state (item) 
   "Modify ITEM according to its marked state."
   (let* ((inhibit-read-only t)
          (beg (lister--item-beg item))
@@ -715,19 +715,27 @@ first or the last node, respectively."
     (apply #'ewoc-invalidate ewoc nodes)))
 
 ;; * Marking
+
+(defun lister--markable-p (ewoc node)
+  "Check if NODE is markable in EWOC.
+Return t if either there is no markable predicate set or if the
+predicate returns t when called with the node's data."
+  (with-current-buffer (ewoc-buffer ewoc)
+    (or (not lister-local-marking-predicate)
+        (funcall lister-local-marking-predicate (lister-node-get-data node)))))
+
 (defun lister-set-marking-predicate (ewoc pred)
   "Set PRED as a marking predicate in EWOC.
-All items whose data matches PRED are markable. If the
-PRED set to t, all items are markable."
+All items whose data matches PRED are markable.  Delete existing
+marks if they do not match PRED.  If the PRED set to nil, all
+items are markable."
   (with-current-buffer (ewoc-buffer ewoc)
     (setq-local lister-local-marking-predicate pred)
-    (lister-dolist-nodes (ewoc node :first :last)
-    (when-let* ((item     (ewoc-data node))
-                (data (lister--item-data item))
-                (pred (not (funcall lister-local-marking-predicate data))))
-        (with-current-buffer (ewoc-buffer ewoc)
-            (setf (lister--item-marked item) 'nil)
-            (lister--update-mark-state item))))))
+    (when pred
+      (lister-walk-marked-nodes ewoc
+                                (lambda (ewoc node)
+                                  (lister-mark-unmark-at ewoc node
+                                                         (lister--markable-p ewoc node)))))))
 
 (defun lister-count-marked-items (ewoc &optional beg end)
   "Count all marked items in EWOC.
@@ -754,16 +762,14 @@ Use BEG and END to restrict the items checked."
   "In EWOC, mark or unmark node at POS using boolean STATE."
   (when-let ((node (lister--parse-position ewoc pos)))
     (let* ((item      (ewoc-data node))
-           (data      (lister--item-data item))
            (old-state (lister--item-marked item)))
       (when (not (eq old-state state))
         (with-current-buffer (ewoc-buffer ewoc)
-          (let ((markable (or (not lister-local-marking-predicate)
-                              (funcall lister-local-marking-predicate data))))
-            ;; Can unmark after modifying `lister-local-marking-predicate'
-            (when (or markable old-state)
-              (setf (lister--item-marked item) state)
-              (lister--update-mark-state item))))))))
+          ;; Can unmark after modifying `lister-local-marking-predicate'
+          (when (or (lister--markable-p ewoc node)
+                    old-state)
+            (setf (lister--item-marked item) state)
+            (lister--update-mark-state item)))))))
 
 (defun lister-mark-unmark-list (ewoc beg end state)
   "In EWOC, mark or unmark the list between BEG and END.
