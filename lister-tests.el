@@ -1259,7 +1259,42 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-mark-unmark-at ewoc 4 t)
       (lister-delete-marked-list ewoc)
       (expect (lister-get-list ewoc)
-              :to-equal '("1" "3" "5" "6" "7" "8" "9" "10")))))
+              :to-equal '("1" "3" "5" "6" "7" "8" "9" "10"))))
+
+  (describe "lister-set-marking-predicate"
+    (it "sets the buffer local predicate"
+      (lister-set-list ewoc l)
+      (lister-set-marking-predicate ewoc #'identity)
+      (expect (with-current-buffer (ewoc-buffer ewoc)
+                lister-local-marking-predicate)
+              :to-equal #'identity))
+    (it "keeps all previous marks if set to nil"
+      (lister-set-list ewoc l)
+      (lister-dolist-nodes (ewoc node)
+        (lister-mark-unmark-at ewoc node t))
+      (lister-set-marking-predicate ewoc nil)
+      (expect (lister-get-marked-list ewoc)
+              :to-equal l))
+    (it "keeps marks which match the new predicate"
+      (lister-set-list ewoc l)
+      (lister-dolist-nodes (ewoc node)
+        (lister-mark-unmark-at ewoc node t))
+      (let ((pred (lambda (data)
+                    (cl-evenp (string-to-number data)))))
+        (lister-set-marking-predicate ewoc pred)
+        (expect (lister-get-marked-list ewoc)
+                :to-equal (seq-filter pred l)))))
+  
+  (describe "lister-mark-unmark-at with marking predicate"
+    (it "only allows marking of matching items"
+      (lister-set-list ewoc l)
+      (let ((pred (lambda (data)
+                    (cl-evenp (string-to-number data)))))
+        (lister-set-marking-predicate ewoc pred)
+        (lister-dolist-nodes (ewoc node)
+          (lister-mark-unmark-at ewoc node t))
+        (expect (lister-get-marked-list ewoc)
+                :to-equal (seq-filter pred l))))))
 
 (describe "Interactive Editing"
   :var (ewoc l)
