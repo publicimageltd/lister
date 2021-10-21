@@ -467,6 +467,8 @@ lister-mark-face-or-property
 (lister-count-marked-items ewoc &optional beg end)
 ;; Mark or unmark the item at POS:
 (lister-mark-unmark-at ewoc pos state)
+;; Set a limiting predicate:
+(lister-set-marking-predicate ewoc pred)
 ;; Mark or unmark a whole list:
 (lister-mark-unmark-list ewoc beg end state)
 (lister-mark-unmark-sublist-at ewoc pos state)
@@ -479,7 +481,10 @@ lister-mark-face-or-property
 #+end_src
 
 If =STATE= is nil, mark the item or the specified list items; else
-unmark them.
+unmark them. Optionally set a buffer-local marking predicate using
+=lister-set-marking-predicate=. If this predicate is set, only mark
+items which satisfy it. Setting a new predicate will unmark alreay
+marked items which will not match it.
 
 Note that in the case of walking nodes, =ACTION-FN= requires /two/
 arguments: the ewoc object and the node. The reason behind this is
@@ -693,6 +698,11 @@ lister-local-padding-string
 * Changelog
 
 ** Current version
+
+ - Add marking predicate (thanks to Nathanael kinfe)
+ - Add function to get the buffer local ewoc (thanks to Nathanael kinfe)
+ - Add convenience functions to 'reorder' sublists (thanks to
+   Nathanael kinfe)
  - Add mapping function 
  - New feature: header or footer can now also be a function.
  - New feature: item strings with fields =button= or =field= set will not be
