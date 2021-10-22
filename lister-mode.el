@@ -171,7 +171,6 @@ Only move within the same level unless PREFIX is set."
 ;; * The Keymap
 (defvar lister-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map special-mode-map)
     (define-key map "m" 'lister-mode-mark)
     (define-key map "u" 'lister-mode-unmark)
     (define-key map "U" 'lister-mode-unmark-all)
