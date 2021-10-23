@@ -612,7 +612,7 @@ is invalid (i.e. index is out of bounds) or invisible."
   ;; node, else error. Refactor?
   (when-let ((node (lister--parse-position ewoc pos)))
     (if (lister--item-visible (ewoc-data node))
-        (ewoc-goto-node ewoc node)
+          (ewoc-goto-node ewoc node)
       (error "Cannot go to invisible item %s" pos))))
 
 ;; * Inspect Nodes
@@ -993,18 +993,29 @@ list '(A (B C))'."
 
 ;; * Functions to find nodes (next, prev)
 
-(cl-defun lister-next-matching (ewoc pos pred)
-  "In EWOC, find next match for PRED starting from POS.
+(defun lister-next-matching (ewoc pos pred)
+  "In EWOC, find next match for PRED after POS.
 PRED is checked against the node's data.  Begin searching from
 POS, which is a position understood by `lister--parse-position'.
 Return the node found or nil."
-  (let ((node (lister--parse-position ewoc pos)))
+  (when-let ((node (lister--parse-position ewoc pos)))
     (lister--next-node-matching ewoc node
                                 (lambda (n)
                                   (funcall pred (lister--item-data (ewoc-data n)))))))
 
+;;; TODO Write test
+(defun lister-first-matching (ewoc pos pred)
+  "In EWOC, find first match for PRED starting from POS.
+PRED is checked against the node's data.  Begin searching at
+POS, which is a position understood by `lister--parse-position'.
+Return the node found or nil."
+  (when-let ((node (lister--parse-position ewoc pos)))
+    (lister--next-or-this-node-matching ewoc node
+                                        (lambda (n)
+                                          (funcall pred (lister--item-data (ewoc-data n)))))))
+
 (defun lister-next-visible-matching (ewoc pos pred)
-  "In EWOC, moving from POS, find the next visible match for PRED.
+  "In EWOC, find the next visible match for PRED after POS.
 PRED is checked against the node's data.  Begin searching from
 POS, which is a position understood by `lister--parse-position'.
 Return the node found or nil."
@@ -1015,7 +1026,7 @@ Return the node found or nil."
                                        (funcall pred (lister--item-data (ewoc-data n))))))))
 
 (cl-defun lister-prev-matching (ewoc pos pred)
-  "Moving from POS via MOVE-FN, find the prev node in EWOC matching PRED.
+  "Find the prev node in EWOC matching PRED before POS.
 PRED is checked against the node's data.  Begin searching
 backwards from POS, which is a position understood by
 `lister--parse-position'.  Return the node found or nil."
@@ -1026,7 +1037,7 @@ backwards from POS, which is a position understood by
                                 #'ewoc-prev)))
 
 (defun lister-prev-visible-matching (ewoc pos pred)
-  "Moving from POS, find the prev visible node in EWOC matching PRED.
+  "Find the prev visible node in EWOC matching PRED before POS.
 PRED is checked against the node's data.  Begin searching
 backwards from POS, which is a position understood by
 `lister--parse-position'.  Return the node found or nil."
