@@ -290,7 +290,7 @@ This is a slightly modified copy of `font-lock--remove-face-from-text-property'.
                       (put-text-property beg next 'face new))))))
       (setq beg (text-property-not-all next end 'face nil)))))
 
-(defun lister--update-mark-state (item) 
+(defun lister--update-mark-state (item)
   "Modify ITEM according to its marked state."
   (let* ((inhibit-read-only t)
          (beg (lister--item-beg item))
@@ -364,10 +364,12 @@ above, throw an error."
       (_        (error "Unkown position argument: %s" pos)))))
 
 ;; TODO Write tests
-(defun lister-eolp ()
-  "Return non-nil if point is after the last item of EWOC."
-  (or (eobp)
-      (get-text-property (point) 'footer)))
+(defun lister-eolp (&optional buf)
+  "Return non-nil if point is after the last item in BUF.
+Use the current buffer or BUF."
+  (with-current-buffer (or buf (current-buffer))
+    (or (eobp)
+        (get-text-property (point) 'footer))))
 
 (defun lister--determine-level (prev-level new-level)
   "Return the level for new items relative to PREV-LEVEL.
