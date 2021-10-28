@@ -71,7 +71,7 @@ POS.  If PREFIX is '(16), mark the sublist below POS."
   (pcase prefix
     (`(4)  (lister-mark-unmark-sublist-at ewoc pos state))
     (`(16) (lister-mark-unmark-sublist-below ewoc pos state))
-    (null   (progn
+    ('nil   (progn
              (lister-mark-unmark-at ewoc pos state)
              (lister-goto ewoc :next)))))
 
