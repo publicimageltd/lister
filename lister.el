@@ -205,8 +205,8 @@ function, nor a string, nor a list, nor nil, throw an error."
 (defun lister--insert-as-hf (hf-data)
   "In current Lister buffer, insert HF-DATA as header or footer.
 HF-DATA can be either a function, a string or a list of strings."
-  (when hf-data
-    (pcase-let ((`(,type ,data) hf-data))
+  (pcase-let ((`(,type ,data) hf-data))
+    (when data
       (let* ((strings (lister--get-hf-strings data))
              (beg     (point))
              (lister-local-left-margin 0))
