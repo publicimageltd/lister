@@ -1633,6 +1633,8 @@ strings."
     ;; Prepare for outline
     (set (make-local-variable 'line-move-ignore-invisible) t)
     (add-to-invisibility-spec '(outline . t))
+    ;; Further settings:
+    (setq-local buffer-undo-list t)
     (read-only-mode +1)
     (cursor-intangible-mode +1)
     (setq-local lister-local-mapper mapper)
