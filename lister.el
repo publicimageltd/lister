@@ -181,6 +181,12 @@ strings according to PADDING-LEVEL and the buffer local value of
                (string-join strings "\n"))
               "\n")))) ;; <- this leaves the "tangible" gap for the next item!
 
+;; Insert header / footer
+
+;; The ewoc pretty printer does not know if it prints a header or a
+;; footer, but we need to handle them differently for setting text
+;; properties. So we wrap our own functions around.
+
 ;;; TODO Write tests
 (defun lister--get-hf-strings (hf-data)
   "Use HF-DATA to get strings for a header or footer.
@@ -200,39 +206,44 @@ function, nor a string, nor a list, nor nil, throw an error."
   "In current Lister buffer, insert HF-DATA as header or footer.
 HF-DATA can be either a function, a string or a list of strings."
   (when hf-data
-    (let* ((strings (lister--get-hf-strings hf-data))
-           (beg (point))
-           (lister-local-left-margin 0))
-      ;; Special treatment for footer only:
-      (when (and strings
-                 ;; `ewoc--refresh-node' calculates point using the start
-                 ;; marker of the node to be refreshed, so that should be
-                 ;; safe:
-                 (= beg (ewoc-location (ewoc--footer lister-local-ewoc))))
-        (setq strings (mapcar (lambda (s)
-                                (propertize s 'footer t))
-                              strings)))
-      (lister--insert-intangible strings 0)
-      (unless (get-text-property beg 'footer)
-        (put-text-property beg (1+ beg) 'front-sticky t)))))
+    (pcase-let ((`(,type ,data) hf-data))
+      (let* ((strings (lister--get-hf-strings data))
+             (beg     (point))
+             (lister-local-left-margin 0))
+        ;; Propertize footer for eolp recognition:
+        (when (and strings (eq type 'footer))
+          (setq strings (mapcar (lambda (s) (propertize s 'footer t)) strings)))
+        ;; insert...
+        (lister--insert-intangible strings 0)
+        ;; ..and close cursor gap in the header:
+        (when (eq type 'header)
+          (put-text-property beg (1+ beg) 'front-sticky t))))))
+
+(defun lister--get-hf (ewoc)
+  "Get header and footer of EWOC."
+  (pcase-let ((`(,header . ,footer) (ewoc-get-hf ewoc)))
+    ;; ewoc-create initializes with "" if header arg is nil
+    (list (if (eq header "") (list 'header "") header)
+          (if (eq footer "") (list 'footer "") footer))))
 
 (defun lister-refresh-header-footer (ewoc)
   "Redisplay the header and the footer of EWOC.
 Mostly makes sense if one them has a function as its data."
-  (let ((hf (ewoc-get-hf ewoc)))
-    (ewoc-set-hf ewoc (car hf) (cdr hf))))
+  (apply #'ewoc-set-hf ewoc (lister--get-hf ewoc)))
 
 (defun lister-set-header (ewoc strings-or-fn)
   "Set STRINGS-OR-FN as a list header in EWOC.
 Use STRINGS-OR-FN to determine the header.  It can be a function,
 a string or a list of strings."
-  (ewoc-set-hf ewoc strings-or-fn (cdr (ewoc-get-hf ewoc))))
+  (pcase-let ((`(_ ,footer) (lister--get-hf ewoc)))
+    (ewoc-set-hf ewoc (list 'header strings-or-fn) footer)))
 
 (defun lister-set-footer (ewoc strings-or-fn)
   "Set STRINGS-OR-FN as a list footer in EWOC.
 Use STRINGS-OR-FN to determine the footer.  It can be a function,
 a string or a list of strings."
-  (ewoc-set-hf ewoc (car (ewoc-get-hf ewoc)) strings-or-fn))
+  (pcase-let ((`(,header _) (lister--get-hf ewoc)))
+    (ewoc-set-hf ewoc header (list 'footer strings-or-fn))))
 
 ;; Make the item invisible / visible:
 
