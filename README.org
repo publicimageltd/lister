@@ -677,18 +677,22 @@ of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 ** Miscellaneous 
 
 #+begin_src emacs-lisp
-  ;; Check if the list is empty:
-  (lister-empty-p ewoc)
-  ;; Check if a node is part of the list from beg to end:
-  (lister-node-in-region-p node beg end)
-  ;; Move point:
-  (lister-goto ewoc pos)
-  ;; Manually re-set the level of an item:
-  (lister-set-level-at ewoc pos)
-  (lister-get-level-at ewoc pos)
-  ;; Redisplay an item (e.g. if its data has changed):
-  (lister-refresh-at ewoc pos)
-  (lister-refresh-list ewoc beg end) 
+    ;; Check if the list is empty:
+    (lister-empty-p ewoc)
+    ;; Check if a node is part of the list from beg to end:
+    (lister-node-in-region-p node beg end)
+    ;; Move point:
+    (lister-goto ewoc pos)
+    ;; Manually re-set the level of an item:
+    (lister-set-level-at ewoc pos)
+    (lister-get-level-at ewoc pos)
+    ;; Redisplay an item (e.g. if its data has changed):
+    (lister-refresh-at ewoc pos)
+    (lister-refresh-list ewoc beg end) 
+   ;; Retain position when updating display: Execute BODY, then return
+   ;; to the node at point before BODY.  Useful when updating the
+   ;; display, and the items change (because this moves the cursor)
+   (lister-save-current-node BODY)
 #+end_src
 
 Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
