@@ -378,7 +378,46 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (expect (lister-empty-p ewoc) :to-be-truthy))
     (it "replaces an empty list with a new list:"
       (lister-replace-list ewoc '("1" "2") nil nil)
-      (expect (lister-get-list ewoc) :to-equal '("1" "2")))))
+      (expect (lister-get-list ewoc) :to-equal '("1" "2"))))
+
+
+  ;; TODO Add tests for -update; -delete-marked
+  (describe "modified flag:"
+    (describe "lister-setup"
+      (it "returns buffer with modified set to nil"
+        (expect (lister-modified-p ewoc) :not :to-be-truthy)))
+    (describe "lister-insert"
+      (it "sets modified flag"
+        (lister-insert ewoc :first "TEST")
+        (expect (lister-modified-p ewoc) :to-be-truthy)))
+    (describe "lister-replace-at"
+      (it "sets modified flag"
+        (lister-insert ewoc :first "TEST")
+        (lister-set-modified-p ewoc nil)
+        (expect (lister-modified-p ewoc) :not :to-be-truthy)
+        (lister-replace-at ewoc :first "NEW ITEM")
+        (expect (lister-modified-p ewoc) :to-be-truthy)))
+    (describe "lister-delete-at"
+      (it "sets modified flag"
+        (lister-insert ewoc :first "TEST")
+        (lister-set-modified-p ewoc nil)
+        (expect (lister-modified-p ewoc) :not :to-be-truthy)
+        (lister-delete-at ewoc :first)
+        (expect (lister-modified-p ewoc) :to-be-truthy)))
+    (describe "lister-delete-list"
+      (it "sets modified flag"
+        (lister-insert-list ewoc :first '("A" "B" "C"))
+        (lister-set-modified-p ewoc nil)
+        (expect (lister-modified-p ewoc) :not :to-be-truthy)
+        (lister-delete-list ewoc :first :last)
+        (expect (lister-modified-p ewoc) :to-be-truthy)))
+    (describe "lister-delete-all"
+      (it "sets modified flag"
+        (lister-insert-list ewoc :first '("A" "B" "C"))
+        (lister-set-modified-p ewoc nil)
+        (expect (lister-modified-p ewoc) :not :to-be-truthy)
+        (lister-delete-all ewoc)
+        (expect (lister-modified-p ewoc) :to-be-truthy)))))
 
 ;;; * Setting and removing header/footer
 

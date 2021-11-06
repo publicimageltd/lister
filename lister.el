@@ -70,6 +70,11 @@ Do not set this directly; use `lister-set-filter' instead.")
 (defvar-local lister-local-marking-predicate nil
   "Buffer local marking predicate.
 Do not set this directly; use `lister-set-marking-predicate' instead.")
+
+(defvar-local lister-local-modified nil
+  "Buffer local modified flag.
+This will be non-nil once an item has been deleted or inserted.")
+
 ;;; * Data Types
 
 (cl-defstruct (lister--item (:constructor lister--item-create))
@@ -459,10 +464,19 @@ If NODE is nil, return the last visible node of the EWOC."
                                    #'ewoc-prev))
 
 ;;; * Public API
+
 (defun lister-get-ewoc (buf)
   "Get ewoc object associated with BUF."
   ;; see https://github.com/alphapapa/emacs-package-dev-handbook#accessing-buffer-local-variables
   (buffer-local-value 'lister-local-ewoc buf))
+
+(defun lister-modified-p (ewoc)
+  "Return non-nil if items in EWOC have been modified."
+  (buffer-local-value 'lister-local-modified (ewoc-buffer ewoc)))
+
+(defun lister-set-modified-p (ewoc &optional flag)
+  "Mark EWOC as modified according to FLAG."
+  (setf (buffer-local-value 'lister-local-modified (ewoc-buffer ewoc)) flag))
 
 (defmacro lister-with-boundaries (ewoc beg-var end-var &rest body)
   "In EWOC, do BODY binding BEG-VAR and END-VAR to list nodes.
@@ -592,8 +606,10 @@ set, restrict action only to matching nodes."
       (when (and (or (not pred-fn)
                      (funcall pred-fn data))
                  (setq new-data (funcall action-fn (cl-copy-seq data))))
-        (setf (lister--item-data (ewoc-data node)) new-data)
-        (ewoc-invalidate ewoc node)))))
+        (lister-replace-at ewoc node new-data)))))
+
+        ;; (setf (lister--item-data (ewoc-data node)) new-data)
+        ;; (ewoc-invalidate ewoc node)))))
 
 ;;; TODO Add return value counter for all calls to ACTION-FN
 ;;; TODO Document counter in lister-walk-marked-nodes
@@ -678,6 +694,7 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
   "In EWOC, replace the data at POS with DATA."
   (lister-with-node-or-error ewoc pos node
     (error "No node or lister item at position %s" pos)
+    (lister-set-modified-p ewoc t)
     (setf (lister--item-data (ewoc-data node)) data)
     (ewoc-invalidate ewoc node)))
 
@@ -705,6 +722,7 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
 
 (defun lister-delete-at (ewoc pos)
   "In EWOC, delete node specified by POS."
+  (lister-set-modified-p ewoc t)
   (let* ((node (lister--parse-position ewoc pos))
          (inhibit-read-only t)
          (item  (ewoc-data node)))
@@ -856,6 +874,7 @@ visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (let* ((inhibit-read-only t)
          (pred-fn (or marker-pred-fn #'lister-node-marked-and-visible-p))
          (nodes   (lister-collect-nodes ewoc beg end pred-fn)))
+    (lister-set-modified-p ewoc t)
     (apply #'ewoc-delete ewoc nodes)))
 
 ;; * Insert Items
@@ -896,6 +915,7 @@ Items inserted at top always have level 0.  Create each inserted
 item by calling ITEM-FN with two arguments, the current element
 of the list and its assigned level.  Insert L before (or
 visually 'above') the node at POS, unless INSERT-AFTER is set."
+  (lister-set-modified-p ewoc t)
   (let* (;; determine the level:
          (node (lister--parse-position ewoc pos))
          (prev (if insert-after node (ewoc-prev ewoc node)))
