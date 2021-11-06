@@ -699,7 +699,7 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
          (inhibit-read-only t)
          (item  (ewoc-data node)))
     ;; deleting the marker saves memory and makes sure that
-    ;; `lister--finally-moving-to' works well
+    ;; `lister-save-current-node' works well
     (setf (lister--item-beg item) nil
           (lister--item-end item) nil)
     (ewoc-delete ewoc node)))
@@ -1473,20 +1473,31 @@ EWOC is a lister Ewoc object."
 
 ;; Move sublists:
 
-(defmacro lister--finally-moving-to (ewoc pos &rest body)
-  "Execute BODY and then move to POS in EWOC.
-Keep track of the position of the node at POS by keeping a
-reference to its data object.  It is safe to delete and reinsert
-the node in BODY.  If the node's data object is invalid or not
-re-inserted after BODY exits, do nothing."
+(defmacro lister-save-current-node (ewoc &rest body)
+  "In EWOC, save point, execute BODY and restore point.
+Keep track of the position using the node's data object.  It is
+safe to delete and reinsert the node in BODY.  If the node's data
+object is invalid or not re-inserted after BODY exits, do
+nothing."
   (declare (indent 2) (debug (sexp symbolp body)))
-  (let ((pos-var  (make-symbol "--pos--"))
-        (item-var (make-symbol "--item--")))
-    `(let ((,item-var (ewoc-data (lister--parse-position ,ewoc ,pos))))
-     ,@body
-     (when-let ((,pos-var (and ,item-var (lister--item-beg ,item-var))))
-       (with-current-buffer (marker-buffer ,pos-var)
-         (goto-char ,pos-var))))))
+  (let ((pos-var     (make-symbol "--pos--"))
+        (item-var    (make-symbol "--item--"))
+        (footerp-var (make-symbol "--footer-p--"))
+        (eobp-var    (make-symbol "--eobp--")))
+    `(let* ((,footerp-var  (lister-eolp))
+            (,eobp-var     (eobp))
+            (,item-var     (unless ,footerp-var
+                             (ewoc-data (lister--parse-position ,ewoc :point)))))
+       ,@body
+       (if ,footerp-var
+           (if ,eobp-var
+               (goto-char (point-max))
+             (ewoc-goto-node ,ewoc (ewoc--footer ,ewoc)))
+         ;; this works because the ewoc printer always keeps the item
+         ;; slots "beg" and "end" up to date:
+         (when-let ((,pos-var (and ,item-var (lister--item-beg ,item-var))))
+           (with-current-buffer (marker-buffer ,pos-var)
+             (goto-char ,pos-var)))))))
 
 (defun lister--next-node-same-level (ewoc pos move-fn)
   "Move to next node, skipping items with bigger indentation.
@@ -1506,7 +1517,7 @@ node is found."
 (defun lister--move-list (ewoc beg end target insert-after)
   "Insert items from BEG to END at TARGET according to INSERT-AFTER.
 EWOC is a lister ewoc object.  Keep cursor at the node at point."
-  (lister--finally-moving-to ewoc :point
+  (lister-save-current-node ewoc
     (let* ((level (lister-get-level-at ewoc beg))
            (l (lister--get-items ewoc beg end level #'identity)))
       (lister-delete-list ewoc beg end)
@@ -1539,7 +1550,7 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
     (if (and (eq beg (ewoc-nth ewoc 0))
              (eq end (ewoc-nth ewoc -1)))
         (error "No sublist at this position")
-      (lister--finally-moving-to ewoc :point
+      (lister-save-current-node ewoc
         (lister-dolist-nodes (ewoc node beg end)
           (cl-incf (lister--item-level (ewoc-data node)))
           (ewoc-invalidate ewoc node))))))
@@ -1549,7 +1560,7 @@ EWOC is a lister ewoc object.  Keep cursor at the node at point."
   (lister-with-sublist-at ewoc pos beg end
     (if (eq 0 (lister-node-get-level beg))
         (error "Sublist cannot be moved further left"))
-    (lister--finally-moving-to ewoc :point
+    (lister-save-current-node ewoc
       (lister-dolist-nodes (ewoc node beg end)
         (cl-decf (lister--item-level (ewoc-data node)))
         (ewoc-invalidate ewoc node)))))

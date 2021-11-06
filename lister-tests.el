@@ -1304,13 +1304,14 @@ low-lewel ewoc functions instead of `lister--parse-position'."
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
 
-  (describe "lister--finally-moving-to"
+  (describe "lister-save-current-node"
     (it "leaves point at node when other nodes are changed:"
       (lister-set-list ewoc '("0" "1" "2"))
       (with-current-buffer (ewoc-buffer ewoc)
         (let* ((node (lister-get-node-at ewoc 2))
-               (p    (marker-position (lister--item-beg (ewoc-data node)))))
-          (lister--finally-moving-to ewoc node
+               (_    (lister-goto ewoc node))
+               (p    (marker-position (lister--item-beg (ewoc-data node)))))          
+          (lister-save-current-node ewoc
             (lister-delete-at ewoc 1)
             (lister-insert-at ewoc 1 "1"))
           (expect (point) :to-equal p))))
@@ -1318,7 +1319,8 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-set-list ewoc '("0" "1" "2"))
       (with-current-buffer (ewoc-buffer ewoc)
         (let* ((node (lister-get-node-at ewoc 2)))
-          (lister--finally-moving-to ewoc node
+          (lister-goto ewoc node)
+          (lister-save-current-node ewoc
             (lister-insert-list ewoc 2 '("NEU" "NEW" "NEUF")))
           (expect (point) :to-equal (marker-position (lister--item-beg (ewoc-data node)))))))
     (it "leaves point untouched when item is gone:"
@@ -1326,10 +1328,32 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-goto ewoc :first)
       (with-current-buffer (ewoc-buffer ewoc)
         (let* ((node (lister-get-node-at ewoc 2))
+               (_    (lister-goto ewoc node))
                (p    (point)))
-          (lister--finally-moving-to ewoc node
+          (lister-save-current-node ewoc
             (lister-delete-at ewoc node))
-          (expect (point) :to-be p)))))
+          (expect (point) :to-be p))))
+    (it "keeps point at footer:"
+      (lister-set-list ewoc '("0" "1" "2" "3" "4"))
+      (lister-set-footer ewoc "FOOTER")
+      (with-current-buffer (ewoc-buffer ewoc)
+        (ewoc-goto-node ewoc (ewoc--footer ewoc))
+      (lister-save-current-node ewoc
+          (lister-set-list ewoc '("NEW" "StuFF")))
+      (expect (lister-eolp) :to-be-truthy)
+      (expect (with-current-buffer (ewoc-buffer ewoc)
+                (eobp)) :not :to-be-truthy)))
+    (it "keeps point at eob:"
+      (lister-set-list ewoc '("0" "1" "2" "3" "4"))
+      (lister-set-footer ewoc "FOOTER")
+      (with-current-buffer (ewoc-buffer ewoc)
+        (goto-char (point-max)))
+      (lister-save-current-node ewoc
+          (lister-set-list ewoc '("NEW" "StuFF")))
+      (expect (lister-eolp) :to-be-truthy)
+      (expect (with-current-buffer (ewoc-buffer ewoc)
+                (eobp)) :to-be-truthy)))
+
   
   (describe "lister--next-node-same-level"
     (it "finds the next node with the same level:"
