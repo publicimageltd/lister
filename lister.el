@@ -495,7 +495,7 @@ immediately, use (cl-return).
                               body)))
   (let ((temp-node (make-symbol "--temp-node--"))
         (last-var  (make-symbol "--last-node--")))
-    `(let ((,var       (lister--parse-position ,ewoc (or ,beg :first)))
+    `(let ((,var      (lister--parse-position ,ewoc (or ,beg :first)))
            (,last-var (lister--parse-position ,ewoc (or ,end :last))))
        (cl-block nil
          (while ,var

@@ -155,7 +155,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
     (setq item "ITEM"))
   (after-each
     (kill-buffer (ewoc-buffer ewoc)))
-  
+
   (describe "lister-empty-p:"
     (it "returns t when list is empty:"
       (expect (lister-empty-p ewoc)
@@ -258,7 +258,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
           (expect (lister-map ewoc #'map-fn)
                   :to-equal '("MAPPEDA" "MAPPEDB" "MAPPEDC"
                               ("MAPPEDD" "MAPPEDE" "MAPPEDF")))))))
-  
+
   (describe "lister-add"
     (it "adds a single item to an empty list:"
       (lister-add ewoc item)
@@ -1284,7 +1284,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (lister-set-marking-predicate ewoc pred)
         (expect (lister-get-marked-list ewoc)
                 :to-equal (seq-filter pred l)))))
-  
+
   (describe "lister-mark-unmark-at with marking predicate"
     (it "only allows marking of matching items"
       (lister-set-list ewoc l)
@@ -1310,7 +1310,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (with-current-buffer (ewoc-buffer ewoc)
         (let* ((node (lister-get-node-at ewoc 2))
                (_    (lister-goto ewoc node))
-               (p    (marker-position (lister--item-beg (ewoc-data node)))))          
+               (p    (marker-position (lister--item-beg (ewoc-data node)))))
           (lister-save-current-node ewoc
             (lister-delete-at ewoc 1)
             (lister-insert-at ewoc 1 "1"))
@@ -1354,7 +1354,6 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (expect (with-current-buffer (ewoc-buffer ewoc)
                 (eobp)) :to-be-truthy)))
 
-  
   (describe "lister--next-node-same-level"
     (it "finds the next node with the same level:"
       (lister-set-list ewoc '("0" ("1") "2"))
@@ -1427,7 +1426,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-set-filter ewoc (apply-partially #'string-match-p "A"))
       (lister--move-item ewoc 4 #'lister--prev-visible-node t nil)
       (expect (lister-get-list ewoc)
-              :to-equal '("0" "1" "4" "A" "2" "5"))))    
+              :to-equal '("0" "1" "4" "A" "2" "5"))))
 
   (describe "lister-move-item-up"
     (it "throws an error if no movement is possible:"
