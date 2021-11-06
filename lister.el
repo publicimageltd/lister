@@ -117,6 +117,22 @@ This is a simple copy of dash's `-flatten' using `seq'."
       (seq-mapcat #'lister--flatten l)
     (list l)))
 
+(defmacro lister-with-node (ewoc pos var &rest body)
+  "Bind VAR to the node at POS and execute BODY if node exists.
+EWOC is an ewoc structure."
+  (declare (indent 3))
+  `(when-let ((,var (lister--parse-position ,ewoc ,pos)))
+     ,@body))
+
+(defmacro lister-with-node-or-error (ewoc pos var error &rest body)
+  "Bind VAR to the node at POS and execute BODY if node exists.
+Else, execute ERROR.  EWOC is an ewoc structure."
+  (declare (indent 3))
+  `(let ((,var (lister--parse-position ,ewoc ,pos)))
+     (if (not ,var)
+         ,error
+       ,@body)))
+
 ;;; * Low-level printing / insertion:
 ;;;
 
@@ -619,9 +635,7 @@ symbols `:first', `:last', `:point' (sic!), `:next' or `:prev'.
 
 Do nothing if position does not exist; throw an error if position
 is invalid (i.e. index is out of bounds) or invisible."
-  ;; NOTE This is a common pattern: when-let node, do something with
-  ;; node, else error. Refactor?
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (if (lister--item-visible (ewoc-data node))
           (ewoc-goto-node ewoc node)
       (error "Cannot go to invisible item %s" pos))))
@@ -642,13 +656,13 @@ is invalid (i.e. index is out of bounds) or invisible."
 (defun lister-get-level-at (ewoc pos)
   "In EWOC, get the indentation level of the item at POS.
 Do nothing if POS is nil."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (lister-node-get-level node)))
 
 (defun lister-set-level-at (ewoc pos level)
   "In EWOC, set indentation of node at POS to LEVEL, refreshing it.
 Do nothing if POS is nil."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (lister-set-node-level ewoc node level)))
 
 (defun lister-node-get-data (node)
@@ -659,15 +673,14 @@ Do nothing if POS is nil."
   "In EWOC, return the data of the lister node at POS.
 POS can be either an ewoc node, an index position, or one of the
 symbols `:first', `:last', `:point', `:next' or `:prev'."
-  (if-let ((node (lister--parse-position ewoc pos)))
-      (lister-node-get-data node)
-    (error "No node or lister item at position %s" pos)))
+  (lister-with-node-or-error ewoc pos node
+    (error "No node or lister item at position %s" pos)
+    (lister-node-get-data node)))
 
 (defun lister-set-data-at (ewoc pos data)
   "In EWOC, replace the data at POS with DATA."
-  (let ((node (lister--parse-position ewoc pos)))
-    (unless node
-      (error "No node or lister item at position %s" pos))
+  (lister-with-node-or-error ewoc pos node
+    (error "No node or lister item at position %s" pos)
     (setf (lister--item-data (ewoc-data node)) data)
     (ewoc-invalidate ewoc node)))
 
@@ -719,7 +732,7 @@ first or the last node, respectively."
 
 (defun lister-refresh-at (ewoc pos-or-node)
   "In EWOC, redisplay the node at POS-OR-NODE."
-  (when-let ((node (lister--parse-position ewoc pos-or-node)))
+  (lister-with-node ewoc pos-or-node node
     (ewoc-invalidate ewoc node)))
 
 (defun lister-refresh-list (ewoc &optional beg end)
@@ -761,7 +774,7 @@ Use BEG and END to restrict the items checked."
 
 (defun lister-marked-at-p (ewoc pos)
   "Check if EWOC item at POS is marked."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (lister-node-marked-p node)))
 
 (defun lister-items-marked-p (ewoc &optional beg end)
@@ -773,7 +786,7 @@ Use BEG and END to restrict the items checked."
 
 (defun lister-mark-unmark-at (ewoc pos state)
   "In EWOC, mark or unmark node at POS using boolean STATE."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (let* ((item      (ewoc-data node))
            (old-state (lister--item-marked item)))
       (when (not (eq old-state state))
@@ -1020,7 +1033,7 @@ Return the node found or nil."
 PRED is checked against the node's data.  Begin searching at
 POS, which is a position understood by `lister--parse-position'.
 Return the node found or nil."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (lister--next-or-this-node-matching ewoc node
                                         (lambda (n)
                                           (funcall pred (lister--item-data (ewoc-data n)))))))
@@ -1162,7 +1175,7 @@ set an initial indentation level for the first item."
 
 (defun lister--locate-sublist (ewoc pos)
   "Return first and last node in EWOC with the same level as POS."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (let* ((item (ewoc-data node))
            (ref-level (or (lister--item-level item) 0))
            (pred-fn   (lambda (n)
@@ -1418,7 +1431,7 @@ PRED nil effectively removes any existing filter."
 (defun lister--outline-invisible-p (ewoc pos)
   "Non-nil if the item at POS is hidden as part of an outline.
 EWOC is a lister Ewoc object."
-  (when-let ((node (lister--parse-position ewoc pos)))
+  (lister-with-node ewoc pos node
     (let* ((pos (lister--item-beg (ewoc-data node))))
       (eq (get-char-property pos 'invisible) 'outline))))
 
@@ -1504,15 +1517,15 @@ nothing."
 In EWOC, use MOVE-FN to find the next node with the same level as
 POS, skipping nodes with bigger indentation.  Return nil if no
 node is found."
-  (when-let* ((node    (lister--parse-position ewoc pos))
-              (level   (lister-get-level-at ewoc node)))
-    (while (and node
-                (setq node (funcall move-fn ewoc node))
-                (> (lister--item-level (ewoc-data node)) level)))
-    ;; now node is either nil or <= level
-    (and node
-         (and (= (lister--item-level (ewoc-data node)) level)
-              node))))
+  (lister-with-node ewoc pos node
+    (let ((level   (lister-get-level-at ewoc node)))
+      (while (and node
+                  (setq node (funcall move-fn ewoc node))
+                  (> (lister--item-level (ewoc-data node)) level)))
+      ;; now node is either nil or <= level
+      (and node
+           (and (= (lister--item-level (ewoc-data node)) level)
+                node)))))
 
 (defun lister--move-list (ewoc beg end target insert-after)
   "Insert items from BEG to END at TARGET according to INSERT-AFTER.
