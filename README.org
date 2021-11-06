@@ -4,7 +4,7 @@
 
 # NOTE: Do not forget to update the release in PROJECT STATUS and
 # CHANGELOG!
-This is the documentation for =Lister= version =0.9.2=
+This is the documentation for =Lister= version =0.9.3=
 
 *NOTE*: *This version 0.9.x is a complete rewrite* and it *breaks all code* which
 had been using the previous version =0.7.2=. To retain the legacy code,
@@ -63,7 +63,7 @@ or otherwise edit lists from various sources.
 
 * Project status
 
-Current release is =0.9.2=
+Current release is =0.9.3=
 
 * Feature overview
 
@@ -674,6 +674,28 @@ or one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 Argument =POS= can be either an =Ewoc= node, an integer position, or one
 of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 
+** Modified flag
+Since =Lister= is intended to offer editing facilities, there's also a
+modified flag. It is stored in the buffer local variable
+=lister-local-modified=. 
+
+The modified flag will be set to =t= each time an item is deleted,
+inserted, or its content is changed. Since moving also internally
+works with deleting and inserting, it will also trigger the modified
+flag.
+
+#+begin_src emacs-lisp
+;; Buffer local modified flag
+lister-local-modified
+;; Get the value of the modified flag
+(lister-modified-p ewoc)
+;; Set the value
+(lister-set-modified-p ewoc &optional flag)
+#+end_src
+
+It is recommended to add a variable watcher to display the modified
+flag (e.g. in the header of the list or in the modeline).
+
 ** Miscellaneous 
 
 #+begin_src emacs-lisp
@@ -711,6 +733,9 @@ lister-local-padding-string
 * Changelog
 
 ** Current 
+** 0.9.3.
+Add "modified" flag.
+
 ** 0.9.2
 
  - Add =lister-save-current-node=
