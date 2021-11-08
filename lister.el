@@ -1509,7 +1509,7 @@ Keep track of the position using the node's data object.  It is
 safe to delete and reinsert the node in BODY.  If the node's data
 object is invalid or not re-inserted after BODY exits, do
 nothing."
-  (declare (indent 2) (debug (sexp symbolp body)))
+  (declare (indent 2) (debug (sexp body)))
   (let ((pos-var     (make-symbol "--pos--"))
         (item-var    (make-symbol "--item--"))
         (footerp-var (make-symbol "--footer-p--"))
