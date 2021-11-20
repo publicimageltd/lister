@@ -1209,23 +1209,24 @@ set an initial indentation level for the first item."
            (lower (or lower (ewoc-nth ewoc -1))))
       `(,upper ,lower))))
 
-(defmacro lister-with-sublist-at (ewoc pos beg end &rest body)
-  "Execute BODY with BEG and END bound to the sublist at POS.
+(defmacro lister-with-sublist-at (ewoc pos beg-var end-var &rest body)
+  "Execute BODY with BEG-VAR and END-VAR bound to the sublist at POS.
 If there is no sublist, do not execute BODY and return nil.
 
-POS can be any value understood by `lister--parse-position'.  BEG
-and END have to be symbol names; they are bound to the upper and
-lower limit of the sublist at POS.  EWOC is a lister ewoc object."
+POS can be any value understood by `lister--parse-position'.
+BEG-VAR and END-VAR have to be symbol names; they will be bound
+to the upper and lower limit of the sublist at POS.  EWOC is a
+lister ewoc object."
   (declare (indent 4) (debug (sexp sexp symbolp symbolp body)))
-  (unless (and (symbolp beg) (not (keywordp beg)))
-    (signal 'wrong-type-argument (list 'symbolp beg)))
-  (unless (and (symbolp end) (not (keywordp end)))
-    (signal 'wrong-type-argument (list 'symbolp end)))
+  (unless (and (symbolp beg-var) (not (keywordp beg-var)))
+    (signal 'wrong-type-argument (list 'symbolp beg-var)))
+  (unless (and (symbolp end-var) (not (keywordp end-var)))
+    (signal 'wrong-type-argument (list 'symbolp end-var)))
   (let ((boundaries-var (make-symbol "boundaries")))
     `(let* ((,boundaries-var (lister--locate-sublist ,ewoc ,pos))
-            (,beg       (car ,boundaries-var))
-            (,end       (cadr ,boundaries-var)))
-       (when (and ,beg ,end)
+            (,beg-var       (car ,boundaries-var))
+            (,end-var       (cadr ,boundaries-var)))
+       (when (and ,beg-var ,end-var)
          ,@body))))
 
 (defmacro lister-with-sublist-below (ewoc pos beg end &rest body)
