@@ -1319,8 +1319,9 @@ If no list is found, return nil."
 
 (defun lister--wrap-list (l)
   "Wrap nested list L in a list, with sub-lists as its cdr.
-Throw an error if there is a sublist (a nested list) without a
-previous non-nested list item."
+Each list element must be either a nested list or a non-list
+atom.  Throw an error if there is a sublist (a nested list)
+without a previous non-nested list item."
   (declare (pure t) (side-effect-free t))
   (let (acc (tail l))
     (while tail
@@ -1405,14 +1406,26 @@ Use BEG and END to specify the first and the last item of the
 list to be reversed."
   (lister--reorder ewoc #'reverse beg end))
 
-(defun lister-sort-list (ewoc pred &optional beg end)
-  "In EWOC, sort the list and sublists using PRED.
-Use BEG and END to specify the first and the last item of the
-list to be reversed."
+(defun lister--sort-reduce (comps l)
+  "Sort wrapped list L using all sort comparators COMPS.
+Apply COMPS in sequence, using the result of applying the first
+comperator as input for the second round, etc.  Even if L has to
+be a 'wrapped' list, COMPS have direct access to the item data."
   (cl-labels ((key-fn (item)
-                        (lister--item-data (car item))))
+                      (lister--item-data (car item)))
+              (copy-sort (l comp)
+                         (seq-sort-by #'key-fn comp (copy-sequence l))))
+    (seq-reduce #'copy-sort (reverse comps) l)))
+
+(defun lister-sort-list (ewoc comps &optional beg end)
+  "In EWOC, sort the list and sublists using COMPS.
+BEG and END specify the first and the last item of the list
+range.  PREDS is either a single comperator function (like
+`string>') or a list of comperators.  Apply all COMPS from first
+to last on the list."
+  (let ((comps (if (listp comps) comps (list comps))))
     (lister--reorder ewoc
-                     (apply-partially #'seq-sort-by #'key-fn pred)
+                     (apply-partially #'lister--sort-reduce comps)
                      beg end)))
 
 (defun lister-sort-sublist-at (ewoc pos pred)

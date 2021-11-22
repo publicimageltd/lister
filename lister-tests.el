@@ -1091,6 +1091,20 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (lister-sort-list ewoc #'string>)
         (expect (lister-get-list ewoc)
                 :to-equal (seq-sort #'string> l))))
+    (it "sorts a flat list using two comparators"
+      (let ((l '([1 "c"] [2 "a"] [3 "b"]
+                 [1 "a"] [2 "b"] [3 "a"]
+                 [1 "b"] [2 "c"] [3 "c"])))
+        (cl-labels ((my-num<    (a b) (<       (aref a 0) (aref b 0)))
+                    (my-string< (a b) (string< (aref a 1) (aref b 1))))
+          (setq ewoc (lister-setup "*LISTER*" (apply-partially #'format "%s")))
+          (lister-set-list ewoc l)
+          (lister-sort-list ewoc (list #'my-num< #'my-string<)))
+        (expect (lister-get-list ewoc)
+                :to-equal
+                '([1 "a"] [1 "b"] [1 "c"]
+                  [2 "a"] [2 "b"] [2 "c"]
+                  [3 "a"] [3 "b"] [3 "c"]))))
     (it "keeps marking state of items:"
       (let ((l '("a" "b" "d" "f" "c")))
         (lister-set-list ewoc l)
