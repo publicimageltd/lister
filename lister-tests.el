@@ -1042,63 +1042,32 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (let ((the-list '(top1 (top2 (top3 (top4 (s1 s2 s3)))))))
         (expect (lister--wrap-list the-list)
                 :to-equal
-                '((top1 (top2 (top3 (top4 (s1) (s2) (s3)))))))))
-    (it "wraps a sublist without previous item"
-      (let ((the-list '((top1) a b c d)))
-        (expect (lister--wrap-list the-list)
-                :to-equal
-                '((nil (top1)) (a) (b) (c) (d)))))
-    (it "wraps a sublist without item and then a sublist with item"
-      (let ((the-list '((top1) a (sub-a sub-b))))
-        (expect (lister--wrap-list the-list)
-                :to-equal
-                '((nil (top1)) (a (sub-a) (sub-b)))))))
+                '((top1 (top2 (top3 (top4 (s1) (s2) (s3))))))))))
 
   (describe "lister--reorder-wrapped-list"
-    (describe "when rebuiding wrapped lists (call with 'identity)"
-      (it "rebuilds a nil list"
-        (let ((the-list nil))
-          (expect (lister--reorder-wrapped-list (lister--wrap-list the-list) #'identity)
-                  :to-be nil)))
-      (it "rebuilds a list not nested "
-        (let ((the-list '(a b c d e)))
-          (expect (lister--reorder-wrapped-list (lister--wrap-list the-list) #'identity)
-                  :to-equal
-                  the-list)))
-      (it "rebuilds a wrapped tree list"
-        (let ((the-list '(a (sub-a sub-b sub-c))))
-          (expect (lister--reorder-wrapped-list (lister--wrap-list the-list) #'identity)
-                  :to-equal
-                  the-list)))
-      (it "rebuilds a tree list without 'heading node'"
-        (let ((the-list '((lonesomenode) a (sub-a sub-b sub-c))))
-          (expect (lister--reorder-wrapped-list (lister--wrap-list the-list) #'identity)
-                  :to-equal
-                  the-list))))
-    (describe "when sorting"
-      (it "sorts a flat list"
-        (let ((the-list '((7) (5) (1) (8) (3) (2)))
-              (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
-          ;;             (apply-partially #'seq-sort #'<)))
-          (expect (lister--reorder-wrapped-list the-list the-fn)
-                  :to-equal
-                  '(1 2 3 5 7 8))))
-      (it "sorts wrapped nested lists"
-        (let ((the-list  '((8) (6) (4
-                                    (43
-                                     (40
-                                      (401)
-                                      (402)
-                                      (408)
-                                      (405))
-                                     (48)))
-                           (1) (9) (7) (3)))
-              (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
-          (expect (lister--reorder-wrapped-list
-                   the-list
-                   the-fn)
-                  :to-equal
-                  '(1 3 4 (43 (40 (401 402 405 408) 48)) 6 7 8 9))))))
+    (it "sorts a flat list"
+      (let ((the-list '((7) (5) (1) (8) (3) (2)))
+            (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
+;;             (apply-partially #'seq-sort #'<)))
+        (expect (lister--reorder-wrapped-list the-list the-fn)
+                :to-equal
+                '(1 2 3 5 7 8))))
+    (it "sorts wrapped nested lists"
+      (let ((the-list  '((8) (6) (4
+                                  (43
+                                   (40
+                                    (401)
+                                    (402)
+                                    (408)
+                                    (405))
+                                   (48)))
+                         (1) (9) (7) (3)))
+            (the-fn   (apply-partially #'seq-sort-by #'car #'<)))
+        (expect (lister--reorder-wrapped-list
+                 the-list
+                 the-fn)
+                :to-equal
+                '(1 3 4 (43 (40 (401 402 405 408) 48)) 6 7 8 9)))))
 
   (describe "lister-reverse-list"
     (it "reverses the whole list:"

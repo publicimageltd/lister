@@ -1320,27 +1320,17 @@ If no list is found, return nil."
 (defun lister--wrap-list (l)
   "Wrap nested list L in a list, with sub-lists as its cdr."
   (declare (pure t) (side-effect-free t))
-  (let (acc item next
-        (tail l))
-    (while tail
-      (setq item (car tail)
-            next (cadr tail))
-      ;; optimized for clarity, not for speed:
-      (cond
-        ;; Case: ("a" ("b")) -> consume both, move forward 2x
-       ((and (not (consp item)) (consp next))
-        (progn
-          (push (cons item (lister--wrap-list next)) acc)
-          (setq tail (cdr tail))))
-        ;; Case: (("a") "b") -> only consume "a", move forward 1x
-        ((and (consp item) (not (consp next)))
-         (push (cons nil (lister--wrap-list item)) acc))
-        ;; Case: ("a" "b") -> only consume "a", move forward 1x
-        (t
-         (push (list item) acc)))
-      (setq tail (cdr tail)))
+  (let (acc (walk l))
+    (while
+        (let ((current (car walk))
+              (next    (cadr walk)))
+          (unless (consp current)
+            (push (cons current (when (consp next)
+                                  (lister--wrap-list next)))
+                  acc))
+          (setq walk (cdr walk))))
     (nreverse acc)))
-  
+
 (defun lister--reorder-wrapped-list (wrapped-l fn)
   "Reorder WRAPPED-L using FN and return result as a plain list.
 WRAPPED-L is a wrapped list as returned by `lister--wrap-list'.
@@ -1371,7 +1361,7 @@ Example:
     (while tail
       (let ((item    (caar tail))
             (sublist (cdar tail)))
-        (when item (push item acc))
+        (push item acc)
         (when (consp sublist)
           (push (lister--reorder-wrapped-list sublist fn) acc))
         (setq tail (cdr tail))))
