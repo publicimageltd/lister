@@ -509,6 +509,8 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
   (lister-reverse-list ewoc &optional beg end)
   ;; Sort the list according to sorting predicate PRED:
   (lister-sort-list ewoc pred &optional beg end)
+  ;; Sort the list according to mulitple predicates in a row:
+  (lister-sort-list ewoc (list #'comp1 #'comp2) &optional beg end)
   ;; The same with sublists:
   (lister-sort-sublist-at ewoc pos pred)
   (lister-sort-sublist-below ewoc pos pred)
@@ -520,11 +522,32 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
   ;; `lister--reorder-wrapped-list' for a more detailed explanation.
 #+end_src
 
-Sorting or reversing a list keeps the individual mark state.
+Sorting or reversing a list keeps the individual mark state. Arguments
+=POS=, =BEG= and =END= can be either an =Ewoc= node, an integer position, or
+one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 
-Arguments =POS=, =BEG= and =END= can be either an =Ewoc= node, an integer
-position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
-=:point=.
+You can either pass a single comparator to the sorting function (such
+as =string>= or a list of comparators, which then will be applied
+successively (reduction). This is useful for sorting according to
+multiple criteria (e.g. first the name, than the income, etc.).
+
+A comparator function has direct access to the list data. So if you
+use a more complex data structure, do not forget to operate on the
+actual criteria and not on the containing object. E.g.:
+
+#+begin_src emacs-lisp
+  (defstruct list-data name income)
+  (defun sort-it (ewoc)
+    (cl-labels ((name> (a b) (string> (list-data-name a)
+                                      (list-data-name b)))
+                (income> (a b) (> (list-data-income a)
+                                  (list-data-income b))))
+      (lister-sort-list ewoc (list #'name> #'income>))))
+  ;; if you use the library dash.el:
+  (defun sort-it (ewoc)
+    (lister-sort-list ewoc (list (-on #'string> #'list-data-name)
+                                 (-on #'>       #'list-data-income))))
+#+end_src
 
 ** Filter
 
