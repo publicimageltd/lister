@@ -1318,17 +1318,21 @@ If no list is found, return nil."
 ;;; * Sorting (or, more abstract, reordering)
 
 (defun lister--wrap-list (l)
-  "Wrap nested list L in a list, with sub-lists as its cdr."
+  "Wrap nested list L in a list, with sub-lists as its cdr.
+Throw an error if there is a sublist (a nested list) without a
+previous non-nested list item."
   (declare (pure t) (side-effect-free t))
-  (let (acc (walk l))
-    (while
-        (let ((current (car walk))
-              (next    (cadr walk)))
-          (unless (consp current)
-            (push (cons current (when (consp next)
-                                  (lister--wrap-list next)))
-                  acc))
-          (setq walk (cdr walk))))
+  (let (acc (tail l))
+    (while tail
+      (let ((item (car tail))
+            (next (cadr tail)))
+        (when (consp item)
+          (error "Cannot wrap sublists w/o top heading item"))
+        (push (cons item (when (consp next)
+                           (setq tail (cdr tail))
+                           (lister--wrap-list next)))
+              acc)
+        (setq tail (cdr tail))))
     (nreverse acc)))
 
 (defun lister--reorder-wrapped-list (wrapped-l fn)
