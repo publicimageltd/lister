@@ -529,7 +529,8 @@ one of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 You can either pass a single comparator to the sorting function (such
 as =string>= or a list of comparators, which then will be applied
 successively (reduction). This is useful for sorting according to
-multiple criteria (e.g. first the name, than the income, etc.).
+multiple criteria (e.g. first the name, then within the same name,
+ranking by the income, etc.).
 
 A comparator function has direct access to the list data. So if you
 use a more complex data structure, do not forget to operate on the
