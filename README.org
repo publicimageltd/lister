@@ -761,6 +761,9 @@ lister-local-padding-string
 * Changelog
 
 ** Current 
+
+Add sorting with multiple predicates / criteria.
+
 ** 0.9.3.
 Add "modified" flag.
 
