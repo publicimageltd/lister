@@ -59,6 +59,7 @@ or otherwise edit lists from various sources.
   - [[#miscellaneous][Miscellaneous]]
 - [[#changelog][Changelog]]
   - [[#current][Current]]
+  - [[#094][0.9.4]]
   - [[#093][0.9.3.]]
   - [[#092][0.9.2]]
   - [[#091][0.9.1]]
