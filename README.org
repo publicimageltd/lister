@@ -4,7 +4,7 @@
 
 # NOTE: Do not forget to update the release in PROJECT STATUS and
 # CHANGELOG!
-This is the documentation for =Lister= version =0.9.3=
+This is the documentation for =Lister= version =0.9.4=
 
 *NOTE*: *This version 0.9.x is a complete rewrite* and it *breaks all code* which
 had been using the previous version =0.7.2=. To retain the legacy code,
@@ -67,7 +67,7 @@ or otherwise edit lists from various sources.
 
 * Project status
 
-Current release is =0.9.3=
+Current release is =0.9.4=
 
 * Feature overview
 
@@ -762,10 +762,12 @@ lister-local-padding-string
 
 ** Current 
 
-Add sorting with multiple predicates / criteria.
+** 0.9.4
+
+ - Add sorting with multiple predicates / criteria.
 
 ** 0.9.3.
-Add "modified" flag.
+ - Add "modified" flag.
 
 ** 0.9.2
 
@@ -781,7 +783,7 @@ Add "modified" flag.
    rest of the item remains inaccessible.
  - Add new public functions =lister-items-marked-p=, =lister-eolp=.
  - Bugfixes, internal refactoring.
-
+   
 ** 0.9.1
   - Some bugfixes; add more tests.
   - Added minor-mode.
