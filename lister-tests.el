@@ -756,9 +756,6 @@ low-lewel ewoc functions instead of `lister--parse-position'."
 
 ;;; * Movement / Navigation
 
-;; - lister-goto
-  ;; - with-locked-cursor
-
 (describe "Navigation:"
   :var (ewoc l)
   (before-each
@@ -794,11 +791,6 @@ low-lewel ewoc functions instead of `lister--parse-position'."
     (it "throws an error if index is out of bounds:"
       (expect (lister-goto ewoc 8)
               :to-throw)))
-
-;; * Editing
-
-;; - move-item-up, move-item-down
-
 
 ;;; * Filter
 
@@ -1001,22 +993,6 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (expect (lister--item-visible (ewoc-data
                                     (lister-get-node-at ewoc :last)))
                 :to-be-truthy)))))
-
-  ;; - with-locked-cursor
-  ;;     "keeps the visual line if the item is filtered away in its body"
-  ;;    "jumps to the last visible line if the current line has been filtered away in the body"
-  ;;    "jumps to the first line if the body filters all items"
-
-
-;; * Levels and indentation
-
-  ;; - insert
-  ;;   - does not allow indentation > 0 at top
-  ;;   - inherits indentation from previous item
-  ;;   - does not allow indentation difference > 1 at non-top item
-  ;;  - replace
-  ;;    - can chang indentation level
-
 
 ;; * Sorting
 
