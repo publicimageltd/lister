@@ -790,7 +790,24 @@ low-lewel ewoc functions instead of `lister--parse-position'."
               :to-equal "4"))
     (it "throws an error if index is out of bounds:"
       (expect (lister-goto ewoc 8)
-              :to-throw))))
+              :to-throw)))
+
+  (describe "lister-goto-first-sublist-node"
+    (it "moves to the first sublist node"
+      (lister-set-list ewoc '("A" "B" ("AA" "BB" "CC" "DD") "C" ))
+      (lister-goto-first-sublist-node ewoc 5)
+      (expect (lister-get-data-at ewoc :point)
+              :to-equal "AA"))
+    (it "moves to the first node if there is no sublist"
+      (lister-goto-first-sublist-node ewoc 4)
+      (expect (lister-get-data-at ewoc :point)
+              :to-equal (car l)))
+    (it "does nothing if there is no list"
+      (lister-set-list ewoc nil)
+      (with-current-buffer (ewoc-buffer ewoc)
+        (let ((pos (point)))
+          (lister-goto-first-sublist-node ewoc :point)
+          (expect pos :to-equal (point)))))))
 
 ;;; * Filter
 

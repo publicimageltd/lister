@@ -1671,6 +1671,17 @@ unless IGNORE-LEVEL is non-nil."
       (lister-set-level-at ewoc pos (1- level)))))
 
 ;;; * Set up buffer for printing:
+;;; * Move point within the hierarchy
+
+;; FIXME Only move to visible node?
+;; TODO Add tests
+(defun lister-goto-first-sublist-node (ewoc pos)
+  "Move point to the first node of the current sublist.
+Move within EWOC, beginning from the node at POS."
+  (interactive (list lister-local-ewoc :point))
+  (pcase-let ((`(,upper ,_) (lister--locate-sublist ewoc pos)))
+    (when upper
+      (lister-goto ewoc upper))))
 ;;;
 ;;;###autoload
 (defun lister-setup (buf-or-name mapper &optional header footer)
