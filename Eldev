@@ -1,0 +1,5 @@
+; -*- mode: emacs-lisp; lexical-binding: t; no-byte-compile: t -*-
+;;
+;; This file currently does nothing.  It's only there to be detected
+;; projectile.
+;;
