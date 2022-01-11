@@ -782,7 +782,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
     (it "moves point to the prev item:"
       (lister-goto ewoc :last)
       (lister-goto ewoc :prev)
-      (expect (lister-test-get-data-at-point ewoc))
+      (expect (lister-test-get-data-at-point ewoc)
               :to-equal "4"))
     (it "moves point to an index position:"
       (lister-goto ewoc 4)
@@ -790,7 +790,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
               :to-equal "4"))
     (it "throws an error if index is out of bounds:"
       (expect (lister-goto ewoc 8)
-              :to-throw)))
+              :to-throw))))
 
 ;;; * Filter
 
