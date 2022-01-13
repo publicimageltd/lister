@@ -1578,12 +1578,14 @@ nothing."
              (goto-char ,pos-var)))))))
 
 (defun lister--next-node-same-level (ewoc pos move-fn)
-  "Move to next node, skipping items with bigger indentation.
+  "Find next node with POS's level, skipping items with bigger indentation.
 In EWOC, use MOVE-FN to find the next node with the same level as
 POS, skipping nodes with bigger indentation.  Return nil if no
-node is found."
+next node is found."
   (lister-with-node ewoc pos node
     (let ((level   (lister-get-level-at ewoc node)))
+      ;; this is actually a copy of lister--next-node-matching
+      ;; but hey, it seems so awkward to define a lambda for that!
       (while (and node
                   (setq node (funcall move-fn ewoc node))
                   (> (lister--item-level (ewoc-data node)) level)))
