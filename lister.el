@@ -420,19 +420,26 @@ PREV-LEVEL."
 ;;; * Low level list movement basics
 
 (cl-defun lister--next-node-matching (ewoc node pred-fn
-                                        &optional (move-fn #'ewoc-next))
+                                           &optional
+                                           (move-fn #'ewoc-next)
+                                           limit)
   "In EWOC, move from NODE to next node matching PRED-FN via MOVE-FN.
-Return the next matching node or nil if there is none.  To move
-backwards, set MOVE-FN to `ewoc-prev'."
-  (while (and node
-              (setq node (funcall move-fn ewoc node))
-              (not (funcall pred-fn node))))
-  node)
+Return the next matching node or nil if there is none.
+Optionally stop search unconditionally when reaching the node
+LIMIT, returning nil.  To move backwards, set MOVE-FN to
+`ewoc-prev'."
+  (let (break)
+    (while (and node
+                (or (not limit) (not (setq break (equal node limit))))
+                (setq node (funcall move-fn ewoc node))
+                (not (funcall pred-fn node))))
+    (unless break
+      node)))
 
 (cl-defun lister--next-or-this-node-matching (ewoc node pred-fn
                                                 &optional (move-fn #'ewoc-next))
   "In EWOC, check NODE against PRED-FN or find next match.
-Return the matching node found by iterating on MOVE-FN, or nil if
+Return the matching node found by iterating MOVE-FN, or nil if
 there is none.  To move backwards, set MOVE-FN to `ewoc-prev'."
   (if (funcall pred-fn node)
       node
@@ -1188,26 +1195,49 @@ set an initial indentation level for the first item."
 
 ;;; * Sublist handling
 
-;; All sublist handling applies to the complete, unfiltered EWOC.
+(defun lister--locate-sublist (ewoc pos &optional only-visible)
+  "Return first and last node in EWOC with the same level as POS.
+Return the nodes as a list `(first last)' or nil if the EWOC is
+empty.
 
-(defun lister--locate-sublist (ewoc pos)
-  "Return first and last node in EWOC with the same level as POS."
+If ONLY-VISIBLE is non-nil, return the first and last visible
+inner sublist node.  If the sublist has no visible items, return
+the boundaries of the complete list.  If the list is completely
+hidden, return nil.
+
+This function implicitly defines a 'sublist' as a continuous list
+of items with a nesting level identical to, or bigger than, the
+item at POS.  A sublist must have a 'top' parent node with lesser
+indentation, while it is optional to have a 'bottom' node.  If
+there is no 'bottom' node, the last item marks the end of that
+sublist.  If there is no parent node, effectively return the
+boundaries of the complete list."
   (lister-with-node ewoc pos node
-    (let* ((item (ewoc-data node))
-           (ref-level (or (lister--item-level item) 0))
-           (pred-fn   (lambda (n)
-                        (< (or (lister--item-level (ewoc-data n)) 0)
-                           ref-level)))
+    (let* ((item           (ewoc-data node))
+           (ref-level      (lister--item-level item))
+           (pred-fn        (lambda (n)
+                             (< (lister--item-level (ewoc-data n))
+                                ref-level)))
+           (inner-pred-fn  (if only-visible
+                               #'lister-node-visible-p
+                             #'identity))
            ;; find upper and lower non-sublist boundaries:
            (upper (lister--next-node-matching ewoc node pred-fn #'ewoc-prev))
            (lower (lister--next-node-matching ewoc node pred-fn #'ewoc-next))
-           ;; we want the first and last item of the sublist itself:
-           (upper (when upper (ewoc-next ewoc upper)))
-           (lower (when lower (ewoc-prev ewoc lower)))
-           ;; if there was nothing, it is the whole list:
-           (upper (or upper (ewoc-nth ewoc 0)))
-           (lower (or lower (ewoc-nth ewoc -1))))
-      `(,upper ,lower))))
+           ;; we want the first and last (visible) item of the sublist itself:
+           (inner-first (when upper (lister--next-node-matching ewoc upper inner-pred-fn #'ewoc-next lower)))
+           (inner-last  (when lower (lister--next-node-matching ewoc lower inner-pred-fn #'ewoc-prev upper)))
+           ;; re-adjust the results if no boundaries were found:
+           (inner-first (or inner-first (if only-visible
+                                             (lister--first-visible-node ewoc)
+                                           (ewoc-nth ewoc 0))))
+           (inner-last  (or inner-last  (if only-visible
+                                            (lister--last-visible-node ewoc)
+                                          (ewoc-nth ewoc -1)))))
+      ;; NOTE it would suffice to check for one boundary since it should
+      ;; never happen that only one is not found, but well...
+      (when (or inner-first inner-last)
+        `(,inner-first ,inner-last)))))
 
 (defmacro lister-with-sublist-at (ewoc pos beg-var end-var &rest body)
   "Execute BODY with BEG-VAR and END-VAR bound to the sublist at POS.

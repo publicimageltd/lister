@@ -696,39 +696,79 @@ low-lewel ewoc functions instead of `lister--parse-position'."
     (after-each
       (kill-buffer (ewoc-buffer ewoc)))
 
+    (it "returns the whole list boundaries if there is no sublist"
+      (lister-set-list ewoc '("0" "1" "2" "3" "4" "5" "6"))
+      (let ((expected-bounds (list (lister--parse-position ewoc :first)
+                                   (lister--parse-position ewoc :last))))
+        (expect (lister--locate-sublist ewoc 2)
+                :to-be-nodes expected-bounds)))
+    (it "returns nil if there are no list items"
+      (lister-delete-all ewoc)
+      (expect (lister--locate-sublist ewoc :first)
+              :to-be nil))
+    (it "throws an error if POS is out of bounds"
+      (lister-set-list ewoc '("0" "1"))
+      (expect (lister--locate-sublist ewoc 2)
+              :to-throw))
     (it "identifies a surrounded sublist:"
       (lister-set-list ewoc '("0" "1" ("2" "3" "4" "5") "4" "5"))
       (let ((expected-bounds (list (ewoc-nth ewoc 2)
                                    (ewoc-nth ewoc 5))))
         (expect (lister--locate-sublist ewoc 2)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 3)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 4)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 5)
-                :to-equal expected-bounds)))
+                :to-be-nodes expected-bounds)))
     (it "identifies a sublist with 'open end':"
       (lister-set-list ewoc '("0" "1"
                            ("2" "3" "4" "5")))
       (let ((expected-bounds (list (ewoc-nth ewoc 2)
                                    (ewoc-nth ewoc 5))))
         (expect (lister--locate-sublist ewoc 2)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 3)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 4)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 5)
-                :to-equal expected-bounds)))
-    (it "identifies a surrounded nested  sublist:"
+                :to-be-nodes expected-bounds)))
+    (it "identifies a surrounded nested sublist:"
       (lister-set-list ewoc '("0" ("1" ("2" "3") "4" "5")))
       (let ((expected-bounds (list (ewoc-nth ewoc 2)
                                    (ewoc-nth ewoc 3))))
         (expect (lister--locate-sublist ewoc 2)
-                :to-equal expected-bounds)
+                :to-be-nodes expected-bounds)
         (expect (lister--locate-sublist ewoc 3)
-                :to-equal expected-bounds))))
+                :to-be-nodes expected-bounds)))
+    (it "skips filtered items if asked for"
+      (lister-set-list ewoc '("0" ("A" "A" "3" "4") "5"))
+      (lister-set-filter ewoc (lambda (s) (equal s "A")))
+      (let ((expected-bounds (list (ewoc-nth ewoc 3)
+                                   (ewoc-nth ewoc 4))))
+        (expect (lister--locate-sublist ewoc 2 :only-visible)
+                :to-be-nodes expected-bounds)))
+    (it "returns the only visible item if the rest of the sublist is filtered"
+      (lister-set-list ewoc '("0" ("A" "A" "3" "A") "5"))
+      (lister-set-filter ewoc (lambda (s) (equal s "A")))
+      (let ((expected-bounds (list (ewoc-nth ewoc 3)
+                                   (ewoc-nth ewoc 3))))
+      (expect (lister--locate-sublist ewoc 2 :only-visible)
+              :to-be-nodes expected-bounds)))
+    (it "returns nil if the complete list is invisible"
+      (lister-set-list ewoc '("A" ("A" "A" "A" "A") "A"))
+      (lister-set-filter ewoc (lambda (s) (equal s "A")))
+      (expect (lister--locate-sublist ewoc 2 :only-visible)
+              :to-be nil))
+    (it "returns first and last if all sublist items are filtered"
+      (lister-set-list ewoc '("0" ("A" "A" "A" "A") "5"))
+      (lister-set-filter ewoc (lambda (s) (equal s "A")))
+      (let ((expected-bounds (list (ewoc-nth ewoc 0)
+                                   (ewoc-nth ewoc 5))))
+      (expect (lister--locate-sublist ewoc 2 :only-visible)
+              :to-be-nodes expected-bounds))))
 
   (describe "lister-get-sublist-at:"
     (it "returns a sublist:"
