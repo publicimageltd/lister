@@ -122,7 +122,7 @@ This is a simple copy of dash's `-flatten' using `seq'."
 (defmacro lister-with-node (ewoc pos var &rest body)
   "Bind VAR to the node at POS and execute BODY if node exists.
 EWOC is an ewoc structure."
-  (declare (indent 3))
+  (declare (indent 3) (debug (sexp sexp symbolp body)))
   `(when-let ((,var (lister--parse-position ,ewoc ,pos)))
      ,@body))
 
