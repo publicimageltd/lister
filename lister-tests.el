@@ -90,6 +90,43 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (format "Expected node not to be '%s', but instead it was"
               n2-data))))
 
+(defun lister-test--map-node (n)
+  (lister--item-data (ewoc-data n)))
+
+(defun lister-test--map-nodes (n)
+  (mapcar #'lister-test--map-node n))
+
+(buttercup-define-matcher :to-be-nodes (a b)
+  (cl-destructuring-bind
+      ((a-expr . a) (b-expr . b))
+      (mapcar #'buttercup--expr-and-value (list a b))
+    (let* ((a-uniques (cl-set-difference a b :test #'equal))
+           (b-uniques (cl-set-difference b a :test #'equal))
+           (spec (format-spec-make
+                  ?A (format "%S" a-expr)
+                  ?a (format "%S" (lister-test--map-nodes a))
+                  ?B (format "%S" b-expr)
+                  ?b (format "%S" (lister-test--map-nodes b))
+                  ?m (format "%S" (lister-test--map-nodes b-uniques))
+                  ?p (format "%S" (lister-test--map-nodes a-uniques)))))
+      (cond
+       ((and a-uniques b-uniques)
+        (cons nil (buttercup-format-spec
+                   "Expected `%A' to contain the same nodes as `%b', but `%m' are missing and `%p' are present unexpectedly in `%a'."
+                   spec)))
+       (a-uniques
+        (cons nil (buttercup-format-spec
+                   "Expected `%A' to contain the same nodes as `%b', but `%p' are present unexpectedly in `%a'."
+                   spec)))
+       (b-uniques
+        (cons nil (buttercup-format-spec
+                   "Expected `%A' to contain the same nodes as `%b', but `%m' are missing in `%a'."
+                   spec)))
+       (t
+        (cons t (buttercup-format-spec
+                 "Expected `%A' not to have same nodes as `%b'"
+                 spec)))))))
+
 ;; to match buffer contents:
 (buttercup-define-matcher :to-have-as-content (buf content-to-be)
   (let* ((content (with-current-buffer (funcall buf)
