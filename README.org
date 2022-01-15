@@ -601,15 +601,19 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
 
 #+begin_src emacs-lisp
   ;; From POS, find the next or prev node where the data matches PRED:
-  (lister-next-matching ewoc pos pred)
-  (lister-prev-matching ewoc pos pred)
+  (lister-next-matching ewoc pos pred &optional limit)
+  (lister-prev-matching ewoc pos pred &optional limit)
   ;; same as above, but only consider visible items:
-  (lister-next-visible-matching pos pred)
-  (lister-prev-visible-matching pos pred)
+  (lister-next-visible-matching pos pred &optional limit)
+  (lister-prev-visible-matching pos pred &optional limit)
 #+end_src
 
 Argument =POS= can be either an =Ewoc= node, an integer position, or one
 of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
+
+Argument =limit= is a position which limits the search. The search stops
+when reaching the limit and returns nil, even if the node at =limit=
+matches =pred-fn=.
 
 ** Looping 
 
@@ -762,7 +766,7 @@ lister-local-padding-string
 * Changelog
 
 ** Current 
-
+  - Add option "LIMIT" to =lister-next-matching= and =lister-next-visible-matching=
 ** 0.9.4
 
  - Add sorting with multiple predicates / criteria.
