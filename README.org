@@ -202,6 +202,33 @@ into a printable representation with a /mapper function/.
    thousand items. I would love to optimize it more for bigger lists
    once this becomes a real need.
  
+* Navigation and Marking with Lister Mode (minor mode)
+
+There is a minor mode shipped with the package which provides some
+basic keybindings. Here's the keymap:
+
+| Key                 | Function                                                              |
+|---------------------+-----------------------------------------------------------------------|
+| m                   | Mark item at point, or active region, or sublist if prefixed          |
+| u                   | Unmark item at point, or active region, or sublist if prefixed        |
+| U                   | Unmark all items in the buffer                                        |
+| M-up, M-down        | Move item at point one up, or down (prefix lifts level restriction)   |
+| M-left, M-right     | Indent or unindent the item at point (prefix lifts level restriction) |
+| S-M-up, S-M-down    | Move sublist at point one up, down                                    |
+| S-M-right, S-M-left | Indent or unindent sublist at point                                   |
+| <TAB>               | Cycle outline visibility of sublist below point                       |
+| C-c C-b / C-c C-f   | Move forward or backward to next node with same level                 |
+| C-c C-u             | Move to the next parent node                                          |
+| M-< / M->           | Move to the beginning or end of the current sublist or list.          |
+|---------------------+-----------------------------------------------------------------------|
+
+The commands to mark and unmark also recognize the region. So you can
+mark the whole list by pressing =C-x h m=. 
+
+If the keys =M-<= and =M->= are pressed repeatedly, move out of the
+sublist to the next outer level list and finally to the top or bottom
+item.
+
 * API
 ** Setting up the buffer
 
@@ -280,26 +307,6 @@ Example:
                                   'action 'my-action)))
     (switch-to-buffer (ewoc-buffer ewoc)))
 #+end_src
-
-** Lister Mode (minor mode)
-
-There is a minor mode shipped with the package which provides some
-basic keybindings. Here's the keymap:
-
-| Key                 | Function                                                              |
-|---------------------+-----------------------------------------------------------------------|
-| m                   | Mark item at point, or active region, or sublist if prefixed          |
-| u                   | Unmark item at point, or active region, or sublist if prefixed        |
-| U                   | Unmark all items in the buffer                                        |
-| M-up, M-down        | Move item at point one up, or down (prefix lifts level restriction)   |
-| M-left, M-right     | Indent or unindent the item at point (prefix lifts level restriction) |
-| S-M-up, S-M-down    | Move sublist at point one up, down                                    |
-| S-M-right, S-M-left | Indent or unindent sublist at point                                   |
-| <TAB>               | Cycle outline visibility of sublist below point                       |
-|---------------------+-----------------------------------------------------------------------|
-
-The commands to mark and unmark also recognize the region. So you can
-mark the whole list by pressing =C-x h m=. 
 
 ** Inserting, adding, deleting or replacing single items
 
@@ -776,10 +783,24 @@ lister-local-left-margin
 ;; level 0 means no padding; level 1 means one time; 2 means 2 time, etc.
 lister-local-padding-string
 #+end_src
+* Known Bugs and Limitations
+
+** Outline Visibility Cycling
+
+Current visibility cycling uses the =invisibility-spec= and is not
+recognized internally by the =lister= commands. So while hiding an item
+using the filter function is mostly taken care of, hiding items using
+=invisibility-spec=  might lead to inconsistent behavior when jumping
+around the list, or when adding or removing items. 
+
 * Changelog
 
 ** Current 
-  - Add option "LIMIT" to =lister-next-matching= and =lister-next-visible-matching=
+  - Add option "LIMIT" to =lister-next-matching= and
+    =lister-next-visible-matching=
+  - Add hierarchical navigation keys to =lister-mode= (move to parent,
+    move forward or backward same level, move to beginning or end of
+    the sublist)
 ** 0.9.4
 
  - Add sorting with multiple predicates / criteria.
