@@ -72,19 +72,22 @@ Current release is =0.9.4=
 
 * Feature overview
 
-This is an overview of features done or planned.
+This is an overview of features done or planned. A feature is
+considered =stable= if it is used and tested by the auther. If it is
+rarely used, but seems to work, it just =works=. 
 
-| Feature                              | State  | Automated tests? |
-|--------------------------------------+--------+------------------|
-| build simple or large lists          | stable | yes              |
-| build nested lists                   | stable | yes              |
-| retrieve data, with hierarchies      | stable | yes              |
-| loop over the list                   | stable | yes              |
-| marking or unmarking items           | stable | yes              |
-| filter items                         | stable | yes              |
-| hide and show sublists outline-style | stable | yes              |
-| move items and sublists              | works  | yes              |
-|--------------------------------------+--------+------------------|
+| Feature                              | State           | Automated tests? |
+|--------------------------------------+-----------------+------------------|
+| build simple or large lists          | stable          | yes              |
+| build nested lists                   | stable          | yes              |
+| retrieve data, with hierarchies      | stable          | yes              |
+| loop over the list                   | stable          | yes              |
+| marking or unmarking items           | stable          | yes              |
+| filter items                         | stable          | yes              |
+| hide and show sublists outline-style | partially buggy | not enough       |
+| move items and sublists              | works           | yes              |
+| navigate within the hierarchy        | works           | yes              |
+|--------------------------------------+-----------------+------------------|
 
 * Example
 
@@ -221,7 +224,7 @@ basic keybindings. Here's the keymap:
 | C-c C-u             | Move to the next parent node                                          |
 | M-< / M->           | Move to the beginning or end of the current sublist or list.          |
 | C-c <C-up>          | Move up to the next child node                                        |
-| C-c  <C-down>       | Move down to the next child node                                      |
+| C-c <C-down>        | Move down to the next child node                                      |
 |---------------------+-----------------------------------------------------------------------|
 
 The commands to mark and unmark also recognize the region. So you can
@@ -805,7 +808,7 @@ around the list, or when adding or removing items.
     =lister-next-visible-matching=
   - Add hierarchical navigation keys to =lister-mode= (move to parent,
     move forward or backward same level, move to beginning or end of
-    the sublist)
+    the sublist), fixing Issue #3
 ** 0.9.4
 
  - Add sorting with multiple predicates / criteria.
