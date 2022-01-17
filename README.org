@@ -220,10 +220,15 @@ basic keybindings. Here's the keymap:
 | C-c C-b / C-c C-f   | Move forward or backward to next node with same level                 |
 | C-c C-u             | Move to the next parent node                                          |
 | M-< / M->           | Move to the beginning or end of the current sublist or list.          |
+| C-c <C-up>          | Move up to the next child node                                        |
+| C-c  <C-down>       | Move down to the next child node                                      |
 |---------------------+-----------------------------------------------------------------------|
 
 The commands to mark and unmark also recognize the region. So you can
 mark the whole list by pressing =C-x h m=. 
+
+All navigation commands push point on mark if they jump more than one
+step.
 
 If the keys =M-<= and =M->= are pressed repeatedly, move out of the
 sublist to the next outer level list and finally to the top or bottom

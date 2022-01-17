@@ -1774,7 +1774,7 @@ be found."
         node)))))
 
 (defun lister-first-sublist-node (ewoc pos direction)
-  "Looking from POS, find the first sublist node.
+  "Looking from the list at POS, find the first sublist node.
 Return the node or nil if there is none.  DIRECTION must be
 either the symbol `up' or `prev', or `down' or `next'.  EWOC is a
 Lister EWOC object."

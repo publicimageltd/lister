@@ -255,6 +255,18 @@ Call this function several times to move out of nested sublists."
           (lister-mode--push-goto ewoc last)
         (user-error "End of list")))))
 
+(lister-defkey lister-mode-next-child-forward (ewoc pos prefix node)
+  "Move to the next child looking up from point."
+  (if-let ((next (lister-first-sublist-node ewoc pos 'up)))
+      (lister-mode--push-goto ewoc next)
+    (user-error "No child found above point")))
+
+(lister-defkey lister-mode-next-child-backward (ewoc pos prefix node)
+  "Move to the next child looking down from point."
+  (if-let ((next (lister-first-sublist-node ewoc pos 'down)))
+      (lister-mode--push-goto ewoc next)
+    (user-error "No child found below point")))
+
 ;; * The Keymap
 (defvar lister-mode-map
   (let ((map (make-sparse-keymap)))
@@ -276,6 +288,8 @@ Call this function several times to move out of nested sublists."
     (define-key map (kbd "C-c C-u")             'lister-mode-up-parent)
     (define-key map (kbd "C-c C-f")             'lister-mode-forward-same-level)
     (define-key map (kbd "C-c C-b")             'lister-mode-backward-same-level)
+    (define-key map (kbd "C-c <C-up>")          'lister-mode-next-child-forward)
+    (define-key map (kbd "C-c <C-down>")        'lister-mode-next-child-backward)
     map)
   "Key map for `lister-mode'.")
 
