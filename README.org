@@ -606,14 +606,27 @@ position, or one of the symbols =:first=, =:last=, =:next=, =:prev=, or
   ;; same as above, but only consider visible items:
   (lister-next-visible-matching pos pred &optional limit)
   (lister-prev-visible-matching pos pred &optional limit)
+;; Find the first or last node of the sublist around POS:
+(lister-top-sublist-node ewoc pos)
+(lister-bottom-sublist-node ewoc pos)
+;; Find the parent of the sublist around POS:
+(lister-parent-node ewoc pos)
+;; Find the first sublist node looking in DIRECTION from POS:
+(lister-first-sublist-node ewoc pos direction)
 #+end_src
 
 Argument =POS= can be either an =Ewoc= node, an integer position, or one
 of the symbols =:first=, =:last=, =:next=, =:prev=, or =:point=.
 
-Argument =limit= is a position which limits the search. The search stops
-when reaching the limit and returns nil, even if the node at =limit=
-matches =pred-fn=.
+Argument =limit= is a position (a node, an index value or one of the
+symbols =:first=, =:last=, =:point=, =:next= or =:prev=, which limits the search. The
+search stops when reaching the limit and returns nil, even if the node
+at =limit= matches =pred-fn=.
+
+Note that the generic searching functions (which require a predicate
+function) ignore visibility status, whereas the sublist functions
+listed in this section don't return invisible items. Other sublist
+functions, however, might not check for visibility.
 
 ** Looping 
 

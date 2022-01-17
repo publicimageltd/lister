@@ -1122,6 +1122,12 @@ position LIMIT, returning nil.  Return the node found or nil."
                                         #'ewoc-next
                                         (and limit (lister--parse-position ewoc limit)))))
 
+;; NOTE Do we need the following function? It Seems to be useless
+;; insofar it checks against item's data and ignores level. So what is
+;; the point in checking a node only against visibility, and ignoring
+;; that it might have another level? Better add a nesting predicate or
+;; something....
+
 ;; TODO Add tests for using positions for LIMIT
 (defun lister-next-visible-matching (ewoc pos pred &optional limit)
   "In EWOC, find the next visible match for PRED after POS.
@@ -1726,72 +1732,65 @@ unless IGNORE-LEVEL is non-nil."
     (unless (eq level 0)
       (lister-set-level-at ewoc pos (1- level)))))
 
-;;; * Move point within the hierarchy
+;;; * Find nodes within the hierarchy
 
-(defun lister-goto-first-sublist-node (ewoc pos)
-  "Move point to the first visible node of the current sublist.
-Move within EWOC, beginning from the node at POS."
-  (interactive (list lister-local-ewoc :point))
-  (lister-with-sublist-at ewoc pos upper lower
-    (lister-goto ewoc upper)))
+(defun lister-top-sublist-node (ewoc pos)
+  "Return the first visible node of the current sublist.
+Search within EWOC, beginning from the node at POS."
+  (pcase-let ((`(,upper ,_) (lister--locate-sublist ewoc pos :only-visible)))
+    upper))
 
-(defun lister-goto-last-sublist-node (ewoc pos)
-  "Move point to the last visible node of the current sublist.
-Move within EWOC, beginning from the node at POS."
-  (interactive (list lister-local-ewoc :point))
-  (lister-with-sublist-at ewoc pos upper lower
-    (lister-goto ewoc lower)))
+(defun lister-bottom-sublist-node (ewoc pos)
+  "Return the last visible node of the current sublist.
+Search within EWOC, beginning from the node at POS."
+  (pcase-let ((`(,_ ,lower) (lister--locate-sublist ewoc pos :only-visible)))
+    lower))
 
-(defun lister-goto-parent-node (ewoc pos)
-  "In EWOC, move from POS to its first visible parent node.
-If POS is not in a sublist or if all parent nodes are hidden,
-move to the first visible top node.  Throw an error if POS is
-already at the top or if no final position can be found."
-  (interactive (list lister-local-ewoc :point))
+(defun lister-parent-node (ewoc pos)
+  "In EWOC, find the first visible parent node of POS.
+Return the node.  If POS is not in a sublist or if all parent
+nodes are hidden, return the first visible top node.  Return nil
+if POS if POS is already at the top, or if no final position can
+be found."
   (lister-with-node ewoc pos node
     (let* ((ref-level (lister-node-get-level node))
+           ;; if we ever have -compose, write that as a composition
            (pred-fn   (lambda (n)
                         (and (lister-node-visible-p n)
                              (< (lister-node-get-level n)
-                                ref-level))))
-           (parent    (or
-                       ;; nil if pos is not in a visible sublist:
-                       (lister--next-node-matching ewoc node pred-fn #'ewoc-prev)
-                       ;; else find parent top node:
-                       (lister--next-or-this-node-matching
-                        ewoc (ewoc-nth ewoc 0)
-                        (lambda (n)
-                          (and (lister-node-visible-p n)
-                               (>= (lister-node-get-level n)
-                                   ref-level)))
-                        #'ewoc-next
-                        node))))
-      (if parent
-          (lister-goto ewoc parent)
-        (error "No parent node found")))))
+                                ref-level)))))
+      (or
+       ;; nil if pos is not in a visible sublist:
+       (lister--next-node-matching ewoc node pred-fn #'ewoc-prev)
+       ;; else find parent top node:
+       (lister--next-or-this-node-matching
+        ewoc (ewoc-nth ewoc 0)
+        ;; if we ever have -compose, write that as a composition
+        (lambda (n)
+          (and (lister-node-visible-p n)
+               (>= (lister-node-get-level n)
+                   ref-level)))
+        #'ewoc-next
+        node)))))
 
-(defun lister-goto-sublist-node (ewoc pos direction)
-  "In EWOC, move from POS to the next deeper nested node.
-DIRECTION must be either the symbol `up' or `prev', or `down' or
-`next'."
-  (interactive (list lister-local-ewoc :point 'next))
-  (let ((child
-         (lister-with-node ewoc pos node
-           (lister-with-sublist-at ewoc pos upper lower
-             (let* ((move-fn   (pcase direction
-                                 ((or 'up 'prev) #'ewoc-prev)
-                                 ((or 'down 'next) #'ewoc-next)
-                                 (_ (error "Lister-goto-child-node: Unknown direction %S" direction))))
-                    (ref-level (lister-node-get-level (lister--parse-position ewoc pos)))
-                    (pred-fn   (lambda (n)
-                                 (and (lister-node-visible-p n)
-                                      (> (lister-node-get-level n)
-                                         ref-level))))
-                    (limit     (if (eq move-fn #'ewoc-prev) upper lower)))
-               (lister--next-node-matching ewoc node pred-fn move-fn limit))))))
-    (if child
-        (lister-goto ewoc child)
-      (error "No child node found"))))
+(defun lister-first-sublist-node (ewoc pos direction)
+  "Looking from POS, find the first sublist node.
+Return the node or nil if there is none.  DIRECTION must be
+either the symbol `up' or `prev', or `down' or `next'.  EWOC is a
+Lister EWOC object."
+  (lister-with-node ewoc pos node
+    (lister-with-sublist-at ewoc pos upper lower
+      (let* ((move-fn   (pcase direction
+                          ((or 'up 'prev) #'ewoc-prev)
+                          ((or 'down 'next) #'ewoc-next)
+                          (_ (error "Unknown direction %S" direction))))
+             (ref-level (lister-node-get-level (lister--parse-position ewoc pos)))
+             (pred-fn   (lambda (n)
+                          (and (lister-node-visible-p n)
+                               (> (lister-node-get-level n)
+                                  ref-level))))
+             (limit     (if (eq move-fn #'ewoc-prev) upper lower)))
+        (lister--next-node-matching ewoc node pred-fn move-fn limit)))))
 
 ;;; * Set up buffer for display
 ;;;

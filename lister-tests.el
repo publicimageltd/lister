@@ -82,6 +82,20 @@ low-lewel ewoc functions instead of `lister--parse-position'."
 
 ;;; * Custom Matchers
 
+;; to match nodes by data:
+(buttercup-define-matcher :to-be-node-with-data (node1 node2)
+  (let* ((n1      (funcall node1))
+         (n1-data (lister-node-get-data n1))
+         (n2-data (funcall node2)))
+    (buttercup--test-expectation
+        (equal n1-data n2-data)
+      :expect-match-phrase
+      (format "Expected node data to be %s, but instead it was %s"
+              n2-data (if n1 n1-data "no node at all"))
+      :expect-mismatch-phrase
+      (format "Expected node data not to be '%s', but instead it was"
+              n2-data))))
+
 ;; to match nodes:
 (buttercup-define-matcher :to-be-node (node1 node2)
   (let* ((n1   (funcall node1))
@@ -930,7 +944,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                                                   #'ewoc-next
                                                   (lister-get-node-at ewoc 3))
               :to-be nil)))
-  
+
   (describe "lister-goto:"
     (it "moves point to the first item of the list:"
       (lister-goto ewoc :first)
@@ -953,94 +967,69 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (expect (lister-goto ewoc 8)
               :to-throw)))
 
-  (describe "lister-goto-first-sublist-node"
-    (it "moves to the first sublist node"
+  (describe "lister-top-sublist-node"
+    (it "finds the first sublist node"
       (lister-set-list ewoc '("A" "B" ("AA" "BB" "CC" "DD") "C" ))
-      (lister-goto-first-sublist-node ewoc 5)
-      (expect ewoc :to-have-point-at-item "AA"))
+      (expect (lister-top-sublist-node ewoc 5)
+              :to-be-node-with-data "AA"))
     (it "moves to the top node if there is no sublist"
-      (lister-goto-first-sublist-node ewoc 4)
-      (expect ewoc :to-have-point-at-item (car l)))
+      (expect (lister-top-sublist-node ewoc 4)
+              :to-be-node-with-data "0"))
     (it "does nothing if there is no list"
       (lister-set-list ewoc nil)
-      (with-current-buffer (ewoc-buffer ewoc)
-        (let ((pos (point)))
-          (lister-goto-first-sublist-node ewoc :point)
-          (expect pos :to-equal (point))))))
+      (expect (lister-top-sublist-node ewoc :point) :to-be nil)))
 
-  (describe "lister-goto-last-sublist-node"
+  (describe "lister-bottom-sublist-node"
     (it "moves to the last sublist node"
       (lister-set-list ewoc '("A" "B" ("AA" "BB" "CC" "DD") "C"))
-      (lister-goto-last-sublist-node ewoc 5)
-      (expect ewoc :to-have-point-at-item "DD"))
+      (expect (lister-bottom-sublist-node ewoc 5) :to-be-node-with-data "DD"))
     (it "does nothing if there is no list"
       (lister-set-list ewoc nil)
-      (with-current-buffer (ewoc-buffer ewoc)
-        (let ((pos (point)))
-          (lister-goto-last-sublist-node ewoc :point)
-          (expect pos :to-equal (point)))))
+      (expect (lister-bottom-sublist-node ewoc :point) :to-be nil))
     (it "moves to the last node if there is no sublist"
-      (lister-goto-last-sublist-node ewoc 3)
-      (expect ewoc :to-have-point-at-item "5")))
+      (expect (lister-bottom-sublist-node ewoc 3) :to-be-node-with-data "5")))
 
-  (describe "lister-goto-parent-node"
+  (describe "lister-parent-node"
     (before-each
-      ;;                       0   1    2    3   4     5       6     7 
+      ;;                       0   1    2    3   4     5       6     7
       (lister-set-list ewoc '("A" "B" ("AA" "BB" "CC" ("AAA" "BBB") "DD") "C" "D"))
       (lister-set-filter ewoc nil))
     (it "finds the parent node"
-      (lister-goto-parent-node ewoc 4)
-      (expect ewoc :to-have-point-at-item "B"))
+      (expect (lister-parent-node ewoc 4) :to-be-node-with-data "B"))
     (it "finds the parent node in a nested list"
-      (lister-goto-parent-node ewoc 6)
-      (expect ewoc :to-have-point-at-item "CC"))
+      (expect (lister-parent-node ewoc 6) :to-be-node-with-data "CC"))
     (it "moves to the top node when called on a 0 level node"
-      (lister-goto-parent-node ewoc 1)
-      (expect ewoc :to-have-point-at-item "A"))
+      (expect (lister-parent-node ewoc 1) :to-be-node-with-data "A"))
     (it "moves to the top node when called from below a sublist"
-      (lister-goto-parent-node ewoc 8)
-      (expect ewoc :to-have-point-at-item "A"))
+      (expect (lister-parent-node ewoc 8) :to-be-node-with-data "A"))
     (it "skips real parent node since it is invisible"
       (lister-set-filter ewoc (lambda (s) (equal s "B")))
-      (lister-goto-parent-node ewoc 3)
-      (expect ewoc :to-have-point-at-item "A"))
+      (expect (lister-parent-node ewoc 3) :to-be-node-with-data "A"))
     (it "throws an error if all parent nodes are invisible"
       (lister-set-filter ewoc (lambda (s) (or (equal s "A")
                                               (equal s "B"))))
-      (expect (lister-goto-parent-node ewoc 2) :to-throw))
+      (expect (lister-parent-node ewoc 2) :to-be nil))
     (it "moves to the first sublist node if all parent nodes are invisible"
       (lister-set-filter ewoc (lambda (s) (or (equal s "A")
                                               (equal s "B"))))
-      (lister-goto-parent-node ewoc 3)
-      (expect ewoc :to-have-point-at-item "AA")))
+      (expect (lister-parent-node ewoc 3) :to-be-node-with-data "AA")))
 
-  (describe "lister-goto-sublist-node"
+  (describe "lister-first-sublist-node"
     (before-each
-      ;;                       0   1    2    3   4     5       6     7 
+      ;;                       0   1    2    3   4     5       6     7
       (lister-set-list ewoc '("A" "B" ("AA" "BB" "CC" ("AAA" "BBB") "DD") "C" "D")))
-
-    (it "throws an error if no sublist item is available"
-      (expect (lister-goto-sublist-node ewoc 5 'down)
-              :to-throw)
-      (expect (lister-goto-sublist-node eowc 5 'up)
-              :to-throw))
+    (it "returns nilif no sublist item is available"
+      (expect (lister-first-sublist-node ewoc 5 'down) :to-be nil)
+      (expect (lister-first-sublist-node ewoc 5 'up)   :to-be nil))
     (it "moves to first sublist item"
-      (lister-goto-sublist-node ewoc :first 'down)
-      (expect ewoc :to-have-point-at-item "AA")
-      (lister-goto-sublist-node ewoc :last 'up)
-      (expect ewoc  :to-have-point-at-item "DD"))
+      (expect (lister-first-sublist-node ewoc :first 'down) :to-be-node-with-data "AA")
+      (expect (lister-first-sublist-node ewoc :last 'up)  :to-be-node-with-data "DD"))
     (it "moves to nested sublist item"
-      (lister-goto-sublist-node ewoc :first 'down)
-      (lister-goto-sublist-node ewoc :point 'down)
-      (expect ewoc :to-have-point-at-item "AAA")
-      (lister-goto-sublist-node ewoc :last 'up)
-      (lister-goto-sublist-node ewoc :point 'up)
-      (expect ewoc :to-have-point-at-item "BBB"))))
-
+      (expect (lister-first-sublist-node ewoc (lister-first-sublist-node ewoc :first 'down) 'down) :to-be-node-with-data "AAA")
+      (expect (lister-first-sublist-node ewoc (lister-first-sublist-node ewoc :last 'up) 'up) :to-be-node-with-data "BBB"))))
 
 ;;; * Filter
 
-;; FIXME move lister-set-list into before-each; that's an old test suite!
 (describe "Filter:"
   :var (ewoc l pred-fn
              filter-a filter-non-a
@@ -1113,7 +1102,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
           (lister-set-filter ewoc filter-*)
           (expect (ewoc-buffer ewoc)
                   :to-have-as-visible-content "")))))
-  
+
     (describe "Finding nodes while filter is ON:"
       (describe "lister--first-visible-node:"
         (it "finds the first visible node with filter-a:"
