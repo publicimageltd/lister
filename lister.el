@@ -456,7 +456,7 @@ LIMIT, returning nil.  To move backwards, set MOVE-FN to
 `ewoc-prev'.  EWOC is an Ewoc object."
   (while (and node
               (setq node (funcall move-fn ewoc node))
-              (or (not (equal limit node))
+              (or (not (eq limit node))
                   (setq node nil))
               (not (funcall pred-fn node))))
   node)
@@ -470,7 +470,7 @@ there is none.  Optionally stop search unconditionally when
 reaching the node LIMIT, returning nil.  To move backwards, set
 MOVE-FN to `ewoc-prev'."
   (while (and node
-              (or (not (equal node limit))
+              (or (not (eq node limit))
                   (setq node nil))
               (not (funcall pred-fn node)))
     (setq node (funcall move-fn ewoc node)))

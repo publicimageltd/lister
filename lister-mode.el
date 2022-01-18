@@ -65,9 +65,9 @@ Push mark only if POS is not an immediate visible neighbour of
 the current node.  EWOC is a Lister Ewoc Object."
   (lister-with-node ewoc pos node
     (let ((current (lister--parse-position ewoc :point)))
-      (unless (equal node current)
-        (unless (or (equal node (lister--next-node-matching ewoc current #'lister-node-visible-p #'ewoc-next))
-                    (equal node (lister--next-node-matching ewoc current #'lister-node-visible-p #'ewoc-prev)))
+      (unless (eq node current)
+        (unless (or (eq node (lister--next-node-matching ewoc current #'lister-node-visible-p #'ewoc-next))
+                    (eq node (lister--next-node-matching ewoc current #'lister-node-visible-p #'ewoc-prev)))
           (push-mark))
         (lister-goto ewoc node)))))
 
@@ -229,7 +229,7 @@ Return the node or nil if no such node is available."
   "Move up to the beginning of the sublist or list.
 Call this function several times to move out of nested sublists."
   (let ((top (lister-top-sublist-node ewoc pos)))
-    (when (equal node top)
+    (when (eq node top)
       (setq top (lister-mode--outer-top-sublist-node ewoc top)))
     (if top
         (lister-mode--push-goto ewoc top)
@@ -244,7 +244,7 @@ Call this function several times to move out of nested sublists."
   "Move down to the end of the sublist or list.
 Call this function several times to move out of nested sublists."
   (let ((bottom (lister-bottom-sublist-node ewoc pos)))
-    (when (equal node bottom)
+    (when (eq node bottom)
       (setq bottom (lister-mode--outer-bottom-sublist-node ewoc bottom)))
     (if bottom
         (lister-mode--push-goto ewoc bottom)
