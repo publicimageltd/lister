@@ -193,8 +193,8 @@ times the string S.  If LEVEL is nil, use 0 instead."
 ;;; TODO Write tests
 (defun lister--make-string-intangible (string)
   "Make STRING intangible except where it has certain properties.
-Do not make the STRING intangible where the properties `field' or
-`button' are non-nil."
+Do not make those parts of STRING intangible where the properties
+`field' or `button' are non-nil."
   (add-text-properties 0 (length string) '(cursor-intangible t) string)
   (cl-dolist (prop '(field button))
     (pcase-dolist (`(,from ,to) (lister--get-prop string prop))
@@ -361,9 +361,12 @@ This is a slightly modified copy of `font-lock--remove-face-from-text-property'.
 ;; problem?
 (defun lister--ewoc-printer (item)
   "Insert pretty printed ITEM in the current buffer.
-ITEM is a `lister--item'.  Build the item by passing it to the
-buffer local mapper function, which must return a string or a
-list of strings."
+ITEM is a `lister--item', that is, the data hold in the local
+Ewoc's node.  Note that the `lister--item' is thus not just the
+data to be printed, but rather a structure with additional
+information which also holds the actual data.  Build the item by
+passing this data object to the buffer local mapper function,
+which must return a string or a list of strings."
   (unless lister-local-mapper
     (error "No buffer local mapper function defined"))
   (let* ((inhibit-read-only t)
@@ -373,9 +376,15 @@ list of strings."
          ;; flatten it and remove nil values:
          (strings   (lister--flatten strings))
          (beg       (point-marker)))
+    ;; FIXME If insertion happens before (!) on invisible overlay,
+    ;; e.g. if refreshing the top node of a hidden sublist, the
+    ;; ellipsis is not added at the end of this item, but rather
+    ;; displayed on a separate line. Could not find a simple fix for
+    ;; this.
+
+    ;; actual printing: insert the strings at point
     (lister--insert-intangible strings (lister--item-level item))
     ;; store positions for post-insertion modifications
-    ;; FIXME necessary?
     (set-marker-insertion-type beg t)
     (setf (lister--item-beg item) beg
           (lister--item-end item) (point-marker))
@@ -1587,11 +1596,14 @@ If STATE is nil, show the items between BEG and END, else hide
 them as an outline."
   (lister-with-boundaries ewoc beg end
     (with-current-buffer (ewoc-buffer ewoc)
+      ;; we move the overlay one to the left, so that the first LF
+      ;; remains visible (it is the cursor gap) and the last LF is
+      ;; hidden (it is part of the last item to be made invisible)
       (let ((from (1- (lister--item-beg (ewoc-data beg))))
             (to   (1- (lister--item-end (ewoc-data end)))))
         (remove-overlays from to 'invisible 'outline)
         (when state
-          (let ((o (make-overlay from to)))
+          (let ((o (make-overlay from to nil t t)))
             (overlay-put o 'evaporate t)
             (overlay-put o 'invisible 'outline)
             ;; the value of the property 'isearch-open-invisible
