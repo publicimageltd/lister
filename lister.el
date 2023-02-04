@@ -675,10 +675,8 @@ set, restrict action only to matching nodes."
         ;; (setf (lister--item-data (ewoc-data node)) new-data)
         ;; (ewoc-invalidate ewoc node)))))
 
-;;; TODO Add return value counter for all calls to ACTION-FN
-;;; TODO Document counter in lister-walk-marked-nodes
 (defun lister-walk-nodes (ewoc action-fn &optional beg end pred-fn)
-  "Call ACTION-FN on each item's node.
+  "Call ACTION-FN on each item's node and return the number of calls.
 In EWOC, call ACTION-FN on each item's node within the node
 positions BEG and END.  If BEG or END is nil, use the first or
 the last node instead.
@@ -686,10 +684,13 @@ the last node instead.
 ACTION-FN is called with two arguments: the EWOC and the node.
 It is up to ACTION-FN to redisplay the node.  If PRED-FN is set,
 restrict action only to matching nodes."
-  (lister-dolist-nodes (ewoc node beg end)
-    (when (or (not pred-fn)
-              (funcall pred-fn node))
-      (funcall action-fn ewoc node))))
+  (let ((n-counter 0))
+    (lister-dolist-nodes (ewoc node beg end)
+      (when (or (not pred-fn)
+                (funcall pred-fn node))
+        (funcall action-fn ewoc node)
+        (cl-incf n-counter)))
+    n-counter))
 
 ;; * Some stuff which does not fit anywhere else
 
@@ -903,30 +904,12 @@ BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
 
 Call ACTION-FN with the EWOC as its first and the current node as
-the second argument.
+the second argument. Return the number of calls.
 
 Per default, only consider those items which are marked and
 visible.  Alternative predicates can be passed to MARKER-PRED-FN."
   (lister-walk-nodes ewoc action-fn beg end
                      (or marker-pred-fn #'lister-node-marked-and-visible-p)))
-
-(defun lister-walk-marked-list (ewoc action-fn &optional beg end marker-pred-fn)
-  "In EWOC, call ACTION-FN on each data which is marked and visible.
-BEG and END refer to the first and last node to be checked,
-defaulting to the first and last node of the list.
-
-Call ACTION-FN with the current list item's data as its sole
-argument.
-
-Per default, only consider those items which are marked and
-visible.  Alternative predicates can be passed to MARKER-PRED-FN.
-
-Note that unlike ACTION-FN, the predicate MARKER-PRED-FN is
-called with the current node, not the data!"
-  (let ((pred-fn (or marker-pred-fn #'lister-node-marked-and-visible-p)))
-    (lister-dolist (ewoc data beg end node)
-      (when (funcall pred-fn node)
-        (funcall action-fn data)))))
 
 (defun lister-delete-marked-list (ewoc &optional beg end marker-pred-fn)
   "In EWOC, delete marked and visible items between BEG and END.
@@ -1574,6 +1557,9 @@ PRED nil effectively removes any existing filter."
 ;; either turned off or changed.  So just for getting the "cycle"
 ;; stuff, it would end up in a new minor mode and a lots of
 ;; modifications. Rather focus on that functionality here.
+
+;; Items are made 'invisible' for the outline by setting the value of
+;; the overlay property `invisible' to the value 'outline'.
 
 (defun lister--outline-invisible-p (ewoc pos)
   "Non-nil if the item at POS is hidden as part of an outline.

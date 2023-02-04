@@ -1483,17 +1483,16 @@ low-lewel ewoc functions instead of `lister--parse-position'."
         (let ((action-fn (lambda (ewoc node)
                            (push (lister-node-get-data node) acc))))
           (lister-walk-marked-nodes ewoc action-fn))
-        (expect acc :to-equal '("3" "1" "0")))))
-
-  (describe "lister-walk-marked-list"
-    (it "walks all marked items:"
+        (expect acc :to-equal '("3" "1" "0"))))
+    (it "counts the marked nodes:"
       (lister-set-list ewoc l)
-      (lister-mark-unmark-list ewoc :first :last t)
-      (let* (acc
-             (action-fn (lambda (data) (push data acc))))
-        (lister-walk-marked-list ewoc action-fn)
-        (expect (nreverse acc)
-                :to-equal (lister-get-marked-list ewoc)))))
+      (lister-mark-unmark-at ewoc 0 t)
+      (lister-mark-unmark-at ewoc 1 t)
+      (lister-mark-unmark-at ewoc 2 t)
+      (expect (lister-walk-marked-nodes ewoc #'ignore) :to-be 3))
+    (it "returns 0 if there is nothing to walk:"
+      (lister-set-list ewoc l)
+      (expect (lister-walk-marked-nodes ewoc #'ignore) :to-be 0)))
 
   (describe "lister-delete-marked-list"
     (it "does nothing if nothing is marked:"
