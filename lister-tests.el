@@ -24,6 +24,7 @@
 ;;; Code:
 
 (require 'lister "lister.el")
+(require 'lister-mode "lister-mode.el")
 (require 'buttercup)
 (require 'seq)
 (require 'cl-lib)
@@ -187,7 +188,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
               expected-content))))
 
 ;; -----------------------------------------------------------
-;; The tests.
+;; * Tests for lister.el
 
 ;;; * Set up
 (describe "Set up:"
@@ -1789,6 +1790,22 @@ low-lewel ewoc functions instead of `lister--parse-position'."
       (lister-move-sublist-right ewoc 1)
       (expect (lister-get-list ewoc)
               :to-equal '("0" (("A" "B")))))))
+
+;; -----------------------------------------------------------
+;; * Tests for Lister Mode
+;; -----------------------------------------------------------
+
+(describe "Lister mode"
+  (it "disables view mode if `view-read-only' is set"
+    (let* ((view-read-only t)
+           (ewoc (lister-test-setup-minimal-buffer))
+           (buf  (ewoc-buffer ewoc)))
+      (with-current-buffer buf
+        (lister-mode +1)
+        (expect lister-mode :to-be-truthy)
+        (expect view-mode :not :to-be-truthy))
+      (kill-buffer buf))))
+
 
 (provide 'lister-tests)
 ;;; lister-tests.el ends here

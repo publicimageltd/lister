@@ -25,6 +25,7 @@
 
 ;;; Code:
 (require 'lister)
+(require 'view)
 
 ;; Silence compiler warnings
 (defvar lister-local-ewoc)
@@ -297,7 +298,9 @@ Call this function several times to move out of nested sublists."
   "Bind some keys for basic operations in a lister buffer."
   :lighter "lister "
   :group 'lister
-  :keymap 'lister-mode-map)
+  :keymap lister-mode-map
+  (when (and lister-mode view-mode)
+    (view-mode-exit t)))
 
 (provide 'lister-mode)
 ;;; lister-mode.el ends here
