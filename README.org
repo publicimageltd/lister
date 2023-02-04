@@ -804,6 +804,7 @@ around the list, or when adding or removing items.
 * Changelog
 
 ** Current 
+ -  =lister-mode=: Silently exit =view-mode= on entering =lister-mode=, if necessary.
   - Add option "LIMIT" to =lister-next-matching= and
     =lister-next-visible-matching=
   - Add hierarchical navigation keys to =lister-mode= (move to parent,
