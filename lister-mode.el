@@ -30,26 +30,28 @@
 ;; Silence compiler warnings
 (defvar lister-local-ewoc)
 
-;; Lazy programmers do not want to type so much.
+;; Convenience macro for defining interactive keys
 (cl-defmacro lister-defkey
     (fn-name (ewoc-var pos-var prefix-var node-var)
              docstring
              &rest body)
-  "Wrap BODY in an interactive defun to be used as a key.
-Define the function using FN-NAME, giving it the documentation
-string DOCSTRING.  When BODY is called in this function, let
-EWOC-VAR be bound to the buffer local ewoc object, POS-VAR to the
-symbol `:point', PREFIX-VAR to the current prefix arg and
-NODE-VAR to the node at point."
+  "Define interactive function FN-NAME with presets for `lister-mode'.
+Define a function using FN-NAME and DOCSTRING.  When executing
+BODY, let EWOC-VAR be bound to the buffer local ewoc object,
+POS-VAR to the symbol `:point', PREFIX-VAR to the current prefix
+arg and NODE-VAR to the node referred to by POS-VAR."
   (declare (indent 2)
            (debug (&define name (symbolp symbolp symbolp symbolp)
                      stringp def-body))
            (doc-string 3))
   `(defun ,fn-name (,ewoc-var ,pos-var &optional ,prefix-var)
      ,(concat docstring
-              "\nIf called interactively, EWOC will be bound to
-the buffer local ewoc object and POS refers to the item at
-point.")
+              (apply #'format
+                     "\n\nIf called interactively and called in a buffer with
+`lister-mode' set, pre-bind %s to the buffer local ewoc object,
+%s to the symbol `:point' and %s to the current prefix argument."
+                     (mapcar (lambda (sym) (upcase (symbol-name sym)))
+                             (list ewoc-var pos-var prefix-var))))
      (interactive (list
                    (or lister-local-ewoc (error "Key only works in a lister buffer"))
                    :point
