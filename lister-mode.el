@@ -1,6 +1,6 @@
 ;;; lister-mode.el --- Key definitions for Lister buffers  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021
+;; Copyright (C) 2021, 2023
 
 ;; Author:  <joerg@joergvolbers.de>
 ;; Package-Requires: ((emacs "26.1"))

@@ -1,6 +1,6 @@
 ;;; lister-tests.el --- testsuite for lister.el  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020-2021
+;; Copyright (C) 2020-2021, 2023
 
 ;; Author:  <joerg@joergvolbers.de>
 

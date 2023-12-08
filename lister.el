@@ -1,6 +1,6 @@
 ;;; lister.el --- Yet another list printer             -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018-2021
+;; Copyright (C) 2018-2021, 2023
 
 ;; Author:  <joerg@joergvolbers.de>
 ;; Version: 0.9.4
