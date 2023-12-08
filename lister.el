@@ -242,9 +242,9 @@ function, nor a string, nor a list, nor nil, throw an error."
   (when (functionp hf-data)
     (setq hf-data (funcall hf-data)))
   (cl-etypecase hf-data
-    (stringp   (list hf-data))
+    (string   (list hf-data))
     ;; this also catches nil:
-    (listp     (lister--flatten hf-data))))
+    (list     (lister--flatten hf-data))))
 
 (defun lister--insert-as-hf (hf-data)
   "In current Lister buffer, insert HF-DATA as header or footer.
