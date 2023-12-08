@@ -113,6 +113,7 @@ low-lewel ewoc functions instead of `lister--parse-position'."
               n2-data))))
 
 (defun lister-test--map-nodes (n)
+  "Get the data/content of the nodes in list N."
   (mapcar #'lister-node-get-data n))
 
 (buttercup-define-matcher :to-be-nodes (a b)

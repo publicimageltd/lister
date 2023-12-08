@@ -210,7 +210,7 @@ Do not make those parts of STRING intangible where the properties
   string)
 
 (defun lister--insert-intangible (strings padding-level)
-  "In current buffer, insert all STRINGS with text property 'intangible'.
+  "In current buffer, insert all STRINGS with text property \\='intangible'.
 Insert a newline after each single string in STRINGS.  Pad all
 strings according to PADDING-LEVEL and the buffer local value of
 `lister-local-left-margin'."
@@ -292,7 +292,7 @@ a string or a list of strings."
 ;; Make the item invisible / visible:
 
 (defun lister--invisibilize-item (item value)
-  "For ITEM in current buffer, set the property 'invisible' to VALUE.
+  "For ITEM in current buffer, set the property \\='invisible' to VALUE.
 Respect the cursor gap so that the user cannot navigate to
 invisible items.  The VALUE t hides the item, nil makes it
 visible."
@@ -309,7 +309,7 @@ visible."
     (setf (lister--item-invisible item) value)))
 
 (defun lister--invisibilize-node (node value)
-  "For NODE in current buffer, set the property 'invisible' to VALUE.
+  "For NODE in current buffer, set the property \\='invisible' to VALUE.
 Respect the cursor gap so that the user cannot navigate to
 invisible items.  The VALUE t hides the item, nil makes it
 visible."
@@ -540,7 +540,8 @@ If NODE is nil, return the last visible node of the EWOC."
 
 (defun lister-set-modified-p (ewoc &optional flag)
   "Mark EWOC as modified according to FLAG."
-  (setf (buffer-local-value 'lister-local-modified (ewoc-buffer ewoc)) flag))
+  (with-current-buffer (ewoc-buffer ewoc)
+    (setq-local lister-local-modified flag)))
 
 (defmacro lister-with-boundaries (ewoc beg-var end-var &rest body)
   "In EWOC, do BODY binding BEG-VAR and END-VAR to list nodes.
@@ -672,18 +673,17 @@ set, restrict action only to matching nodes."
                  (setq new-data (funcall action-fn (cl-copy-seq data))))
         (lister-replace-at ewoc node new-data)))))
 
-        ;; (setf (lister--item-data (ewoc-data node)) new-data)
-        ;; (ewoc-invalidate ewoc node)))))
-
 (defun lister-walk-nodes (ewoc action-fn &optional beg end pred-fn)
-  "Call ACTION-FN on each item's node and return the number of calls.
+  "Apply ACTION-FN on each item's node.
 In EWOC, call ACTION-FN on each item's node within the node
 positions BEG and END.  If BEG or END is nil, use the first or
 the last node instead.
 
 ACTION-FN is called with two arguments: the EWOC and the node.
 It is up to ACTION-FN to redisplay the node.  If PRED-FN is set,
-restrict action only to matching nodes."
+restrict action only to matching nodes.
+
+Return the number of processe nodes."
   (let ((n-counter 0))
     (lister-dolist-nodes (ewoc node beg end)
       (when (or (not pred-fn)
@@ -879,7 +879,7 @@ Use BEG and END to restrict the items checked."
 
 (defun lister-mark-unmark-list (ewoc beg end state)
   "In EWOC, mark or unmark the list between BEG and END.
-If boolean STATE is true, the node are taken to be 'marked'.  BEG
+If boolean STATE is true, the node are taken to be \\='marked'.  BEG
 and END can be nodes, positions such as `:first', `:point' or
 `:last', or indices."
   (lister-dolist-nodes (ewoc node beg end)
@@ -904,7 +904,7 @@ BEG and END refer to the first and last node to be checked,
 defaulting to the first and last node of the list.
 
 Call ACTION-FN with the EWOC as its first and the current node as
-the second argument. Return the number of calls.
+the second argument.  Return the number of calls.
 
 Per default, only consider those items which are marked and
 visible.  Alternative predicates can be passed to MARKER-PRED-FN."
@@ -938,7 +938,7 @@ Insert each element of TAIL with indentation LEVEL.  If there are
 lists in TAIL, recurse into them one level deeper.  Create
 each inserted item by calling ITEM-FN with two arguments, the
 current head of TAIL and the current level.  The items are
-inserted from bottom to top, that is, they are 'stacked' either
+inserted from bottom to top, that is, they are \\='stacked' either
 on NODE or, if NODE is nil, on the bottom of the list."
   (let (item)
     (while tail
@@ -961,7 +961,7 @@ times, but never more then one level than the previous item.
 Items inserted at top always have level 0.  Create each inserted
 item by calling ITEM-FN with two arguments, the current element
 of the list and its assigned level.  Insert L before (or
-visually 'above') the node at POS, unless INSERT-AFTER is set."
+visually \\='above') the node at POS, unless INSERT-AFTER is set."
   (lister-set-modified-p ewoc t)
   (let* (;; determine the level:
          (node (lister--parse-position ewoc pos))
@@ -986,7 +986,7 @@ LEVEL is nil, align the new data item's level with its
 predecessor.  If LEVEL is an integer value, indent the item LEVEL
 times, but never more then one level than the previous item.
 Items inserted at top always have level 0. Insert L before (or
-visually 'above') the node at POS, unless INSERT-AFTER is set.
+visually \\='above') the node at POS, unless INSERT-AFTER is set.
 
 ITEM-LIST must be a lists of `lister--item' objects."
   (lister--insert-nested ewoc pos item-list level insert-after
@@ -1000,7 +1000,7 @@ LEVEL is nil, align the new data item's level with its
 predecessor.  If LEVEL is an integer value, indent the item LEVEL
 times, but never more then one level than the previous item.
 Items inserted at top always have level 0. Insert L before (or
-visually 'above') the node at POS, unless INSERT-AFTER is set.
+visually \\='above') the node at POS, unless INSERT-AFTER is set.
 
 DATA-LIST must be a list of data elements which are accepted by
 the buffer local mapper function."
@@ -1074,8 +1074,8 @@ data objects understood by the buffer local mapper function.
 Note that in some cases, the complementary function
 `lister-get-list' will not reproduce the exact list inserted.
 Inserting the list `(A (B) (C))' produces two items B and C with
-the same indentation level, which will be then treated as the
-list '(A (B C))'."
+the same indentation level, which will be then returned by
+`lister-get-list' as `(A (B C))'."
   (lister-delete-all ewoc)
   (lister---walk-insert ewoc l 0 nil #'lister--new-item-from-data))
 
@@ -1271,11 +1271,11 @@ inner sublist node.  If the sublist has no visible items, return
 the boundaries of the complete list.  If the list is completely
 hidden, return nil.
 
-This function implicitly defines a 'sublist' as a continuous list
+This function implicitly defines a sublist as a continuous list
 of items with a nesting level identical to, or bigger than, the
-item at POS.  A sublist must have a 'top' parent node with lesser
-indentation, while it is optional to have a 'bottom' node.  If
-there is no 'bottom' node, the last item marks the end of that
+item at POS.  A sublist must have a top parent node with lesser
+indentation, while it is optional to have a bottom node.  If
+there is no bottom node, the last item marks the end of that
 sublist.  If there is no parent node, effectively return the
 boundaries of the complete list."
   (lister-with-node ewoc pos node
@@ -1387,13 +1387,13 @@ symbols `:first', `:last', `:point', `:next' or `:prev'."
 
 (defun lister-mark-unmark-sublist-at (ewoc pos state)
   "In EWOC, mark or unmark the sublist at POS.
-Use boolean STATE t to set the node as 'marked', else nil."
+Use boolean STATE t to set the node as being \\='marked', else nil."
   (lister-with-sublist-at ewoc pos beg end
     (lister-mark-unmark-list ewoc beg end state)))
 
 (defun lister-mark-unmark-sublist-below (ewoc pos state)
   "In EWOC, mark or unmark the sublist below POS.
-Use boolean STATE t set the node as 'marked', else nil."
+Use boolean STATE t set the node as being \\='marked', else nil."
   (lister-with-sublist-below ewoc pos beg end
     (lister-mark-unmark-list ewoc beg end state)))
 
@@ -1437,7 +1437,7 @@ WRAPPED-L is a wrapped list as returned by `lister--wrap-list'.
 Return WRAPPED-L as an unwrapped (!) list in the new order
 determined by FN.
 
-A 'wrapped' list consists of pairs of CAR and CDR, where each car
+A \\='wrapped' list consists of pairs of CAR and CDR, where each car
 contains the list item, and the cdr an associated sublist (or
 nil).
 
@@ -1450,8 +1450,8 @@ lists without inspecting their contents, such as `reverse', work
 out of the box.
 
 Example:
-\(let* \(\(l   \(lister--wrap-list '\(\"b\" \"a\" \(\"bb\" \"ba\"\)\)\)\)
-       \(fn  (apply-partially #'seq-sort-by #'car #'string<\)\)\)
+\(let* \(\(l   \(lister--wrap-list \\='\(\"b\" \"a\" \(\"bb\" \"ba\"\)\)\)\)
+       \(fn  (apply-partially #\\='seq-sort-by #\\='car #\\='string<\)\)\)
   \(lister--reorder-wrapped-list l fn\)\)
 
  => \(\"a\" \(\"ba\" \"bb\"\) \"b\"\)"
@@ -1504,8 +1504,10 @@ list to be reversed."
 (defun lister--sort-reduce (comps l)
   "Sort wrapped list L using all sort comparators COMPS.
 Apply COMPS in sequence, using the result of applying the first
-comperator as input for the second round, etc.  Even if L has to
-be a 'wrapped' list, COMPS have direct access to the item data."
+comperator as input for the second round, etc.
+
+Even though L is a \\='wrapped' list, COMPS will have direct
+access to the item's data."
   (cl-labels ((key-fn (item)
                       (lister--item-data (car item)))
               (copy-sort (l comp)
