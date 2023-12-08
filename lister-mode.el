@@ -3,7 +3,6 @@
 ;; Copyright (C) 2021, 2023
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Package-Requires: ((emacs "26.1"))
 ;; URL: https://github.com/publicimageltd/lister
 
 ;; This program is free software; you can redistribute it and/or modify
