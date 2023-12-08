@@ -570,7 +570,8 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                   :to-be-node (ewoc-nth ewoc -1))))
       (it "accepts nil as values"
         (lister-set-list ewoc l)
-        (let (first second)
+        (let ((first nil)
+              (second nil))
           (expect (lister-with-boundaries ewoc first second
                     first)
                   :to-be-node (ewoc-nth ewoc 0))
