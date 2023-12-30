@@ -142,10 +142,10 @@ safe to delete and reinsert the node in BODY.  Do not restore
 point if the node's data object is invalid or not re-inserted
 after BODY exits."
   (declare (indent 2) (debug (sexp body)))
-  (let ((pos-var     (make-symbol "--pos--"))
-        (item-var    (make-symbol "--item--"))
-        (footerp-var (make-symbol "--footer-p--"))
-        (eobp-var    (make-symbol "--eobp--")))
+  (let ((pos-var     (gensym "--pos--"))
+        (item-var    (gensym "--item--"))
+        (footerp-var (gensym "--footer-p--"))
+        (eobp-var    (gensym "--eobp--")))
     `(let* ((,footerp-var  (lister-eolp))
             (,eobp-var     (eobp))
             (,item-var     (unless ,footerp-var
@@ -585,8 +585,8 @@ immediately, use (cl-return).
 \(fn (EWOC VAR [BEG] [END]) BODY...)"
   (declare (indent 1) (debug ((sexp symbolp &optional sexp sexp)
                               body)))
-  (let ((temp-node (make-symbol "--temp-node--"))
-        (last-var  (make-symbol "--last-node--")))
+  (let ((temp-node (gensym "--temp-node--"))
+        (last-var  (gensym "--last-node--")))
     `(let ((,var      (lister--parse-position ,ewoc (or ,beg :first)))
            (,last-var (lister--parse-position ,ewoc (or ,end :last))))
        (cl-block nil
@@ -619,7 +619,7 @@ immediately, use (cl-return).
 \(fn (EWOC VAR [BEG] [END] [NODE-VAR]) BODY...)"
   (declare (indent 1) (debug ((sexp symbolp &optional sexp sexp symbolp)
                               body)))
-  (let ((node-sym (or node-var (make-symbol "--node--"))))
+  (let ((node-sym (or node-var (gensym "--node--"))))
     `(lister-dolist-nodes (,ewoc ,node-sym ,beg ,end)
        (let ((,var (lister--item-data (ewoc-data ,node-sym))))
          ,@body))))
@@ -1317,7 +1317,7 @@ lister ewoc object."
     (signal 'wrong-type-argument (list 'symbolp beg-var)))
   (unless (and (symbolp end-var) (not (keywordp end-var)))
     (signal 'wrong-type-argument (list 'symbolp end-var)))
-  (let ((boundaries-var (make-symbol "boundaries")))
+  (let ((boundaries-var (gensym "boundaries")))
     `(let* ((,boundaries-var (lister--locate-sublist ,ewoc ,pos))
             (,beg-var       (car ,boundaries-var))
             (,end-var       (cadr ,boundaries-var)))
@@ -1336,7 +1336,7 @@ lower limit of the sublist at POS.  EWOC is a lister ewoc object."
     (signal 'wrong-type-argument (list 'symbolp beg)))
   (unless (and (symbolp end) (not (keywordp end)))
     (signal 'wrong-type-argument (list 'symbolp end)))
-  (let ((node-sym (make-symbol "--node--")))
+  (let ((node-sym (gensym "--node--")))
     `(when-let* ((,node-sym (lister--parse-position ,ewoc ,pos)))
        (when (lister-sublist-below-p ewoc ,node-sym)
          (lister-with-sublist-at ewoc (ewoc-next ewoc ,node-sym)
