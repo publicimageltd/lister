@@ -419,6 +419,7 @@ above, throw an error."
       (:point   (ewoc-locate ewoc))
       (:next    (ewoc-next ewoc (ewoc-locate ewoc)))
       (:prev    (ewoc-prev ewoc (ewoc-locate ewoc)))
+      ;; FIXME Bypass header/footer: (ewoc--node-nth (ewoc--dll ewoc) n)
       ((pred integerp) (or (ewoc-nth ewoc pos)
                            (error "Index out of bounds: %d" pos)))
       ;; I couldn't find any predicate ewoc--node-p or alike, even
@@ -1194,6 +1195,10 @@ nested lists."
                                             (>= (setq level (lister-node-get-level node))
                                                 prev-level))
                                   (if (> level prev-level)
+                                      ;; FIXME This still produces a nil
+                                      ;; value in the final result even
+                                      ;; if none of the subtree items
+                                      ;; matches PREDFN
                                       (push (walk ewoc nil (1+ prev-level)) acc)
                                     (when (or (not pred-fn)
                                               (funcall pred-fn node))
