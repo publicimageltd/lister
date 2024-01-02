@@ -522,6 +522,55 @@ low-lewel ewoc functions instead of `lister--parse-position'."
                       (string-join l "\n")
                       "\n")))))
 
+(describe "lister--parse-position"
+  :var (ewoc l)
+  (before-each
+    (setq l '(:node-1 :node-2 (:nested-node 1 :nested-node-2) :node-3))
+    (setq ewoc (lister-setup "*LISTER*" (lambda (x) (format "%S" x))))
+    (with-current-buffer (ewoc-buffer ewoc)
+      (setq-local lister-local-left-margin 0))
+    (lister-insert-list ewoc :first l))
+  (after-each
+    (kill-buffer (ewoc-buffer ewoc)))
+
+  (it "finds nodes by integer"
+    (let ((l-flattened (flatten-tree l)))
+      (expect (lister-node-get-data (lister--parse-position ewoc 0)) :to-be (nth 0 l-flattened))
+      (expect (lister-node-get-data (lister--parse-position ewoc 1)) :to-be (nth 1 l-flattened))
+      (expect (lister-node-get-data (lister--parse-position ewoc 2)) :to-be (nth 2 l-flattened))
+      (expect (lister-node-get-data (lister--parse-position ewoc 3)) :to-be (nth 3 l-flattened))))
+  (it "finds hidden outline nodes"
+    (let ((l-flattened (flatten-tree l)))
+      (lister-outline-hide-sublist-below ewoc 1)
+      (expect (lister-node-get-data (lister--parse-position ewoc 0)) :to-be (nth 0 l-flattened))
+      (expect (lister-node-get-data (lister--parse-position ewoc 1)) :to-be (nth 1 l-flattened))
+      (expect (lister-node-get-data (lister--parse-position ewoc 2)) :to-be (nth 2 l-flattened))
+      (expect (lister-node-get-data (lister--parse-position ewoc 3)) :to-be (nth 3 l-flattened)))))
+
+
+(describe "lister--outline-invisible-p"
+  :var (ewoc l)
+  (before-each
+    (setq l '(:node-1 :node-2 (:nested-node-1 :nested-node-2) :node-3))
+    (setq ewoc (lister-setup "*LISTER*" (lambda (x) (format "%S" x))))
+    (with-current-buffer (ewoc-buffer ewoc)
+      (setq-local lister-local-left-margin 0))
+    (lister-insert-list ewoc :first l))
+  (after-each
+    (kill-buffer (ewoc-buffer ewoc)))
+
+  (it "yields correct values for non-hidden lists"
+    (expect (mapcar (lambda (n)
+                      (lister--outline-invisible-p ewoc n))
+                    '(0 1 2 3 4))
+            :to-equal '(nil nil nil nil nil)))
+  (it "yields correct values for hidden sublist"
+    (lister-outline-hide-sublist-below ewoc 1)
+    (expect (mapcar (lambda (n)
+                      (lister--outline-invisible-p ewoc n))
+                    '(0 1 2 3 4))
+            :to-equal '(nil nil t t nil))))
+
 ;;; * Diverse API
 
 (describe "Diverse API"
