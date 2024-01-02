@@ -1572,8 +1572,8 @@ PRED nil effectively removes any existing filter."
   "Non-nil if the item at POS is hidden as part of an outline.
 EWOC is a lister Ewoc object."
   (lister-with-node ewoc pos node
-    (let* ((pos (lister--item-beg (ewoc-data node))))
-      (eq (get-char-property pos 'invisible) 'outline))))
+    (let ((pos (lister--item-beg (ewoc-data node))))
+      (eq (get-char-property pos 'invisible (ewoc-buffer ewoc)) 'outline))))
 
 (defun lister--outline-reveal-at-point (_ovl)
   "In current buffer, reveal the outline item at point."
