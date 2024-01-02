@@ -68,7 +68,7 @@ or otherwise edit lists from various sources.
 
 * Project status
 
-Current release is =0.9.4=
+Current release is =0.9.6=
 
 * Feature overview
 
@@ -803,7 +803,9 @@ around the list, or when adding or removing items.
 
 * Changelog
 
-** Current 
+** 0.9.6
+ - Fix bug in lister--outline-invisible-p
+** 0.9.5 
  -  =lister-mode=: Silently exit =view-mode= on entering =lister-mode=, if necessary.
   - Add option "LIMIT" to =lister-next-matching= and
     =lister-next-visible-matching=

@@ -3,7 +3,7 @@
 ;; Copyright (C) 2018-2021, 2023
 
 ;; Author:  <joerg@joergvolbers.de>
-;; Version: 0.9.4
+;; Version: 0.9.6
 ;; Package-Requires: ((emacs "26.1"))
 ;; Keywords: lisp
 ;; URL: https://github.com/publicimageltd/lister
